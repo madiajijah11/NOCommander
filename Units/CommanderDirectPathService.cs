@@ -30,6 +30,7 @@ internal sealed class CommanderDirectPathService
 
     internal bool IsEnabled(Unit? unit)
     {
+        PruneDeadReferences();
         return unit is GroundVehicle vehicle && directRouteVehicles.Contains(vehicle);
     }
 
@@ -41,12 +42,18 @@ internal sealed class CommanderDirectPathService
             return;
         }
 
+        PruneDeadReferences();
         if (!directRouteVehicles.Remove(vehicle))
         {
             directRouteVehicles.Add(vehicle);
         }
 
         ReapplyCurrentDestination(vehicle);
+    }
+
+    internal void PruneDeadReferences()
+    {
+        directRouteVehicles.RemoveWhere(static v => v == null || v.disabled);
     }
 
     internal void ResetSession()
@@ -63,6 +70,8 @@ internal sealed class CommanderDirectPathService
     {
         if (Instance == null
             || PathfindingUnitField?.GetValue(pathfinder) is not GroundVehicle vehicle
+            || vehicle == null
+            || vehicle.disabled
             || !Instance.directRouteVehicles.Contains(vehicle))
         {
             return false;

@@ -1,0 +1,106 @@
+# NOCommander - Agent Architecture & Development Guidelines
+
+This document specifies the architecture, engineering standards, memory management protocols, and development workflow for all AI coding agents working on the **NOCommander** codebase.
+
+---
+
+## 1. Project Overview & Tech Stack
+- **Target Game:** *Nuclear Option* (Unity Mono Engine)
+- **Mod Loader:** BepInEx 5.x + HarmonyLib (`0Harmony.dll`)
+- **Target Framework:** `.NET Framework 4.7.2` (C# latest syntax supported)
+- **UI Framework:** Unity IMGUI (Immediate Mode GUI) with custom scaling & themed skin
+- **Network Framework:** Mirage Networking (`NuclearOption.Networking`)
+
+---
+
+## 2. Directory & Module Responsibilities
+
+```
+NOCommander/
+├── Core/          # Plugin lifecycle, settings, alerts, input orchestrator, feature gate
+├── Units/         # Unit selection, 3D movement, waypoints, stance/RoE, control groups, radars, repair
+├── AirCommand/    # Air missions (CAS, Strike, AWACS, ARAD, CAP), loadouts, tactical overlays
+├── Supply/        # Cargo helicopter logistics, sling loads, LZ routing, supply drops
+├── SamSites/      # SAM site candidate terrain analysis & automated construction logic
+├── Depot/         # Vehicle depot procurement, spawn queue, factory reserve pool
+├── Camera/        # RTS free camera, follow camera, crew POV camera
+├── Map/           # Tactical minimap hooks, coordinate translation, click tracking
+├── Terrain/       # Heightmap baking, terrain flight path generation
+└── UI/            # IMGUI theme caching, resolution scaling, window overlays
+```
+
+---
+
+## 3. Strict Engineering Guardrails (DO NOT VIOLATE)
+
+### A. Memory Leak & Unity Object Pruning
+1. **Never retain destroyed Unity Objects in collections:**
+   - C# wrappers around destroyed `UnityEngine.Object` / `Unit` references evaluate `== null` as true, but stay in `HashSet<T>` / `Dictionary<K,V>` indefinitely unless explicitly pruned.
+2. **Mandatory Prune Pattern:**
+   - Every service holding collections of `Unit`, `GroundVehicle`, or `VehicleDepot` MUST implement and invoke periodic dead-reference pruning:
+   ```csharp
+   internal void PruneDeadReferences()
+   {
+       trackedUnits.RemoveWhere(static u => u == null || u.disabled);
+   }
+   ```
+3. **Session Reset Discipline:**
+   - Every service MUST clear all cached collections and unbind event delegates in `ResetSession()` when scenes change (`CommanderModeController.OnActiveSceneChanged`).
+
+### B. Physics & Movement Safety
+1. **Never hardcode `rb.velocity = Vector3.zero` inside `Update()`.**
+   - Forcing velocity to zero every frame in `Update()` fights Unity PhysX, creates visual jitter on slopes, and floats vehicles.
+   - Use `CommanderGameAccess.SetUnitHoldPosition(unit, true)` (engages base game vehicle AI brakes) and only damp low horizontal drift when nearly stationary (`horizontalVel.sqrMagnitude < 0.25f`).
+
+### C. Zero-GC IMGUI Discipline
+1. **No heap allocations in hot GUI loops:**
+   - Do NOT allocate `new GUIStyle()`, `new Texture2D()`, or dynamic `new Rect()` inside `OnGUI()` or `Update()`.
+   - All textures, styles, and colors must be cached statically in `CommanderUiTheme.cs`.
+
+### D. Multiplayer (Host vs Client) Authority
+1. **Network Authority Checking:**
+   - Vehicle/Aircraft spawning and direct network object creation require server authority. Always guard with:
+   ```csharp
+   if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active)
+   {
+       SetStatus("This action is only available to the host in multiplayer.");
+       return;
+   }
+   ```
+
+---
+
+## 4. Keybind Matrix & Input Hierarchy
+
+| Key / Binding | Action | Service Owner |
+| :--- | :--- | :--- |
+| `Mouse0` (LMB) | Select unit / Place map marker | `CommanderSelectionService` |
+| `Mouse1` (RMB) | Issue immediate 3D move order | `CommanderMoveService` |
+| `Shift + Mouse1` | Queue sequential movement waypoint | `CommanderMoveService` |
+| `Shift + Mouse0` | Additive unit selection | `CommanderSelectionService` |
+| `Ctrl + 0..9` | Assign selection to Control Group | `CommanderControlGroupsService` |
+| `0..9` | Select Control Group (double-tap to focus) | `CommanderControlGroupsService` |
+| `F2` | Select all friendly combat army | `CommanderControlGroupsService` |
+| `F` | Toggle Hold Fire / Free Fire (Stance) | `CommanderStanceService` |
+| `Space` | Center selection / Jump to under-attack alert | `CommanderCameraFollowService` / `CommanderAlertService` |
+| `H` | Cycle UI visibility (Full / Minimal / Hidden) | `CommanderOverlayUi` |
+| `W, A, S, D, Q, E` | RTS Camera Pan / Elevation | `CommanderCameraController` |
+| `Alt` (Hold) | Expose unit delete action (DEL) on selection | `CommanderOverlayUi` |
+
+---
+
+## 5. Development & Feature Iteration Cycle
+
+When adding features or fixing bugs:
+
+1. **Phase 1 (Design & Scope):**
+   - Identify affected classes.
+   - Check keybind and Harmony patch compatibility.
+2. **Phase 2 (Implementation):**
+   - Minimal diff discipline: touch only required files.
+   - Implement dead-reference pruning for any new collections.
+   - Wire service lifecycle into `CommanderModeController`, `CommanderInputController`, and `CommanderOverlayUi`.
+3. **Phase 3 (Compilation Gate):**
+   - Validate clean compilation against game assemblies. Zero compiler errors.
+4. **Phase 4 (Session Teardown Safety):**
+   - Ensure `ResetSession()` properly resets all service states on level reload/unload.

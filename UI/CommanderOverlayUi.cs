@@ -69,7 +69,8 @@ internal sealed class CommanderOverlayUi
     private bool showNavalUi = CommanderSettings.ShowNavalUi;
     private bool showSamAnalyzerUi = CommanderSettings.ShowSamAnalyzerUi;
     private bool showWorldMarkers = CommanderSettings.ShowWorldMarkers;
-    private bool reserveShowsUnits;
+    private int reserveTab;
+    private int reserveMultiplier = 1;
     private bool positionsInitialized;
     private Rect launcherRect;
     private Rect moneyRect;
@@ -82,6 +83,7 @@ internal sealed class CommanderOverlayUi
     private Rect settingsWindowRect;
     private Rect pinnedLauncherRect;
     private Vector2 reserveScroll;
+    private readonly List<CommanderControlGroupsService.ControlGroupInfo> activeGroupsScratch = new();
     private Vector2 pinnedScroll;
     private GUIStyle? ghostCommandStyle;
     private Unit? siteUiTarget;
@@ -237,9 +239,9 @@ internal sealed class CommanderOverlayUi
             CommanderUiScale.Height - 24f);
         radarWindowRect = CommanderUiTheme.ClampWindow(radarWindowRect);
         selectionBarRect = new Rect(
-            Mathf.Max(12f, (CommanderUiScale.Width - 680f) * 0.5f),
+            Mathf.Max(12f, (CommanderUiScale.Width - 880f) * 0.5f),
             CommanderUiScale.Height - 158f,
-            Mathf.Min(680f, CommanderUiScale.Width - 24f),
+            Mathf.Min(880f, CommanderUiScale.Width - 24f),
             74f);
         selectionHelpRect = new Rect(selectionBarRect.x, selectionBarRect.y - 92f, selectionBarRect.width, 84f);
         if (CommanderFeatureGate.AdvancedFeaturesEnabled)
@@ -365,6 +367,27 @@ internal sealed class CommanderOverlayUi
         if (advanced && showSamAnalyzerUi) samSiteAnalyzerUi.Draw();
         if (showSelectionBar) DrawSelectionBar();
         DrawSettingsWindowIfVisible();
+        DrawBoxSelectionIfActive();
+    }
+
+    private static void DrawBoxSelectionIfActive()
+    {
+        if (CommanderInputController.Instance?.IsBoxDragging != true)
+        {
+            return;
+        }
+
+        Rect boxRect = CommanderInputController.Instance.GetBoxSelectionGuiRect();
+        if (boxRect.width <= 1f || boxRect.height <= 1f)
+        {
+            return;
+        }
+
+        CommanderUiTheme.DrawFrame(boxRect, 1.5f);
+        Color oldColor = GUI.color;
+        GUI.color = new Color(0.28f, 0.58f, 0.57f, 0.12f);
+        GUI.DrawTexture(boxRect, Texture2D.whiteTexture);
+        GUI.color = oldColor;
     }
 
     private bool screenshotUiHidden => screenshotUiStage != 0;
@@ -604,10 +627,11 @@ internal sealed class CommanderOverlayUi
         }
 
         float y = settingsHelpVisible ? 118f : 38f;
-        float tabWidth = (settingsWindowRect.width - 36f) / 3f;
+        float tabWidth = (settingsWindowRect.width - 42f) / 4f;
         DrawSettingsTab(new Rect(12f, y, tabWidth, 32f), "GAMEPLAY", 0);
-        DrawSettingsTab(new Rect(12f + tabWidth, y, tabWidth, 32f), "UI / HIDE", 1);
-        DrawSettingsTab(new Rect(12f + tabWidth * 2f, y, tabWidth, 32f), "CONTROLS", 2);
+        DrawSettingsTab(new Rect(12f + tabWidth + 6f, y, tabWidth, 32f), "UI / HIDE", 1);
+        DrawSettingsTab(new Rect(12f + (tabWidth + 6f) * 2f, y, tabWidth, 32f), "CONTROLS", 2);
+        DrawSettingsTab(new Rect(12f + (tabWidth + 6f) * 3f, y, tabWidth, 32f), "CHEATS", 3);
         y += 44f;
 
         if (settingsTab == 0)
@@ -618,9 +642,13 @@ internal sealed class CommanderOverlayUi
         {
             DrawUiSettings(y);
         }
-        else
+        else if (settingsTab == 2)
         {
             DrawControlSettings(y);
+        }
+        else
+        {
+            DrawCheatSettings(y);
         }
 
         GUI.DragWindow(new Rect(0f, 0f, settingsWindowRect.width - 72f, 28f));
@@ -643,6 +671,35 @@ internal sealed class CommanderOverlayUi
             new Rect(24f, y + 42f, settingsWindowRect.width - 48f, 30f),
             CommanderSettings.LimitToFactoryVehicles,
             "Limit to vehicles from factories",
+            CommanderUiTheme.Toggle);
+
+        y += 104f;
+        GUI.Box(new Rect(12f, y, settingsWindowRect.width - 24f, 246f), string.Empty, CommanderUiTheme.Panel);
+        GUI.Label(new Rect(24f, y + 10f, settingsWindowRect.width - 48f, 22f), "SMART AI BEHAVIORS & COUNTERS", CommanderUiTheme.Header);
+        CommanderSettings.SmartAiEnabled = GUI.Toggle(
+            new Rect(24f, y + 40f, settingsWindowRect.width - 48f, 26f),
+            CommanderSettings.SmartAiEnabled,
+            "Enable Smart AI System",
+            CommanderUiTheme.Toggle);
+        CommanderSettings.AiReactiveScatter = GUI.Toggle(
+            new Rect(24f, y + 70f, settingsWindowRect.width - 48f, 26f),
+            CommanderSettings.AiReactiveScatter,
+            "AI Reactive Evasion (Scatter on incoming bombs/missiles)",
+            CommanderUiTheme.Toggle);
+        CommanderSettings.AiAdaptiveProduction = GUI.Toggle(
+            new Rect(24f, y + 100f, settingsWindowRect.width - 48f, 26f),
+            CommanderSettings.AiAdaptiveProduction,
+            "AI Adaptive Counter-Production (Counters air/armor spam)",
+            CommanderUiTheme.Toggle);
+        CommanderSettings.AiAutoDeployAir = GUI.Toggle(
+            new Rect(24f, y + 130f, settingsWindowRect.width - 48f, 26f),
+            CommanderSettings.AiAutoDeployAir,
+            "AI Auto-Sortie Reserve Aircraft (When un-held stock exists)",
+            CommanderUiTheme.Toggle);
+        CommanderSettings.AiAutoDeployNaval = GUI.Toggle(
+            new Rect(24f, y + 160f, settingsWindowRect.width - 48f, 26f),
+            CommanderSettings.AiAutoDeployNaval,
+            "AI Auto-Deploy Reserve Warships (When un-held stock exists)",
             CommanderUiTheme.Toggle);
     }
 
@@ -746,6 +803,78 @@ internal sealed class CommanderOverlayUi
             bindingCapture = null;
         }
     }
+
+    private void DrawCheatSettings(float y)
+    {
+        CommanderCheatService? cheats = CommanderCheatService.Instance;
+        float windowWidth = settingsWindowRect.width - 24f;
+        GUI.Box(new Rect(12f, y, windowWidth, 480f), string.Empty, CommanderUiTheme.Panel);
+
+        float currentY = y + 10f;
+        if (cheats != null && !string.IsNullOrEmpty(cheats.StatusText))
+        {
+            GUI.Box(new Rect(24f, currentY, windowWidth - 24f, 26f), string.Empty, CommanderUiTheme.Panel);
+            GUI.Label(new Rect(32f, currentY + 2f, windowWidth - 40f, 22f), cheats.StatusText, CommanderUiTheme.Header);
+            currentY += 32f;
+        }
+
+        // 1. Economy Cheats
+        GUI.Label(new Rect(24f, currentY, windowWidth - 24f, 22f), "FACTION FUNDS & ECONOMY", CommanderUiTheme.Header);
+        currentY += 26f;
+        float btnWidth = (windowWidth - 36f) / 3f;
+        if (GUI.Button(new Rect(24f, currentY, btnWidth, 32f), "+ $100,000", CommanderUiTheme.Button))
+        {
+            cheats?.AddFunds(100000f);
+        }
+        if (GUI.Button(new Rect(24f + btnWidth + 6f, currentY, btnWidth, 32f), "+ $1,000,000", CommanderUiTheme.Button))
+        {
+            cheats?.AddFunds(1000000f);
+        }
+        if (GUI.Button(new Rect(24f + (btnWidth + 6f) * 2f, currentY, btnWidth, 32f), "MAX FUNDS", CommanderUiTheme.PrimaryButton))
+        {
+            cheats?.SetMaxFunds();
+        }
+        currentY += 44f;
+
+        // 2. Unit & Combat Cheats
+        GUI.Label(new Rect(24f, currentY, windowWidth - 24f, 22f), "COMBAT & INVULNERABILITY", CommanderUiTheme.Header);
+        currentY += 26f;
+        if (cheats != null)
+        {
+            cheats.GodModeEnabled = GUI.Toggle(
+                new Rect(24f, currentY, windowWidth - 24f, 28f),
+                cheats.GodModeEnabled,
+                "GOD MODE (All Friendly Units Invulnerable)",
+                CommanderUiTheme.Toggle);
+        }
+        currentY += 32f;
+
+        float actionWidth = (windowWidth - 30f) * 0.5f;
+        if (GUI.Button(new Rect(24f, currentY, actionWidth, 34f), "HEAL SELECTION (100% HP)", CommanderUiTheme.Button))
+        {
+            cheats?.HealSelection();
+        }
+        if (GUI.Button(new Rect(30f + actionWidth, currentY, actionWidth, 34f), "RESTOCK AMMO SELECTION", CommanderUiTheme.Button))
+        {
+            cheats?.RestockAmmoSelection();
+        }
+        currentY += 40f;
+
+        if (GUI.Button(new Rect(24f, currentY, windowWidth - 24f, 34f), "DESTROY TARGET (KILL SELECTION)", CommanderUiTheme.DangerButton))
+        {
+            cheats?.DestroySelection();
+        }
+        currentY += 48f;
+
+        // 3. Map & Sensors Cheats
+        GUI.Label(new Rect(24f, currentY, windowWidth - 24f, 22f), "GLOBAL RECON & RADAR", CommanderUiTheme.Header);
+        currentY += 26f;
+        if (GUI.Button(new Rect(24f, currentY, windowWidth - 24f, 34f), "REVEAL ALL ENEMY UNITS ON MAP", CommanderUiTheme.Button))
+        {
+            cheats?.RevealAllUnits();
+        }
+    }
+
 
     private void DrawBinding(Rect rect, string label, string binding)
     {
@@ -925,23 +1054,36 @@ internal sealed class CommanderOverlayUi
             : $"{count} UNITS SELECTED";
         GUI.Label(new Rect(selectionBarRect.x + 14f, selectionBarRect.y + 37f, selectionBarRect.width - 408f, 24f), label, CommanderUiTheme.Header);
 
-        float buttonX = selectionBarRect.xMax - 338f;
+        float buttonX = selectionBarRect.xMax - 544f;
         if (selectionHelpVisible)
         {
             CommanderUiTheme.DrawHelpOverlay(selectionHelpRect,
-                "STOP cancels orders and holds friendly ground/ship units. AI returns them to Basegame tasking; munitions trucks resume RearmVehicleAI logistics. ROAD toggles Basegame roads for one friendly ground vehicle. PIN stores the selection; hold Alt to expose DEL. Aircraft and enemy units can be selected but not commanded.");
+                "STOP holds units. AI returns them to Basegame. PATROL ('P') loops waypoints. SCATTER ('X') evades area damage. ROAD toggles road network. STANCE ('F') toggles Hold Fire. PIN stores selection (Alt for DEL).");
         }
         bool oldEnabled = GUI.enabled;
         bool advanced = CommanderFeatureGate.AdvancedFeaturesEnabled;
         GUI.enabled = oldEnabled && moveService.HasCommandableSelection;
-        if (GUI.Button(new Rect(buttonX, selectionBarRect.y + 32f, 72f, 34f), "STOP", CommanderUiTheme.DangerButton))
+        if (GUI.Button(new Rect(buttonX, selectionBarRect.y + 32f, 58f, 34f), "STOP", CommanderUiTheme.DangerButton))
         {
             moveService.StopSelectedUnits();
         }
         GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
-        if (GUI.Button(new Rect(buttonX + 78f, selectionBarRect.y + 32f, 72f, 34f), "AI", CommanderUiTheme.PrimaryButton))
+        if (GUI.Button(new Rect(buttonX + 62f, selectionBarRect.y + 32f, 48f, 34f), "AI", CommanderUiTheme.PrimaryButton))
         {
             moveService.ResumeAiForSelectedUnits();
+        }
+        GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
+        bool isPatrolling = moveService.AwaitingPatrolSelection;
+        if (GUI.Button(new Rect(buttonX + 114f, selectionBarRect.y + 32f, 68f, 34f), "PATROL",
+            isPatrolling ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        {
+            if (isPatrolling) moveService.CancelPatrolOrder();
+            else moveService.BeginPatrolOrder();
+        }
+        GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
+        if (GUI.Button(new Rect(buttonX + 186f, selectionBarRect.y + 32f, 72f, 34f), "SCATTER", CommanderUiTheme.Button))
+        {
+            moveService.ScatterSelectedUnits(55f);
         }
         GUI.enabled = oldEnabled;
         bool canToggleRoad = advanced
@@ -952,11 +1094,19 @@ internal sealed class CommanderOverlayUi
             && !CommanderSamSiteService.IsReservedConstructionJacknife(focused);
         bool roadEnabled = !directPathService.IsEnabled(focused);
         GUI.enabled = oldEnabled && canToggleRoad;
-        if (GUI.Button(new Rect(buttonX + 156f, selectionBarRect.y + 32f, 82f, 34f),
+        if (GUI.Button(new Rect(buttonX + 262f, selectionBarRect.y + 32f, 80f, 34f),
             roadEnabled ? "ROAD ON" : "ROAD OFF",
             roadEnabled ? CommanderUiTheme.Button : CommanderUiTheme.DangerButton))
         {
             directPathService.ToggleFocusedUnit();
+        }
+        GUI.enabled = oldEnabled;
+        bool isHoldFire = CommanderStanceService.Instance?.IsHoldFire(focused) == true;
+        if (GUI.Button(new Rect(buttonX + 346f, selectionBarRect.y + 32f, 96f, 34f),
+            isHoldFire ? "HOLD FIRE" : "FREE FIRE",
+            isHoldFire ? CommanderUiTheme.DangerButton : CommanderUiTheme.Button))
+        {
+            CommanderStanceService.Instance?.ToggleHoldFireForSelection();
         }
         GUI.enabled = oldEnabled;
         bool deleteMode = CommanderSettings.DeleteUnitModifier.IsPressed();
@@ -964,7 +1114,7 @@ internal sealed class CommanderOverlayUi
         GUI.enabled = oldEnabled
             && advanced
             && (!deleteMode || selectionService.CanDeleteSelection);
-        if (GUI.Button(new Rect(buttonX + 244f, selectionBarRect.y + 32f, 82f, 34f), pinLabel,
+        if (GUI.Button(new Rect(buttonX + 446f, selectionBarRect.y + 32f, 90f, 34f), pinLabel,
             deleteMode ? CommanderUiTheme.DangerButton : CommanderUiTheme.Button))
         {
             if (deleteMode)
@@ -984,11 +1134,15 @@ internal sealed class CommanderOverlayUi
         bool hasManualPins = selectionService.PinnedUnits.Count > 0;
         bool hasMissions = selectionService.MissionUnits.Count > 0;
         bool hasSamSites = selectionService.SamSiteUnits.Count > 0;
+        CommanderControlGroupsService.Instance?.GetAllActiveGroups(activeGroupsScratch);
+        bool hasGroups = activeGroupsScratch.Count > 0;
+
         if ((pinnedTab == 0 && !hasManualPins)
             || (pinnedTab == 1 && !hasMissions)
-            || (pinnedTab == 2 && !hasSamSites))
+            || (pinnedTab == 2 && !hasSamSites)
+            || (pinnedTab == 3 && !hasGroups))
         {
-            pinnedTab = hasMissions ? 1 : hasSamSites ? 2 : 0;
+            pinnedTab = hasGroups ? 3 : (hasMissions ? 1 : hasSamSites ? 2 : 0);
         }
 
         CommanderUiTheme.DrawHelpButton(pinnedWindowRect.width, ref pinnedHelpVisible);
@@ -996,12 +1150,21 @@ internal sealed class CommanderOverlayUi
         if (pinnedHelpVisible)
         {
             CommanderUiTheme.DrawHelpOverlay(new Rect(12f, 34f, pinnedWindowRect.width - 24f, 62f),
-                "PINS contains manual pins. MISSIONS tracks Supply and Air Command aircraft. SAM SITES tracks active site cores. Click to select; X removes only the list entry, not the unit.");
+                "GROUPS (1-9) displays control groups. PINS has manual pins. MISSIONS tracks aircraft. Click group/unit to select; double-tap to focus camera.");
         }
 
-        int tabCount = (hasManualPins ? 1 : 0) + (hasMissions ? 1 : 0) + (hasSamSites ? 1 : 0);
+        int tabCount = (hasGroups ? 1 : 0) + (hasManualPins ? 1 : 0) + (hasMissions ? 1 : 0) + (hasSamSites ? 1 : 0);
         float tabWidth = (pinnedWindowRect.width - 24f - Mathf.Max(0, tabCount - 1) * 6f) / Mathf.Max(1, tabCount);
         float tabX = 12f;
+
+        if (hasGroups && GUI.Button(new Rect(tabX, y, tabWidth, 30f), "GROUPS",
+            pinnedTab == 3 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        {
+            pinnedTab = 3;
+            pinnedScroll = Vector2.zero;
+        }
+        if (hasGroups) tabX += tabWidth + 6f;
+
         if (hasManualPins && GUI.Button(new Rect(tabX, y, tabWidth, 30f), "PINS",
             pinnedTab == 0 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
@@ -1034,58 +1197,81 @@ internal sealed class CommanderOverlayUi
             y += 32f;
         }
 
-        List<Unit> visibleUnits = new();
-        IReadOnlyList<Unit> source = pinnedTab == 1
-            ? selectionService.MissionUnits
-            : pinnedTab == 2
-                ? selectionService.SamSiteUnits
-                : selectionService.PinnedUnits;
-        for (int i = 0; i < source.Count; i++)
-        {
-            Unit unit = source[i];
-            if (pinnedTab != 1)
-            {
-                visibleUnits.Add(unit);
-                continue;
-            }
-            CommanderSelectionService.MissionPinInfo info = selectionService.GetMissionInfo(unit);
-            if ((showSupplyMissions && info.Source == "SUPPLY")
-                || (showAirCommandMissions && info.Source == "AIR COMMAND"))
-            {
-                visibleUnits.Add(unit);
-            }
-        }
-
         Rect view = new(10f, y, pinnedWindowRect.width - 20f, pinnedWindowRect.height - y - 12f);
-        float rowHeight = pinnedTab == 1 ? 58f : 40f;
-        Rect inner = new(0f, 0f, view.width - 18f, Mathf.Max(view.height, visibleUnits.Count * rowHeight + 4f));
-        pinnedScroll = GUI.BeginScrollView(view, pinnedScroll, inner);
-        for (int i = 0; i < visibleUnits.Count; i++)
+
+        if (pinnedTab == 3)
         {
-            Unit unit = visibleUnits[i];
-            float rowY = 2f + i * rowHeight;
-            if (GUI.Button(new Rect(4f, rowY, inner.width - 44f, rowHeight - 6f), string.Empty,
-                pinnedTab == 1 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+            float rowHeight = 48f;
+            Rect inner = new(0f, 0f, view.width - 18f, Mathf.Max(view.height, activeGroupsScratch.Count * rowHeight + 4f));
+            pinnedScroll = GUI.BeginScrollView(view, pinnedScroll, inner);
+            for (int i = 0; i < activeGroupsScratch.Count; i++)
             {
-                selectionService.SelectPinnedUnit(unit);
+                CommanderControlGroupsService.ControlGroupInfo grp = activeGroupsScratch[i];
+                float rowY = 2f + i * rowHeight;
+                if (GUI.Button(new Rect(4f, rowY, inner.width - 8f, rowHeight - 6f), string.Empty, CommanderUiTheme.Button))
+                {
+                    CommanderControlGroupsService.Instance?.SelectGroup(grp.Index, additive: false);
+                }
+                GUI.Label(new Rect(12f, rowY + 4f, 36f, 22f), $"[{grp.Index}]", CommanderUiTheme.Header);
+                GUI.Label(new Rect(50f, rowY + 4f, inner.width - 60f, 22f), grp.Summary, CommanderUiTheme.Label);
+                GUI.Label(new Rect(50f, rowY + 24f, inner.width - 60f, 18f), $"{grp.Count} Unit{(grp.Count == 1 ? string.Empty : "s")} | Click to select, Double-tap to focus", CommanderUiTheme.MutedLabel);
             }
-            string unitLabel = pinnedTab == 2
-                ? selectionService.GetSamSiteLabel(unit)
-                : CommanderGameAccess.GetUnitLabel(unit);
-            GUI.Label(new Rect(12f, rowY + 5f, inner.width - 64f, 22f), unitLabel, CommanderUiTheme.Header);
-            if (pinnedTab == 1)
-            {
-                CommanderSelectionService.MissionPinInfo info = selectionService.GetMissionInfo(unit);
-                GUI.Label(new Rect(12f, rowY + 28f, inner.width - 64f, 20f),
-                    $"{info.Source}  |  {info.Mission}", CommanderUiTheme.MutedLabel);
-            }
-            if (GUI.Button(new Rect(inner.width - 36f, rowY, 32f, rowHeight - 6f), "X", CommanderUiTheme.DangerButton))
-            {
-                selectionService.RemovePinnedUnit(unit);
-                break;
-            }
+            GUI.EndScrollView();
         }
-        GUI.EndScrollView();
+        else
+        {
+            List<Unit> visibleUnits = new();
+            IReadOnlyList<Unit> source = pinnedTab == 1
+                ? selectionService.MissionUnits
+                : pinnedTab == 2
+                    ? selectionService.SamSiteUnits
+                    : selectionService.PinnedUnits;
+            for (int i = 0; i < source.Count; i++)
+            {
+                Unit unit = source[i];
+                if (pinnedTab != 1)
+                {
+                    visibleUnits.Add(unit);
+                    continue;
+                }
+                CommanderSelectionService.MissionPinInfo info = selectionService.GetMissionInfo(unit);
+                if ((showSupplyMissions && info.Source == "SUPPLY")
+                    || (showAirCommandMissions && info.Source == "AIR COMMAND"))
+                {
+                    visibleUnits.Add(unit);
+                }
+            }
+
+            float rowHeight = pinnedTab == 1 ? 58f : 40f;
+            Rect inner = new(0f, 0f, view.width - 18f, Mathf.Max(view.height, visibleUnits.Count * rowHeight + 4f));
+            pinnedScroll = GUI.BeginScrollView(view, pinnedScroll, inner);
+            for (int i = 0; i < visibleUnits.Count; i++)
+            {
+                Unit unit = visibleUnits[i];
+                float rowY = 2f + i * rowHeight;
+                if (GUI.Button(new Rect(4f, rowY, inner.width - 44f, rowHeight - 6f), string.Empty,
+                    pinnedTab == 1 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+                {
+                    selectionService.SelectPinnedUnit(unit);
+                }
+                string unitLabel = pinnedTab == 2
+                    ? selectionService.GetSamSiteLabel(unit)
+                    : CommanderGameAccess.GetUnitLabel(unit);
+                GUI.Label(new Rect(12f, rowY + 5f, inner.width - 64f, 22f), unitLabel, CommanderUiTheme.Header);
+                if (pinnedTab == 1)
+                {
+                    CommanderSelectionService.MissionPinInfo info = selectionService.GetMissionInfo(unit);
+                    GUI.Label(new Rect(12f, rowY + 28f, inner.width - 64f, 20f),
+                        $"{info.Source}  |  {info.Mission}", CommanderUiTheme.MutedLabel);
+                }
+                if (GUI.Button(new Rect(inner.width - 36f, rowY, 32f, rowHeight - 6f), "X", CommanderUiTheme.DangerButton))
+                {
+                    selectionService.RemovePinnedUnit(unit);
+                    break;
+                }
+            }
+            GUI.EndScrollView();
+        }
         GUI.DragWindow(new Rect(0f, 0f, pinnedWindowRect.width - 44f, 28f));
     }
 
@@ -1518,8 +1704,8 @@ internal sealed class CommanderOverlayUi
         if (CommanderUiTheme.DrawHelpButton(reserveWindowRect.width, ref reserveHelpVisible))
         {
             CommanderUiTheme.DrawHelpOverlay(
-                new Rect(12f, 34f, reserveWindowRect.width - 24f, 78f),
-                "Factory output is read directly from friendly Basegame factories. Category HOLD intercepts automatic deployment for that output category; Unit HOLD affects only one vehicle type. Counts show vehicles currently retained for manual depot spawning.");
+                new Rect(12f, 34f, reserveWindowRect.width - 24f, 84f),
+                "FACTION RESERVE | Manage reserve stockpiles across LAND, AIR, and NAVAL branches. Multipliers (x1, x5, x10, MAX) apply to +BUY, SELL, and DEPLOY actions. HOLD intercepts automatic deployment so units stay in reserve for manual command.");
         }
         if (GUI.Button(new Rect(reserveWindowRect.width - 34f, 3f, 26f, 22f), "X", CommanderUiTheme.DangerButton))
         {
@@ -1527,84 +1713,239 @@ internal sealed class CommanderOverlayUi
             return;
         }
 
-        float y = reserveHelpVisible ? 122f : 38f;
-        GUI.Label(new Rect(12f, y, reserveWindowRect.width - 24f, 30f),
-            $"FUNDS  {spawnService.GetFactionFundsLabel()}    |    VEHICLES IN RESERVE  {spawnService.GetProductionReserveTotal()}", CommanderUiTheme.Header);
-        y += 38f;
+        float y = reserveHelpVisible ? 128f : 38f;
+        GUI.Label(new Rect(12f, y, reserveWindowRect.width - 24f, 28f),
+            $"FUNDS: {spawnService.GetFactionFundsLabel()}    |    LAND RESERVE: {spawnService.GetProductionReserveTotal()} UNITS", CommanderUiTheme.Header);
+        y += 32f;
 
-        float modeWidth = (reserveWindowRect.width - 30f) * 0.5f;
-        if (GUI.Button(new Rect(12f, y, modeWidth, 34f), "CATEGORIES",
-            reserveShowsUnits ? CommanderUiTheme.Button : CommanderUiTheme.SelectedButton))
+        // Domain Tabs
+        float tabWidth = (reserveWindowRect.width - 36f) / 4f;
+        if (GUI.Button(new Rect(12f, y, tabWidth, 30f), "LAND",
+            reserveTab == 0 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
-            reserveShowsUnits = false;
+            reserveTab = 0;
             reserveScroll = Vector2.zero;
         }
-        if (GUI.Button(new Rect(18f + modeWidth, y, modeWidth, 34f), "INDIVIDUAL UNITS",
-            reserveShowsUnits ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        if (GUI.Button(new Rect(16f + tabWidth, y, tabWidth, 30f), "AIR",
+            reserveTab == 1 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
-            reserveShowsUnits = true;
+            reserveTab = 1;
             reserveScroll = Vector2.zero;
         }
-        y += 44f;
+        if (GUI.Button(new Rect(20f + tabWidth * 2f, y, tabWidth, 30f), "NAVAL",
+            reserveTab == 2 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        {
+            reserveTab = 2;
+            reserveScroll = Vector2.zero;
+        }
+        if (GUI.Button(new Rect(24f + tabWidth * 3f, y, tabWidth, 30f), "CATEGORIES",
+            reserveTab == 3 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        {
+            reserveTab = 3;
+            reserveScroll = Vector2.zero;
+        }
+        y += 36f;
 
-        GUI.Label(new Rect(12f, y, reserveWindowRect.width - 24f, 22f),
-            reserveShowsUnits ? "FACTORY OUTPUT BY UNIT" : "FACTORY OUTPUT BY CATEGORY", CommanderUiTheme.MutedLabel);
-        y += 24f;
+        // Batch Multipliers
+        float multWidth = (reserveWindowRect.width - 24f - 130f) / 4f;
+        GUI.Label(new Rect(14f, y + 3f, 120f, 22f), "BATCH MULTIPLIER:", CommanderUiTheme.MutedLabel);
+        if (GUI.Button(new Rect(136f, y, multWidth, 24f), "x1", reserveMultiplier == 1 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button)) reserveMultiplier = 1;
+        if (GUI.Button(new Rect(140f + multWidth, y, multWidth, 24f), "x5", reserveMultiplier == 5 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button)) reserveMultiplier = 5;
+        if (GUI.Button(new Rect(144f + multWidth * 2f, y, multWidth, 24f), "x10", reserveMultiplier == 10 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button)) reserveMultiplier = 10;
+        if (GUI.Button(new Rect(148f + multWidth * 3f, y, multWidth, 24f), "MAX", reserveMultiplier == 0 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button)) reserveMultiplier = 0;
+        y += 32f;
+
+        int activeQty = reserveMultiplier == 0 ? int.MaxValue : reserveMultiplier;
+        string buySuffix = reserveMultiplier == 0 ? "MAX" : ("x" + reserveMultiplier);
+        string sellSuffix = reserveMultiplier == 0 ? "ALL" : ("x" + reserveMultiplier);
+
         Rect view = new(12f, y, reserveWindowRect.width - 24f, reserveWindowRect.height - y - 14f);
-        if (reserveShowsUnits)
+
+        CommanderFactionVehicleService? factionSvc = CommanderFactionVehicleService.Instance;
+        if (factionSvc == null)
         {
-            IReadOnlyList<VehicleDefinition> definitions = spawnService.GetProductionVehicleDefinitions();
-            Rect inner = new(0f, 0f, view.width - 20f, Mathf.Max(view.height, definitions.Count * 40f + 6f));
+            GUI.Label(view, "Faction Service is unavailable.", CommanderUiTheme.Label);
+            GUI.DragWindow(new Rect(0f, 0f, reserveWindowRect.width - 72f, 28f));
+            return;
+        }
+
+        if (reserveTab == 0)
+        {
+            // LAND TAB
+            IReadOnlyList<VehicleDefinition> definitions = factionSvc.LandDefinitions;
+            Rect inner = new(0f, 0f, view.width - 20f, Mathf.Max(view.height, definitions.Count * 48f + 6f));
             reserveScroll = GUI.BeginScrollView(view, reserveScroll, inner);
             for (int i = 0; i < definitions.Count; i++)
             {
-                VehicleDefinition definition = definitions[i];
-                string category = CommanderGameAccess.GetVehicleCategoryLabel(definition);
-                bool categoryHeld = spawnService.IsCategoryHeld(category);
-                bool individuallyHeld = spawnService.IsVehicleHeld(definition);
-                Rect row = new(4f, 3f + i * 40f, inner.width - 8f, 36f);
+                VehicleDefinition def = definitions[i];
+                string cat = CommanderGameAccess.GetVehicleCategoryLabel(def);
+                bool catHeld = factionSvc.IsCategoryHeld(cat);
+                bool indHeld = factionSvc.IsDefinitionHeld(def);
+                int count = factionSvc.GetReserveCount(def);
+                float cost = factionSvc.GetPurchaseCost(def);
+                string costStr = UnitConverter.ValueReading(cost) ?? ("$" + cost.ToString("N0"));
+
+                Rect row = new(4f, 3f + i * 48f, inner.width - 8f, 44f);
                 GUI.Box(row, string.Empty, CommanderUiTheme.Panel);
 
-                if (categoryHeld)
+                // Hold toggle
+                if (catHeld)
                 {
-                    GUI.Label(new Rect(row.x + 8f, row.y + 8f, 104f, 20f), "CATEGORY HOLD", CommanderUiTheme.MutedLabel);
+                    GUI.Label(new Rect(row.x + 6f, row.y + 12f, 70f, 20f), "CAT HOLD", CommanderUiTheme.MutedLabel);
                 }
                 else
                 {
-                    bool updatedHeld = GUI.Toggle(new Rect(row.x + 8f, row.y + 7f, 64f, 22f), individuallyHeld, "HOLD", CommanderUiTheme.Toggle);
-                    if (updatedHeld != individuallyHeld)
-                    {
-                        spawnService.ToggleHeldVehicle(definition);
-                    }
+                    bool newHeld = GUI.Toggle(new Rect(row.x + 6f, row.y + 11f, 60f, 22f), indHeld, "HOLD", CommanderUiTheme.Toggle);
+                    if (newHeld != indHeld) factionSvc.ToggleDefinition(def);
                 }
 
-                GUI.Label(new Rect(row.x + 120f, row.y + 6f, row.width - 255f, 24f),
-                    CommanderGameAccess.GetVehicleLabel(definition), CommanderUiTheme.Label);
-                GUI.Label(new Rect(row.xMax - 126f, row.y + 6f, 118f, 24f),
-                    $"RESERVE {spawnService.GetReserveCount(definition)}", CommanderUiTheme.MutedLabel);
+                // Name & Cost
+                GUI.Label(new Rect(row.x + 76f, row.y + 4f, row.width - 380f, 20f), CommanderGameAccess.GetVehicleLabel(def), CommanderUiTheme.Label);
+                GUI.Label(new Rect(row.x + 76f, row.y + 22f, row.width - 380f, 18f), $"{cat} | {costStr}", CommanderUiTheme.MutedLabel);
+
+                // Stock count
+                GUI.Label(new Rect(row.xMax - 290f, row.y + 10f, 65f, 24f), $"QTY: {count}", CommanderUiTheme.Header);
+
+                // +BUY Button
+                if (GUI.Button(new Rect(row.xMax - 220f, row.y + 6f, 68f, 32f), $"+BUY {buySuffix}", CommanderUiTheme.Button))
+                {
+                    factionSvc.TryBuyStockToReserve(def, activeQty, out _);
+                }
+
+                // SELL Button
+                bool canSell = count > 0;
+                bool oldE = GUI.enabled;
+                GUI.enabled = oldE && canSell;
+                if (GUI.Button(new Rect(row.xMax - 148f, row.y + 6f, 68f, 32f), $"SELL {sellSuffix}", CommanderUiTheme.DangerButton))
+                {
+                    factionSvc.TryScrapStockFromReserve(def, activeQty, out _);
+                }
+                GUI.enabled = oldE;
+
+                // DEPLOY Button
+                int deployCount = reserveMultiplier == 0 ? Mathf.Max(1, count) : reserveMultiplier;
+                string deployLabel = count >= deployCount ? $"FREE x{deployCount}" : $"QUEUE x{deployCount}";
+                if (GUI.Button(new Rect(row.xMax - 76f, row.y + 6f, 72f, 32f), deployLabel, count >= deployCount ? CommanderUiTheme.PrimaryButton : CommanderUiTheme.Button))
+                {
+                    for (int q = 0; q < deployCount; q++)
+                    {
+                        spawnService.AddVehicleToSpawnList(def);
+                    }
+                }
             }
             GUI.EndScrollView();
-
-            if (definitions.Count == 0)
+        }
+        else if (reserveTab == 1)
+        {
+            // AIR TAB
+            IReadOnlyList<AircraftDefinition> definitions = factionSvc.AirDefinitions;
+            Rect inner = new(0f, 0f, view.width - 20f, Mathf.Max(view.height, definitions.Count * 48f + 6f));
+            reserveScroll = GUI.BeginScrollView(view, reserveScroll, inner);
+            for (int i = 0; i < definitions.Count; i++)
             {
-                GUI.Label(view, "No friendly vehicle factories are currently active.", CommanderUiTheme.Label);
+                AircraftDefinition def = definitions[i];
+                int count = factionSvc.GetReserveCount(def);
+                float cost = factionSvc.GetPurchaseCost(def);
+                string costStr = UnitConverter.ValueReading(cost) ?? ("$" + cost.ToString("N0"));
+                bool indHeld = factionSvc.IsDefinitionHeld(def);
+
+                Rect row = new(4f, 3f + i * 48f, inner.width - 8f, 44f);
+                GUI.Box(row, string.Empty, CommanderUiTheme.Panel);
+
+                bool newHeld = GUI.Toggle(new Rect(row.x + 6f, row.y + 11f, 60f, 22f), indHeld, "HOLD", CommanderUiTheme.Toggle);
+                if (newHeld != indHeld) factionSvc.ToggleDefinition(def);
+
+                GUI.Label(new Rect(row.x + 76f, row.y + 4f, row.width - 320f, 20f), def.unitName, CommanderUiTheme.Label);
+                GUI.Label(new Rect(row.x + 76f, row.y + 22f, row.width - 320f, 18f), $"AIRCRAFT | {costStr}", CommanderUiTheme.MutedLabel);
+
+                GUI.Label(new Rect(row.xMax - 220f, row.y + 10f, 65f, 24f), $"QTY: {count}", CommanderUiTheme.Header);
+
+                if (GUI.Button(new Rect(row.xMax - 148f, row.y + 6f, 68f, 32f), $"+BUY {buySuffix}", CommanderUiTheme.Button))
+                {
+                    factionSvc.TryBuyStockToReserve(def, activeQty, out _);
+                }
+
+                bool canSell = count > 0;
+                bool oldE = GUI.enabled;
+                GUI.enabled = oldE && canSell;
+                if (GUI.Button(new Rect(row.xMax - 76f, row.y + 6f, 72f, 32f), $"SELL {sellSuffix}", CommanderUiTheme.DangerButton))
+                {
+                    factionSvc.TryScrapStockFromReserve(def, activeQty, out _);
+                }
+                GUI.enabled = oldE;
             }
+            GUI.EndScrollView();
+        }
+        else if (reserveTab == 2)
+        {
+            // NAVAL TAB
+            IReadOnlyList<ShipDefinition> definitions = factionSvc.NavalDefinitions;
+            Rect inner = new(0f, 0f, view.width - 20f, Mathf.Max(view.height, definitions.Count * 48f + 6f));
+            reserveScroll = GUI.BeginScrollView(view, reserveScroll, inner);
+            for (int i = 0; i < definitions.Count; i++)
+            {
+                ShipDefinition def = definitions[i];
+                int count = factionSvc.GetReserveCount(def);
+                float cost = factionSvc.GetPurchaseCost(def);
+                string costStr = UnitConverter.ValueReading(cost) ?? ("$" + cost.ToString("N0"));
+                bool indHeld = factionSvc.IsDefinitionHeld(def);
+
+                Rect row = new(4f, 3f + i * 48f, inner.width - 8f, 44f);
+                GUI.Box(row, string.Empty, CommanderUiTheme.Panel);
+
+                bool newHeld = GUI.Toggle(new Rect(row.x + 6f, row.y + 11f, 60f, 22f), indHeld, "HOLD", CommanderUiTheme.Toggle);
+                if (newHeld != indHeld) factionSvc.ToggleDefinition(def);
+
+                GUI.Label(new Rect(row.x + 76f, row.y + 4f, row.width - 320f, 20f), def.unitName, CommanderUiTheme.Label);
+                GUI.Label(new Rect(row.x + 76f, row.y + 22f, row.width - 320f, 18f), $"WARSHIP | {costStr}", CommanderUiTheme.MutedLabel);
+
+                GUI.Label(new Rect(row.xMax - 220f, row.y + 10f, 65f, 24f), $"QTY: {count}", CommanderUiTheme.Header);
+
+                if (GUI.Button(new Rect(row.xMax - 148f, row.y + 6f, 68f, 32f), $"+BUY {buySuffix}", CommanderUiTheme.Button))
+                {
+                    factionSvc.TryBuyStockToReserve(def, activeQty, out _);
+                }
+
+                bool canSell = count > 0;
+                bool oldE = GUI.enabled;
+                GUI.enabled = oldE && canSell;
+                if (GUI.Button(new Rect(row.xMax - 76f, row.y + 6f, 72f, 32f), $"SELL {sellSuffix}", CommanderUiTheme.DangerButton))
+                {
+                    factionSvc.TryScrapStockFromReserve(def, activeQty, out _);
+                }
+                GUI.enabled = oldE;
+            }
+            GUI.EndScrollView();
         }
         else
         {
+            // CATEGORIES TAB
             IReadOnlyList<string> categories = spawnService.GetProductionCategories();
-            Rect inner = new(0f, 0f, view.width - 20f, Mathf.Max(view.height, categories.Count * 46f + 6f));
-            reserveScroll = GUI.BeginScrollView(view, reserveScroll, inner);
+            float bulkY = view.y;
+            float bulkWidth = (view.width - 10f) * 0.5f;
+
+            Rect catView = new(view.x, view.y + 38f, view.width, view.height - 38f);
+            if (GUI.Button(new Rect(view.x, bulkY, bulkWidth, 32f), "HOLD ALL", CommanderUiTheme.DangerButton))
+            {
+                factionSvc.SetAllCategoriesHeld(true);
+            }
+            if (GUI.Button(new Rect(view.x + bulkWidth + 10f, bulkY, bulkWidth, 32f), "RELEASE ALL", CommanderUiTheme.Button))
+            {
+                factionSvc.SetAllCategoriesHeld(false);
+            }
+
+            Rect inner = new(0f, 0f, catView.width - 20f, Mathf.Max(catView.height, categories.Count * 46f + 6f));
+            reserveScroll = GUI.BeginScrollView(catView, reserveScroll, inner);
             for (int i = 0; i < categories.Count; i++)
             {
                 string category = categories[i];
-                bool held = spawnService.IsCategoryHeld(category);
+                bool held = factionSvc.IsCategoryHeld(category);
                 Rect row = new(4f, 3f + i * 46f, inner.width - 8f, 42f);
                 GUI.Box(row, string.Empty, CommanderUiTheme.Panel);
                 bool updatedHeld = GUI.Toggle(new Rect(row.x + 10f, row.y + 10f, 64f, 22f), held, "HOLD", CommanderUiTheme.Toggle);
                 if (updatedHeld != held)
                 {
-                    spawnService.ToggleHeldCategory(category);
+                    factionSvc.ToggleCategory(category);
                 }
                 GUI.Label(new Rect(row.x + 94f, row.y + 8f, row.width - 230f, 26f), category, CommanderUiTheme.Header);
                 GUI.Label(new Rect(row.xMax - 126f, row.y + 8f, 118f, 26f),
@@ -1614,10 +1955,10 @@ internal sealed class CommanderOverlayUi
 
             if (categories.Count == 0)
             {
-                GUI.Label(view, "No friendly vehicle factories are currently active.", CommanderUiTheme.Label);
+                GUI.Label(catView, "No friendly vehicle factories are currently active.", CommanderUiTheme.Label);
             }
         }
+
         GUI.DragWindow(new Rect(0f, 0f, reserveWindowRect.width - 72f, 28f));
     }
-
 }

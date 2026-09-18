@@ -91,7 +91,9 @@ internal sealed class CommanderSpawnService
     internal void ResetSession()
     {
         Deactivate();
+        UnbindProductionHq();
         depotQueues.Clear();
+        productionFactories.Clear();
         vehicleDefinitions.Clear();
         productionVehicleDefinitions.Clear();
         factionVehicleDefinitions.Clear();

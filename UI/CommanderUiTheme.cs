@@ -27,8 +27,9 @@ internal static class CommanderUiTheme
     internal static GUIStyle HelpButton { get; private set; } = null!;
     internal static GUIStyle Toggle { get; private set; } = null!;
 
-    internal static Color Accent => new(0.34f, 0.78f, 0.75f, 1f);
-    internal static Color Friendly => GameAssets.i != null ? GameAssets.i.HUDFriendly : Accent;
+    private static readonly Color DefaultAccent = new(0.34f, 0.78f, 0.75f, 1f);
+    internal static Color Accent => DefaultAccent;
+    internal static Color Friendly => GameAssets.i != null ? GameAssets.i.HUDFriendly : DefaultAccent;
     internal static Texture2D BorderTexture
     {
         get

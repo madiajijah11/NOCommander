@@ -68,6 +68,7 @@ internal sealed class CommanderRadarService
     internal void Tick()
     {
         RefreshBindings();
+        PruneDeadReferences();
         SyncFocusedUnit();
         if (focusedState == null
             || !focusedState.IsCommandTruck
@@ -77,6 +78,41 @@ internal sealed class CommanderRadarService
         }
 
         RefreshNearbyCounts(focusedState);
+    }
+
+    private void PruneDeadReferences()
+    {
+        offlineRadarUnits.RemoveWhere(static u => u == null || u.disabled);
+        nearbyRadarUnits.RemoveWhere(static u => u == null || u.disabled);
+        nearbyLauncherUnits.RemoveWhere(static u => u == null || u.disabled);
+
+        List<Unit>? deadKeys = null;
+        foreach (KeyValuePair<Unit, Radar[]> entry in radarsByUnit)
+        {
+            if (entry.Key == null || entry.Key.disabled)
+            {
+                deadKeys ??= new List<Unit>();
+                deadKeys.Add(entry.Key);
+            }
+        }
+        if (deadKeys != null)
+        {
+            for (int i = 0; i < deadKeys.Count; i++) radarsByUnit.Remove(deadKeys[i]);
+            deadKeys.Clear();
+        }
+
+        foreach (KeyValuePair<Unit, Turret[]> entry in turretsByUnit)
+        {
+            if (entry.Key == null || entry.Key.disabled)
+            {
+                deadKeys ??= new List<Unit>();
+                deadKeys.Add(entry.Key);
+            }
+        }
+        if (deadKeys != null)
+        {
+            for (int i = 0; i < deadKeys.Count; i++) turretsByUnit.Remove(deadKeys[i]);
+        }
     }
 
     internal bool TryGetFocusedState(out RadarState state)

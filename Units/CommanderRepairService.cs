@@ -25,7 +25,8 @@ internal sealed class CommanderRepairService
 
     internal bool UsesNearestTarget(Unit? unit)
     {
-        return unit != null && nearestTargetUnits.Contains(unit);
+        PruneDeadReferences();
+        return unit != null && !unit.disabled && nearestTargetUnits.Contains(unit);
     }
 
     internal void ToggleNearestTarget(Unit unit)
@@ -36,6 +37,7 @@ internal sealed class CommanderRepairService
             return;
         }
 
+        PruneDeadReferences();
         bool enabled = !nearestTargetUnits.Remove(unit);
         if (enabled)
         {
@@ -49,7 +51,13 @@ internal sealed class CommanderRepairService
 
     internal bool ShouldUseNearestTarget(Unit? unit)
     {
+        PruneDeadReferences();
         return unit != null && !unit.disabled && nearestTargetUnits.Contains(unit);
+    }
+
+    internal void PruneDeadReferences()
+    {
+        nearestTargetUnits.RemoveWhere(static u => u == null || u.disabled);
     }
 
     internal void ResetSession()
@@ -60,7 +68,7 @@ internal sealed class CommanderRepairService
 
     private static Repairer? GetRepairer(Unit? unit)
     {
-        return unit?.GetComponentInChildren<Repairer>(true);
+        return unit != null && !unit.disabled ? unit.GetComponentInChildren<Repairer>(true) : null;
     }
 
     private void SetStatus(string text)

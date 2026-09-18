@@ -15,6 +15,9 @@ internal sealed class CommanderWorldMarkerRenderer
     private readonly List<GlobalPosition> supplyRoute = new();
     private readonly List<CommanderSamSiteAnalyzerService.SiteLayoutMarker> samSiteLayout = new();
     private readonly List<CommanderSamSiteAnalyzerService.SiteCandidate> samSiteProposals = new();
+    private readonly List<GlobalPosition> queuedWaypointsScratch = new();
+    private readonly List<GlobalPosition> patrolRouteScratch = new();
+    private readonly HashSet<Unit> drawnAttackTargets = new();
 
     internal CommanderWorldMarkerRenderer(
         CommanderSelectionService selectionService,
@@ -45,12 +48,37 @@ internal sealed class CommanderWorldMarkerRenderer
             return;
         }
 
+        drawnAttackTargets.Clear();
         for (int i = 0; i < selectionService.SelectedUnits.Count; i++)
         {
             Unit unit = selectionService.SelectedUnits[i];
-            if (moveService.TryGetPlayerDestination(unit, out GlobalPosition destination))
+            DrawOverheadBars(camera, unit);
+
+            if (moveService.TryGetFocusAttackTarget(unit, out Unit target) && target != null && !target.disabled)
+            {
+                if (drawnAttackTargets.Add(target))
+                {
+                    DrawLargeMarker(camera, target.transform.GlobalPosition(), "ATTACK", new Color(1f, 0.25f, 0.2f, 0.95f));
+                }
+            }
+            else if (moveService.TryGetPatrolRoute(unit, patrolRouteScratch))
+            {
+                for (int p = 0; p < patrolRouteScratch.Count; p++)
+                {
+                    DrawMarker(camera, patrolRouteScratch[p], $"PATROL {p + 1}", new Color(0.35f, 0.88f, 0.95f, 0.9f));
+                }
+            }
+            else if (moveService.TryGetPlayerDestination(unit, out GlobalPosition destination))
             {
                 DrawMarker(camera, destination, "MOVE", new Color(0.2f, 0.85f, 0.82f, 0.9f));
+            }
+
+            if (moveService.TryGetQueuedWaypoints(unit, queuedWaypointsScratch))
+            {
+                for (int wp = 0; wp < queuedWaypointsScratch.Count; wp++)
+                {
+                    DrawMarker(camera, queuedWaypointsScratch[wp], $"WAYPOINT {wp + 1}", new Color(0.95f, 0.85f, 0.3f, 0.85f));
+                }
             }
         }
 
@@ -203,4 +231,92 @@ internal sealed class CommanderWorldMarkerRenderer
         float calculatedHeight = style.CalcHeight(new GUIContent(label), contentWidth);
         return Mathf.Max(minimumHeight, calculatedHeight + 4f);
     }
+
+    private static void DrawOverheadBars(Camera camera, Unit unit)
+    {
+        if (unit == null || unit.disabled)
+        {
+            return;
+        }
+
+        if (!CommanderGameAccess.TryGetWorldMarkerState(unit, camera, out Vector3 screenPos, out float scale))
+        {
+            return;
+        }
+
+        Vector2 guiPoint = CommanderUiScale.ScreenToGui(screenPos);
+        float barWidth = Mathf.Clamp(54f * scale, 34f, 70f);
+        float barHeight = Mathf.Clamp(5f * scale, 3f, 7f);
+        float barX = guiPoint.x - barWidth * 0.5f;
+        float barY = guiPoint.y - 28f * scale;
+
+        // Health estimation from IRepairable components
+        float healthPct = 1f;
+        IRepairable[] repairables = unit.GetComponentsInChildren<IRepairable>(true);
+        if (repairables.Length > 0)
+        {
+            int damagedCount = 0;
+            for (int i = 0; i < repairables.Length; i++)
+            {
+                if (repairables[i] != null && repairables[i].NeedsRepair())
+                {
+                    damagedCount++;
+                }
+            }
+            healthPct = Mathf.Clamp01(1f - ((float)damagedCount / repairables.Length));
+        }
+
+        // Background Bar
+        Rect bgRect = new(barX - 1f, barY - 1f, barWidth + 2f, barHeight + 2f);
+        Color oldColor = GUI.color;
+        GUI.color = new Color(0.04f, 0.06f, 0.08f, 0.85f);
+        GUI.DrawTexture(bgRect, Texture2D.whiteTexture);
+
+        // Health Fill Bar
+        Color hpColor = healthPct > 0.6f
+            ? new Color(0.2f, 0.85f, 0.35f, 0.95f)
+            : healthPct > 0.3f
+                ? new Color(0.95f, 0.78f, 0.15f, 0.95f)
+                : new Color(0.95f, 0.25f, 0.2f, 0.95f);
+
+        GUI.color = hpColor;
+        GUI.DrawTexture(new Rect(barX, barY, barWidth * healthPct, barHeight), Texture2D.whiteTexture);
+
+        // Ammo Bar if weapons exist
+        if (unit.weaponStations != null && unit.weaponStations.Count > 0)
+        {
+            float currentAmmo = 0f;
+            float maxAmmo = 0f;
+            for (int s = 0; s < unit.weaponStations.Count; s++)
+            {
+                WeaponStation station = unit.weaponStations[s];
+                if (station?.Weapons == null) continue;
+                for (int w = 0; w < station.Weapons.Count; w++)
+                {
+                    Weapon weapon = station.Weapons[w];
+                    if (weapon != null)
+                    {
+                        currentAmmo += weapon.ammo;
+                        maxAmmo += Mathf.Max(1, weapon.GetFullAmmo());
+                    }
+                }
+            }
+
+            if (maxAmmo > 0f)
+            {
+                float ammoPct = Mathf.Clamp01(currentAmmo / maxAmmo);
+                float ammoY = barY + barHeight + 2f;
+                float ammoHeight = Mathf.Clamp(3f * scale, 2f, 4f);
+
+                GUI.color = new Color(0.04f, 0.06f, 0.08f, 0.85f);
+                GUI.DrawTexture(new Rect(barX - 1f, ammoY - 1f, barWidth + 2f, ammoHeight + 2f), Texture2D.whiteTexture);
+
+                GUI.color = new Color(0.25f, 0.75f, 0.95f, 0.9f);
+                GUI.DrawTexture(new Rect(barX, ammoY, barWidth * ammoPct, ammoHeight), Texture2D.whiteTexture);
+            }
+        }
+
+        GUI.color = oldColor;
+    }
+
 }

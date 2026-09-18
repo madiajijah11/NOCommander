@@ -265,6 +265,65 @@ internal sealed class CommanderSelectionService
         dynamicMap.SelectIcon(unit);
     }
 
+    internal void SelectUnitsInScreenRect(Rect screenRect, bool additive)
+    {
+        Camera? camera = SceneSingleton<CameraStateManager>.i?.mainCamera;
+        if (camera == null)
+        {
+            return;
+        }
+
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null)
+        {
+            return;
+        }
+
+        List<Unit> candidates = new();
+        CommanderGameAccess.CollectFriendlySurfaceUnits(candidates);
+
+        List<Unit> matchedUnits = new();
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            Unit unit = candidates[i];
+            if (unit == null || unit.disabled || !CommanderGameAccess.ShouldAllowCommanderSelection(unit, localHq))
+            {
+                continue;
+            }
+
+            Vector3 screenPos = camera.WorldToScreenPoint(unit.transform.position);
+            if (screenPos.z <= 0f)
+            {
+                continue;
+            }
+
+            Vector2 guiPoint = CommanderUiScale.ScreenToGui(screenPos);
+            if (screenRect.Contains(guiPoint))
+            {
+                matchedUnits.Add(unit);
+            }
+        }
+
+        if (matchedUnits.Count == 0)
+        {
+            if (!additive)
+            {
+                DeselectAll();
+            }
+            return;
+        }
+
+        if (!additive)
+        {
+            DeselectAll();
+        }
+
+        for (int i = 0; i < matchedUnits.Count; i++)
+        {
+            SelectUnit(matchedUnits[i], additive: true);
+        }
+    }
+
     internal void DeselectAll()
     {
         SceneSingleton<DynamicMap>.i?.DeselectAllIcons();
@@ -397,6 +456,34 @@ internal sealed class CommanderSelectionService
                     samSiteLabels.Remove(unit);
                 }
             }
+        }
+
+        List<Unit>? deadMissionKeys = null;
+        foreach (KeyValuePair<Unit, MissionPinInfo> entry in missionInfo)
+        {
+            if (entry.Key == null || entry.Key.disabled)
+            {
+                deadMissionKeys ??= new List<Unit>();
+                deadMissionKeys.Add(entry.Key);
+            }
+        }
+        if (deadMissionKeys != null)
+        {
+            for (int i = 0; i < deadMissionKeys.Count; i++) missionInfo.Remove(deadMissionKeys[i]);
+        }
+
+        List<Unit>? deadSamKeys = null;
+        foreach (KeyValuePair<Unit, string> entry in samSiteLabels)
+        {
+            if (entry.Key == null || entry.Key.disabled)
+            {
+                deadSamKeys ??= new List<Unit>();
+                deadSamKeys.Add(entry.Key);
+            }
+        }
+        if (deadSamKeys != null)
+        {
+            for (int i = 0; i < deadSamKeys.Count; i++) samSiteLabels.Remove(deadSamKeys[i]);
         }
     }
 

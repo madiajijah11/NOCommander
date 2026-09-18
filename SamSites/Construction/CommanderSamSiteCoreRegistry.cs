@@ -10,26 +10,34 @@ internal static class CommanderSamSiteCoreRegistry
 
     internal static bool IsCore(Unit? unit)
     {
-        return unit != null && cores.Contains(unit);
+        PruneDeadReferences();
+        return unit != null && !unit.disabled && cores.Contains(unit);
     }
 
     internal static bool IsTrackedSiteUnit(Unit? unit)
     {
-        return unit != null && trackedSiteUnits.Contains(unit);
+        PruneDeadReferences();
+        return unit != null && !unit.disabled && trackedSiteUnits.Contains(unit);
     }
 
     internal static Unit? ResolveSelection(Unit? unit)
     {
-        return unit != null && visualToCore.TryGetValue(unit, out Unit core)
+        PruneDeadReferences();
+        return unit != null && visualToCore.TryGetValue(unit, out Unit core) && core != null && !core.disabled
             ? core
             : unit;
     }
 
     internal static void Register(Unit core, Unit? visual)
     {
+        if (core == null || core.disabled)
+        {
+            return;
+        }
+
         cores.Add(core);
         trackedSiteUnits.Add(core);
-        if (visual != null)
+        if (visual != null && !visual.disabled)
         {
             trackedSiteUnits.Add(visual);
             visualToCore[visual] = core;
@@ -38,7 +46,7 @@ internal static class CommanderSamSiteCoreRegistry
 
     internal static void RegisterTracked(Unit? unit)
     {
-        if (unit != null)
+        if (unit != null && !unit.disabled)
         {
             trackedSiteUnits.Add(unit);
         }
@@ -46,7 +54,7 @@ internal static class CommanderSamSiteCoreRegistry
 
     internal static void MapVisualToCore(Unit? visual, Unit? core)
     {
-        if (visual == null || core == null)
+        if (visual == null || visual.disabled || core == null || core.disabled)
         {
             return;
         }
@@ -79,6 +87,30 @@ internal static class CommanderSamSiteCoreRegistry
         for (int i = 0; i < visuals.Count; i++)
         {
             visualToCore.Remove(visuals[i]);
+        }
+    }
+
+    internal static void PruneDeadReferences()
+    {
+        cores.RemoveWhere(static u => u == null || u.disabled);
+        trackedSiteUnits.RemoveWhere(static u => u == null || u.disabled);
+
+        List<Unit>? deadKeys = null;
+        foreach (KeyValuePair<Unit, Unit> entry in visualToCore)
+        {
+            if (entry.Key == null || entry.Key.disabled || entry.Value == null || entry.Value.disabled)
+            {
+                deadKeys ??= new List<Unit>();
+                deadKeys.Add(entry.Key);
+            }
+        }
+
+        if (deadKeys != null)
+        {
+            for (int i = 0; i < deadKeys.Count; i++)
+            {
+                visualToCore.Remove(deadKeys[i]);
+            }
         }
     }
 

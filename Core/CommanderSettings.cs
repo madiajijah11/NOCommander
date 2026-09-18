@@ -12,6 +12,11 @@ internal static class CommanderSettings
     internal static float UiScale { get; set; } = 1.5f;
     internal static bool ModEnabled { get => Get("General", "Enabled", true); set => Set("General", "Enabled", value); }
     internal static bool LimitToFactoryVehicles { get => Get("Gameplay", "LimitToFactoryVehicles", false); set => Set("Gameplay", "LimitToFactoryVehicles", value); }
+    internal static bool SmartAiEnabled { get => Get("Gameplay", "SmartAiEnabled", true); set => Set("Gameplay", "SmartAiEnabled", value); }
+    internal static bool AiReactiveScatter { get => Get("Gameplay", "AiReactiveScatter", true); set => Set("Gameplay", "AiReactiveScatter", value); }
+    internal static bool AiAdaptiveProduction { get => Get("Gameplay", "AiAdaptiveProduction", true); set => Set("Gameplay", "AiAdaptiveProduction", value); }
+    internal static bool AiAutoDeployAir { get => Get("Gameplay", "AiAutoDeployAir", true); set => Set("Gameplay", "AiAutoDeployAir", value); }
+    internal static bool AiAutoDeployNaval { get => Get("Gameplay", "AiAutoDeployNaval", true); set => Set("Gameplay", "AiAutoDeployNaval", value); }
     internal static bool ShowCommandButton { get => Get("UI", "ShowCommandButton", true); set => Set("UI", "ShowCommandButton", value); }
     internal static bool ShowFactionMoney { get => Get("UI", "ShowFactionMoney", true); set => Set("UI", "ShowFactionMoney", value); }
     internal static bool ShowTacticalMap { get => Get("UI", "ShowTacticalMap", true); set => Set("UI", "ShowTacticalMap", value); }
@@ -32,6 +37,7 @@ internal static class CommanderSettings
     internal static KeyboardShortcut RepeatDeployment { get => GetShortcut("RepeatDeployment", KeyCode.LeftShift, "Hold while placing a supply target to repeat the deployment."); set => Set("Keybinds", "RepeatDeployment", value); }
     internal static KeyboardShortcut DeleteUnitModifier { get => GetShortcut("DeleteUnitModifier", KeyCode.LeftAlt, "Hold to turn PIN into DEL."); set => Set("Keybinds", "DeleteUnitModifier", value); }
     internal static KeyboardShortcut CameraCenterFollow { get => GetShortcut("CameraCenterFollow", KeyCode.Space, "Tap to center; hold to center and follow."); set => Set("Keybinds", "CameraCenterFollow", value); }
+    internal static KeyboardShortcut ToggleHoldFire { get => GetShortcut("ToggleHoldFire", KeyCode.F, "Toggle Hold Fire / Free Fire for selected units."); set => Set("Keybinds", "ToggleHoldFire", value); }
     internal static KeyboardShortcut ToggleUi { get => GetShortcut("ToggleUi", KeyCode.H, "Cycle visible, Commander UI hidden, and all UI hidden."); set => Set("Keybinds", "ToggleUi", value); }
     internal static KeyboardShortcut CameraForward { get => GetShortcut("CameraForward", KeyCode.W, "Move the Commander camera forward."); set => Set("Keybinds", "CameraForward", value); }
     internal static KeyboardShortcut CameraBackward { get => GetShortcut("CameraBackward", KeyCode.S, "Move the Commander camera backward."); set => Set("Keybinds", "CameraBackward", value); }

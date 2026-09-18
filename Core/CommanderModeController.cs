@@ -24,6 +24,11 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderSpawnService? spawnService;
     private CommanderMarkerService? markerService;
     private CommanderMoveService? moveService;
+    private CommanderControlGroupsService? controlGroupsService;
+    private CommanderAlertService? alertService;
+    private CommanderStanceService? stanceService;
+    private CommanderCheatService? cheatService;
+    private CommanderSmartAiService? smartAiService;
     private CommanderOverlayUi? overlayUi;
     private CommanderInputController? inputController;
     private CommanderPersistentOperations? persistentOperations;
@@ -63,6 +68,11 @@ internal sealed class CommanderModeController : MonoBehaviour
             samSiteService);
         markerService = new CommanderMarkerService(selectionService);
         moveService = new CommanderMoveService(selectionService);
+        controlGroupsService = new CommanderControlGroupsService(selectionService);
+        alertService = new CommanderAlertService();
+        stanceService = new CommanderStanceService(selectionService);
+        cheatService = new CommanderCheatService(selectionService);
+        smartAiService = new CommanderSmartAiService();
         overlayUi = new CommanderOverlayUi(
             selectionService,
             moveService,
@@ -87,7 +97,10 @@ internal sealed class CommanderModeController : MonoBehaviour
             tacticalMapService,
             supplyHeliService,
             mobileEmplacementService,
-            airCommandService);
+            airCommandService,
+            controlGroupsService,
+            alertService,
+            stanceService);
         inputController.SetPovCrewUi(povCrewUi);
         SceneManager.activeSceneChanged += OnActiveSceneChanged;
     }
@@ -98,6 +111,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         if (CommanderFeatureGate.AdvancedFeaturesEnabled)
         {
             persistentOperations?.Tick();
+            smartAiService?.Tick();
         }
         if (!IsActive)
         {
@@ -349,6 +363,12 @@ internal sealed class CommanderModeController : MonoBehaviour
         nextInactiveEntryProbeAt = 0f;
         factionVehicleService?.ResetSession();
         spawnService?.ResetSession();
+        controlGroupsService?.ResetSession();
+        alertService?.ResetSession();
+        stanceService?.ResetSession();
+        cheatService?.ResetSession();
+        smartAiService?.ResetSession();
+        moveService?.ResetSession();
     }
 
 }
