@@ -104,3 +104,7 @@ When adding features or fixing bugs:
    - Validate clean compilation against game assemblies. Zero compiler errors.
 4. **Phase 4 (Session Teardown Safety):**
    - Ensure `ResetSession()` properly resets all service states on level reload/unload.
+5. **Phase 5 (Deployment Gate - MANDATORY USER CONFIRMATION):**
+   - **DO NOT auto-deploy to the game directory (`H:\SteamLibrary\...`).**
+   - After successful compilation, summarize the build status and ask the user for confirmation: *"Kompilasi berhasil. Apakah kamu ingin saya deploy DLL ini ke folder game sekarang?"*
+   - Only copy files to the game directory AFTER the user explicitly confirms.

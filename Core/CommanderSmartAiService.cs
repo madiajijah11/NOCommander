@@ -11,18 +11,20 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderSmartAiService
 {
-    private const float AdaptiveCheckInterval = 20f;
+    private const float AdaptiveCheckInterval = 30f;
     private const float ScatterCooldownSeconds = 10f;
 
     private static readonly MethodInfo? FactoryProductionSetter =
         AccessTools.PropertySetter(typeof(Factory), "NetworkproductionUnit")
         ?? AccessTools.PropertySetter(typeof(Factory), "ProductionUnit");
 
-    private readonly List<Factory> factoryBuffer = new();
-    private readonly List<VehicleDefinition> candidateDefinitions = new();
+    private readonly List<Factory> enemyFactories = new();
+    private readonly List<Airbase> friendlyAirbases = new();
     private readonly Dictionary<Unit, float> lastScatterTimes = new();
 
     private float nextAdaptiveCheckTime;
+    private float nextCacheRefreshTime;
+    private bool cachedSceneObjects;
 
     internal static CommanderSmartAiService? Instance { get; private set; }
 
@@ -38,9 +40,16 @@ internal sealed class CommanderSmartAiService
             return;
         }
 
-        if (Time.unscaledTime >= nextAdaptiveCheckTime)
+        float now = Time.unscaledTime;
+        if (!cachedSceneObjects || now >= nextCacheRefreshTime)
         {
-            nextAdaptiveCheckTime = Time.unscaledTime + AdaptiveCheckInterval;
+            nextCacheRefreshTime = now + 60f;
+            RefreshSceneCache();
+        }
+
+        if (now >= nextAdaptiveCheckTime)
+        {
+            nextAdaptiveCheckTime = now + AdaptiveCheckInterval;
 
             if (CommanderSettings.AiAdaptiveProduction)
             {
@@ -61,17 +70,46 @@ internal sealed class CommanderSmartAiService
         PruneDeadReferences();
     }
 
-    private void TryAutoDeployAirReserve()
+    private void RefreshSceneCache()
     {
+        cachedSceneObjects = true;
+        enemyFactories.Clear();
+        friendlyAirbases.Clear();
+
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
-        CommanderFactionVehicleService? factionSvc = CommanderFactionVehicleService.Instance;
-        if (localHq == null || factionSvc == null)
+        if (localHq == null)
         {
             return;
         }
 
+        Factory[] allFactories = UnityEngine.Object.FindObjectsOfType<Factory>();
+        for (int i = 0; i < allFactories.Length; i++)
+        {
+            Factory f = allFactories[i];
+            if (f != null && f.attachedUnit != null && !f.attachedUnit.disabled && f.attachedUnit.NetworkHQ != localHq)
+            {
+                enemyFactories.Add(f);
+            }
+        }
+
         IEnumerable<Airbase> ownedAirbases = localHq.GetAirbases();
-        if (ownedAirbases == null)
+        if (ownedAirbases != null)
+        {
+            foreach (Airbase ab in ownedAirbases)
+            {
+                if (ab != null && !ab.disabled)
+                {
+                    friendlyAirbases.Add(ab);
+                }
+            }
+        }
+    }
+
+    private void TryAutoDeployAirReserve()
+    {
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        CommanderFactionVehicleService? factionSvc = CommanderFactionVehicleService.Instance;
+        if (localHq == null || factionSvc == null || friendlyAirbases.Count == 0)
         {
             return;
         }
@@ -85,8 +123,9 @@ internal sealed class CommanderSmartAiService
                 continue;
             }
 
-            foreach (Airbase airbase in ownedAirbases)
+            for (int a = 0; a < friendlyAirbases.Count; a++)
             {
+                Airbase airbase = friendlyAirbases[a];
                 if (airbase != null && !airbase.disabled && airbase.CanSpawnAircraft(def))
                 {
                     int liveryIndex = def.aircraftParameters != null
@@ -189,23 +228,8 @@ internal sealed class CommanderSmartAiService
     private void EvaluateAndAdjustAiProduction()
     {
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
-        if (localHq == null)
-        {
-            return;
-        }
-
-        factoryBuffer.Clear();
-        Factory[] allFactories = UnityEngine.Object.FindObjectsOfType<Factory>();
-        for (int i = 0; i < allFactories.Length; i++)
-        {
-            Factory f = allFactories[i];
-            if (f != null && f.attachedUnit != null && !f.attachedUnit.disabled && f.attachedUnit.NetworkHQ != localHq)
-            {
-                factoryBuffer.Add(f);
-            }
-        }
-
-        if (factoryBuffer.Count == 0)
+        CommanderFactionVehicleService? factionSvc = CommanderFactionVehicleService.Instance;
+        if (localHq == null || factionSvc == null || enemyFactories.Count == 0)
         {
             return;
         }
@@ -245,13 +269,11 @@ internal sealed class CommanderSmartAiService
             targetCategory = "Tank";
         }
 
-        candidateDefinitions.Clear();
-        CommanderGameAccess.TryGetLocalVehicleDefinitions(candidateDefinitions);
-
+        IReadOnlyList<VehicleDefinition> landDefs = factionSvc.LandDefinitions;
         VehicleDefinition? bestCounterDef = null;
-        for (int i = 0; i < candidateDefinitions.Count; i++)
+        for (int i = 0; i < landDefs.Count; i++)
         {
-            VehicleDefinition def = candidateDefinitions[i];
+            VehicleDefinition def = landDefs[i];
             string cat = CommanderGameAccess.GetVehicleCategoryLabel(def);
             if (string.Equals(cat, targetCategory, StringComparison.OrdinalIgnoreCase))
             {
@@ -265,10 +287,10 @@ internal sealed class CommanderSmartAiService
             return;
         }
 
-        for (int i = 0; i < factoryBuffer.Count; i++)
+        for (int i = 0; i < enemyFactories.Count; i++)
         {
-            Factory factory = factoryBuffer[i];
-            if (factory != null && factory.ProductionUnit != bestCounterDef)
+            Factory factory = enemyFactories[i];
+            if (factory != null && !factory.attachedUnit.disabled && factory.ProductionUnit != bestCounterDef)
             {
                 try
                 {
@@ -369,9 +391,11 @@ internal sealed class CommanderSmartAiService
 
     internal void ResetSession()
     {
-        factoryBuffer.Clear();
-        candidateDefinitions.Clear();
+        enemyFactories.Clear();
+        friendlyAirbases.Clear();
         lastScatterTimes.Clear();
+        cachedSceneObjects = false;
         nextAdaptiveCheckTime = 0f;
+        nextCacheRefreshTime = 0f;
     }
 }
