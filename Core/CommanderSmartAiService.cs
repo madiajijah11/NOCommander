@@ -11,7 +11,7 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderSmartAiService
 {
-    private const float AdaptiveCheckInterval = 10f;
+    private const float AdaptiveCheckInterval = 20f;
     private const float ScatterCooldownSeconds = 10f;
 
     private static readonly MethodInfo? FactoryProductionSetter =
