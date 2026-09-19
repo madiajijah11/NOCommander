@@ -16,6 +16,7 @@ internal sealed class CommanderOverlayUi
     private const int SettingsWindowId = 0x434F4D53;
     private const int CheatWindowId = 0x434F4D43;
     private const int OobWindowId = 0x434F4D4F;
+    private const int MoneyWindowId = 0x434F4D24;
 
     private readonly CommanderSelectionService selectionService;
     private readonly CommanderMoveService moveService;
@@ -195,10 +196,10 @@ internal sealed class CommanderOverlayUi
         }
         float centerY = CommanderUiScale.Height * 0.5f;
         launcherRect = new Rect(10f, centerY - 42f, 52f, 84f);
-        moneyRect = new Rect((CommanderUiScale.Width - 250f) * 0.5f, 10f, 250f, 38f);
 
         if (!positionsInitialized)
         {
+            moneyRect = new Rect(74f, 14f, 220f, 32f);
             float panelHeight = Mathf.Min(760f, CommanderUiScale.Height - 24f);
             panelRect = new Rect(74f, Mathf.Max(12f, centerY - panelHeight * 0.5f), 400f, panelHeight);
             float reserveWidth = Mathf.Min(590f, CommanderUiScale.Width - 24f);
@@ -252,7 +253,10 @@ internal sealed class CommanderOverlayUi
             cheatWindowRect.height = Mathf.Min(700f, CommanderUiScale.Height - 24f);
             oobWindowRect.width = Mathf.Min(660f, CommanderUiScale.Width - 24f);
             oobWindowRect.height = Mathf.Min(620f, CommanderUiScale.Height - 24f);
+            moneyRect.width = 220f;
+            moneyRect.height = 32f;
         }
+        moneyRect = CommanderUiTheme.ClampWindow(moneyRect, 6f);
         panelRect = CommanderUiTheme.ClampWindow(panelRect);
         reserveWindowRect = CommanderUiTheme.ClampWindow(reserveWindowRect);
         pinnedWindowRect = CommanderUiTheme.ClampWindow(pinnedWindowRect);
@@ -360,7 +364,7 @@ internal sealed class CommanderOverlayUi
 
         if (advanced && showFactionMoney)
         {
-            GUI.Box(moneyRect, $"FACTION FUNDS   {spawnService.GetFactionFundsLabel()}", CommanderUiTheme.Money);
+            moneyRect = GUI.Window(MoneyWindowId, moneyRect, DrawMoneyWindow, string.Empty, CommanderUiTheme.Panel);
         }
 
         if (panelVisible)
@@ -506,13 +510,15 @@ internal sealed class CommanderOverlayUi
 
     private void DrawPanelWindow(int windowId)
     {
+        CommanderUiTheme.DrawHeaderStripe(new Rect(0f, 0f, panelRect.width, panelRect.height));
+        CommanderUiTheme.DrawMutedFrame(new Rect(0f, 0f, panelRect.width, panelRect.height));
         if (CommanderUiTheme.DrawHelpButton(panelRect.width, ref panelHelpVisible))
         {
             CommanderUiTheme.DrawHelpOverlay(
                 new Rect(12f, 34f, panelRect.width - 24f, 92f),
                 "LMB selects; Shift+LMB adds; empty LMB clears. RMB orders friendly ground units and ships. Commander camera controls are configured under Settings > Controls. M opens the fullscreen map.");
         }
-        if (GUI.Button(new Rect(panelRect.width - 34f, 3f, 26f, 22f), "X", CommanderUiTheme.Button))
+        if (CommanderUiTheme.DrawCloseButton(panelRect.width))
         {
             panelVisible = false;
         }
@@ -666,6 +672,8 @@ internal sealed class CommanderOverlayUi
 
     private void DrawSettingsWindow(int windowId)
     {
+        CommanderUiTheme.DrawHeaderStripe(new Rect(0f, 0f, settingsWindowRect.width, settingsWindowRect.height));
+        CommanderUiTheme.DrawMutedFrame(new Rect(0f, 0f, settingsWindowRect.width, settingsWindowRect.height));
         CaptureBindingInput();
         if (CommanderUiTheme.DrawHelpButton(settingsWindowRect.width, ref settingsHelpVisible))
         {
@@ -673,7 +681,7 @@ internal sealed class CommanderOverlayUi
                 new Rect(12f, 34f, settingsWindowRect.width - 24f, 74f),
                 "Settings are saved in the BepInEx configuration. Commander camera bindings are read only while Commander mode is active and do not alter aircraft controls.");
         }
-        if (GUI.Button(new Rect(settingsWindowRect.width - 34f, 3f, 26f, 22f), "X", CommanderUiTheme.Button))
+        if (CommanderUiTheme.DrawCloseButton(settingsWindowRect.width))
         {
             settingsVisible = false;
             bindingCapture = null;
@@ -854,6 +862,8 @@ internal sealed class CommanderOverlayUi
 
     private void DrawCheatWindow(int windowId)
     {
+        CommanderUiTheme.DrawHeaderStripe(new Rect(0f, 0f, cheatWindowRect.width, cheatWindowRect.height));
+        CommanderUiTheme.DrawMutedFrame(new Rect(0f, 0f, cheatWindowRect.width, cheatWindowRect.height));
         CommanderCheatService? cheats = CommanderCheatService.Instance;
         if (CommanderUiTheme.DrawHelpButton(cheatWindowRect.width, ref cheatHelpVisible))
         {
@@ -861,7 +871,7 @@ internal sealed class CommanderOverlayUi
                 new Rect(12f, 34f, cheatWindowRect.width - 24f, 84f),
                 "SANDBOX & CHEAT MENU | Spawn any vehicle, warship, aircraft, or building directly in the 3D world. Manage economy, enable God Mode, repair/restock selection, or reveal all enemy radar positions.");
         }
-        if (GUI.Button(new Rect(cheatWindowRect.width - 34f, 3f, 26f, 22f), "X", CommanderUiTheme.DangerButton))
+        if (CommanderUiTheme.DrawCloseButton(cheatWindowRect.width))
         {
             cheatWindowVisible = false;
             cheats?.CancelPlacement();
@@ -942,9 +952,7 @@ internal sealed class CommanderOverlayUi
                     Rect row = new(4f, 3f + i * 46f, inner.width - 8f, 42f);
                     GUI.Box(row, string.Empty, CommanderUiTheme.Panel);
 
-                    string typeStr = def.unitPrefab.GetComponent<Building>() != null ? "BUILDING" :
-                                     def.unitPrefab.GetComponent<Aircraft>() != null ? "AIRCRAFT" :
-                                     def.unitPrefab.GetComponent<Ship>() != null ? "WARSHIP" : "VEHICLE";
+                    string typeStr = CommanderCheatService.GetCategoryLabel(def);
 
                     GUI.Label(new Rect(row.x + 10f, row.y + 3f, row.width - 170f, 20f), def.unitName, CommanderUiTheme.Label);
                     GUI.Label(new Rect(row.x + 10f, row.y + 21f, row.width - 170f, 18f), "TYPE: " + typeStr, CommanderUiTheme.MutedLabel);
@@ -1320,15 +1328,24 @@ internal sealed class CommanderOverlayUi
         GUI.enabled = oldEnabled;
     }
 
+    private void DrawMoneyWindow(int windowId)
+    {
+        GUI.Label(new Rect(0f, 0f, moneyRect.width, moneyRect.height), $"FUNDS:  {spawnService.GetFactionFundsLabel()}", CommanderUiTheme.Money);
+        CommanderUiTheme.DrawFrame(new Rect(0f, 0f, moneyRect.width, moneyRect.height), 1f);
+        GUI.DragWindow(new Rect(0f, 0f, moneyRect.width, moneyRect.height));
+    }
+
     private void DrawOobWindow(int windowId)
     {
+        CommanderUiTheme.DrawHeaderStripe(new Rect(0f, 0f, oobWindowRect.width, oobWindowRect.height));
+        CommanderUiTheme.DrawMutedFrame(new Rect(0f, 0f, oobWindowRect.width, oobWindowRect.height));
         if (CommanderUiTheme.DrawHelpButton(oobWindowRect.width, ref oobHelpVisible))
         {
             CommanderUiTheme.DrawHelpOverlay(
                 new Rect(12f, 34f, oobWindowRect.width - 24f, 68f),
                 "ORDER OF BATTLE (OOB) | Real-time breakdown of all active friendly forces, naval vessels, aircraft squadrons, factories, and strategic installations.");
         }
-        if (GUI.Button(new Rect(oobWindowRect.width - 34f, 3f, 26f, 22f), "X", CommanderUiTheme.DangerButton))
+        if (CommanderUiTheme.DrawCloseButton(oobWindowRect.width))
         {
             oobWindowVisible = false;
             return;
@@ -2004,13 +2021,15 @@ internal sealed class CommanderOverlayUi
 
     private void DrawReserveWindow(int windowId)
     {
+        CommanderUiTheme.DrawHeaderStripe(new Rect(0f, 0f, reserveWindowRect.width, reserveWindowRect.height));
+        CommanderUiTheme.DrawMutedFrame(new Rect(0f, 0f, reserveWindowRect.width, reserveWindowRect.height));
         if (CommanderUiTheme.DrawHelpButton(reserveWindowRect.width, ref reserveHelpVisible))
         {
             CommanderUiTheme.DrawHelpOverlay(
                 new Rect(12f, 34f, reserveWindowRect.width - 24f, 84f),
                 "FACTION RESERVE | Manage reserve stockpiles across LAND, AIR, and NAVAL branches. Multipliers (x1, x5, x10, MAX) apply to +BUY, SELL, and DEPLOY actions. HOLD intercepts automatic deployment so units stay in reserve for manual command.");
         }
-        if (GUI.Button(new Rect(reserveWindowRect.width - 34f, 3f, 26f, 22f), "X", CommanderUiTheme.DangerButton))
+        if (CommanderUiTheme.DrawCloseButton(reserveWindowRect.width))
         {
             reserveWindowVisible = false;
             return;

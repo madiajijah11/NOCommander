@@ -8,6 +8,15 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderCheatService
 {
+    internal enum EntityCategory
+    {
+        All = 0,
+        Building = 1,
+        Land = 2,
+        Air = 3,
+        Naval = 4
+    }
+
     private readonly CommanderSelectionService selectionService;
     private readonly List<UnitDefinition> allDefinitions = new();
     private readonly List<UnitDefinition> filteredDefinitions = new();
@@ -43,6 +52,74 @@ internal sealed class CommanderCheatService
         Instance = this;
     }
 
+    internal static EntityCategory ResolveCategory(UnitDefinition def)
+    {
+        if (def == null || def.unitPrefab == null)
+        {
+            return EntityCategory.Building;
+        }
+
+        // 1. Check strong definition types first
+        if (def is AircraftDefinition)
+        {
+            return EntityCategory.Air;
+        }
+        if (def is ShipDefinition)
+        {
+            return EntityCategory.Naval;
+        }
+
+        // 2. Check components on prefab (both root & children)
+        if (def.unitPrefab.GetComponentInChildren<Aircraft>(true) != null)
+        {
+            return EntityCategory.Air;
+        }
+        if (def.unitPrefab.GetComponentInChildren<Ship>(true) != null)
+        {
+            return EntityCategory.Naval;
+        }
+        if (def is VehicleDefinition || def.unitPrefab.GetComponentInChildren<GroundVehicle>(true) != null)
+        {
+            return EntityCategory.Land;
+        }
+
+        // 3. Name-based heuristics for edge cases
+        string name = !string.IsNullOrEmpty(def.unitName) ? def.unitName.ToLowerInvariant() : string.Empty;
+        string prefabName = def.unitPrefab.name != null ? def.unitPrefab.name.ToLowerInvariant() : string.Empty;
+
+        if (name.Contains("ship") || name.Contains("corvette") || name.Contains("destroyer") || name.Contains("frigate") || name.Contains("carrier") || name.Contains("barge")
+            || prefabName.Contains("ship") || prefabName.Contains("corvette") || prefabName.Contains("destroyer") || prefabName.Contains("frigate") || prefabName.Contains("carrier"))
+        {
+            return EntityCategory.Naval;
+        }
+
+        if (name.Contains("plane") || name.Contains("jet") || name.Contains("heli") || name.Contains("aircraft") || name.Contains("drone") || name.Contains("gunship")
+            || prefabName.Contains("plane") || prefabName.Contains("jet") || prefabName.Contains("heli") || prefabName.Contains("aircraft") || prefabName.Contains("drone"))
+        {
+            return EntityCategory.Air;
+        }
+
+        if (name.Contains("tank") || name.Contains("truck") || name.Contains("tractor") || name.Contains("vehicle") || name.Contains("car") || name.Contains("ifv") || name.Contains("apc") || name.Contains("trailer") || name.Contains("jacknife") || name.Contains("spaag")
+            || prefabName.Contains("tank") || prefabName.Contains("truck") || prefabName.Contains("tractor") || prefabName.Contains("vehicle") || prefabName.Contains("car") || prefabName.Contains("ifv") || prefabName.Contains("apc") || prefabName.Contains("trailer") || prefabName.Contains("jacknife"))
+        {
+            return EntityCategory.Land;
+        }
+
+        // 4. Everything else is building / structure / installation
+        return EntityCategory.Building;
+    }
+
+    internal static string GetCategoryLabel(UnitDefinition def)
+    {
+        return ResolveCategory(def) switch
+        {
+            EntityCategory.Air => "AIRCRAFT",
+            EntityCategory.Naval => "WARSHIP",
+            EntityCategory.Land => "LAND VEHICLE",
+            _ => "BUILDING"
+        };
+    }
+
     internal void EnsureCatalogLoaded()
     {
         if (catalogInitialized && allDefinitions.Count > 0)
@@ -74,22 +151,23 @@ internal sealed class CommanderCheatService
 
             allDefinitions.Add(def);
 
-            // Categorize
-            if (def.unitPrefab.GetComponent<Aircraft>() != null)
+            // Categorize accurately
+            EntityCategory cat = ResolveCategory(def);
+            switch (cat)
             {
-                airDefinitions.Add(def);
-            }
-            else if (def.unitPrefab.GetComponent<Ship>() != null)
-            {
-                navalDefinitions.Add(def);
-            }
-            else if (def.unitPrefab.GetComponent<GroundVehicle>() != null)
-            {
-                landDefinitions.Add(def);
-            }
-            else
-            {
-                buildingDefinitions.Add(def);
+                case EntityCategory.Air:
+                    airDefinitions.Add(def);
+                    break;
+                case EntityCategory.Naval:
+                    navalDefinitions.Add(def);
+                    break;
+                case EntityCategory.Land:
+                    landDefinitions.Add(def);
+                    break;
+                case EntityCategory.Building:
+                default:
+                    buildingDefinitions.Add(def);
+                    break;
             }
         }
 
@@ -184,7 +262,7 @@ internal sealed class CommanderCheatService
         }
 
         UnitDefinition def = pendingSpawnDefinition;
-        bool isShip = def.unitPrefab.GetComponent<Ship>() != null;
+        bool isShip = ResolveCategory(def) == EntityCategory.Naval;
 
         GlobalPosition targetPos;
         if (isShip)

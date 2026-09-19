@@ -189,13 +189,35 @@ internal sealed class CommanderSmartAiService
                 continue;
             }
 
-            Road road = seaLanes.roads[0];
-            if (road.points == null || road.points.Count == 0)
+            GlobalPosition spawnPoint = default;
+            float minDistance = float.MaxValue;
+            Vector3 friendlyAnchor = localHq.transform.position;
+            if (friendlyAirbases.Count > 0)
+            {
+                friendlyAnchor = friendlyAirbases[0].transform.position;
+            }
+
+            for (int r = 0; r < seaLanes.roads.Count; r++)
+            {
+                Road road = seaLanes.roads[r];
+                if (road?.points == null || road.points.Count == 0) continue;
+
+                for (int p = 0; p < road.points.Count; p++)
+                {
+                    float dist = Vector3.Distance(road.points[p].ToLocalPosition(), friendlyAnchor);
+                    if (dist < minDistance)
+                    {
+                        minDistance = dist;
+                        spawnPoint = road.points[p];
+                    }
+                }
+            }
+
+            if (minDistance == float.MaxValue)
             {
                 continue;
             }
 
-            GlobalPosition spawnPoint = road.points[0];
             Vector3 localPos = spawnPoint.ToLocalPosition();
             localPos.y = Datum.LocalSeaY + def.spawnOffset.y;
             GlobalPosition spawnPos = localPos.ToGlobalPosition();

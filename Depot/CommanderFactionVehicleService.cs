@@ -241,8 +241,9 @@ internal sealed class CommanderFactionVehicleService
 
     internal bool ShouldBlockAutomaticDeployment(VehicleDepot depot, VehicleDefinition definition)
     {
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
         FactionHQ? deploymentHq = AutomaticDeploymentHq;
-        if (deploymentHq == null || depot.NetworkHQ != deploymentHq)
+        if (deploymentHq == null || localHq == null || deploymentHq != localHq || depot.NetworkHQ != localHq)
         {
             return false;
         }
