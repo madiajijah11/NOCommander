@@ -35,12 +35,15 @@ internal sealed class CommanderAlertService
             return;
         }
 
+        // Only alert on meaningful damage
+        if (info.pierceDamage.Value == 0 && info.blastDamage.Value == 0 && info.fireDamage.Value == 0 && info.impactDamage.Value == 0)
+        {
+            return;
+        }
+
         Instance.LastIncidentUnit = unit;
         Instance.LastIncidentPosition = unit.transform.position;
         Instance.LastIncidentTime = Time.unscaledTime;
-
-        // Trigger AI reactive evasion scatter if vehicle is taking explosive splash damage
-        CommanderSmartAiService.Instance?.TryTriggerAiScatter(unit, unit.transform.position, 100f);
     }
 
     internal bool TryJumpToIncident(CommanderSelectionService? selectionService, CommanderTacticalMapService? tacticalMapService)
@@ -71,23 +74,77 @@ internal sealed class CommanderAlertService
     }
 }
 
-[HarmonyPatch(typeof(Unit), nameof(Unit.Damage))]
-internal static class CommanderUnitDamagePatch
+[HarmonyPatch]
+internal static class CommanderGodModeAndDamagePatches
 {
-    private static bool Prefix(Unit __instance)
+    private static bool ShouldBlockDamage(Unit? unit)
     {
-        if (CommanderCheatService.Instance?.GodModeEnabled == true
-            && __instance != null
-            && !__instance.disabled
-            && CommanderGameAccess.IsFriendlyUnit(__instance, CommanderGameAccess.GetLocalHq()))
-        {
-            return false; // Intercept and block all damage under God Mode
-        }
-        return true;
+        return CommanderCheatService.Instance?.GodModeEnabled == true
+            && unit != null
+            && !unit.disabled
+            && CommanderGameAccess.IsFriendlyUnit(unit, CommanderGameAccess.GetLocalHq());
     }
 
-    private static void Postfix(Unit __instance, DamageInfo damageInfo)
+    [HarmonyPatch(typeof(Unit), nameof(Unit.Damage))]
+    [HarmonyPrefix]
+    private static bool UnitDamagePrefix(Unit __instance)
+    {
+        return !ShouldBlockDamage(__instance);
+    }
+
+    [HarmonyPatch(typeof(Unit), nameof(Unit.Damage))]
+    [HarmonyPostfix]
+    private static void UnitDamagePostfix(Unit __instance, DamageInfo damageInfo)
     {
         CommanderAlertService.NotifyUnitDamaged(__instance, damageInfo);
+    }
+
+    [HarmonyPatch(typeof(Unit), nameof(Unit.RpcDamage))]
+    [HarmonyPrefix]
+    private static bool UnitRpcDamagePrefix(Unit __instance)
+    {
+        return !ShouldBlockDamage(__instance);
+    }
+
+    [HarmonyPatch(typeof(UnitPart), nameof(UnitPart.TakeDamage))]
+    [HarmonyPrefix]
+    private static bool UnitPartTakeDamagePrefix(UnitPart __instance)
+    {
+        return !ShouldBlockDamage(__instance.parentUnit ?? __instance.GetComponentInParent<Unit>());
+    }
+
+    [HarmonyPatch(typeof(UnitPart), nameof(UnitPart.ApplyDamage))]
+    [HarmonyPrefix]
+    private static bool UnitPartApplyDamagePrefix(UnitPart __instance)
+    {
+        return !ShouldBlockDamage(__instance.parentUnit ?? __instance.GetComponentInParent<Unit>());
+    }
+
+    [HarmonyPatch(typeof(UnitPart), nameof(UnitPart.TakeShockwave))]
+    [HarmonyPrefix]
+    private static bool UnitPartTakeShockwavePrefix(UnitPart __instance)
+    {
+        return !ShouldBlockDamage(__instance.parentUnit ?? __instance.GetComponentInParent<Unit>());
+    }
+
+    [HarmonyPatch(typeof(AeroPart), nameof(AeroPart.ApplyDamage))]
+    [HarmonyPrefix]
+    private static bool AeroPartApplyDamagePrefix(AeroPart __instance)
+    {
+        return !ShouldBlockDamage(__instance.parentUnit ?? __instance.GetComponentInParent<Unit>());
+    }
+
+    [HarmonyPatch(typeof(AeroPart), nameof(AeroPart.TakeShockwave))]
+    [HarmonyPrefix]
+    private static bool AeroPartTakeShockwavePrefix(AeroPart __instance)
+    {
+        return !ShouldBlockDamage(__instance.parentUnit ?? __instance.GetComponentInParent<Unit>());
+    }
+
+    [HarmonyPatch(typeof(ShipPart), nameof(ShipPart.ApplyDamage))]
+    [HarmonyPrefix]
+    private static bool ShipPartApplyDamagePrefix(ShipPart __instance)
+    {
+        return !ShouldBlockDamage(__instance.parentUnit ?? __instance.GetComponentInParent<Unit>());
     }
 }

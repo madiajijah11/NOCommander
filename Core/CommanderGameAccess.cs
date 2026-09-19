@@ -58,8 +58,13 @@ internal static class CommanderGameAccess
             return false;
         }
 
-        FactionHQ? unitHq = unit.NetworkHQ;
-        return ReferenceEquals(unitHq, localHq) || ReferenceEquals(unit.MapHQ, localHq);
+        FactionHQ? unitHq = unit.NetworkHQ ?? unit.MapHQ;
+        if (unitHq == null)
+        {
+            return false;
+        }
+
+        return ReferenceEquals(unitHq, localHq) || unitHq.faction == localHq.faction;
     }
 
     internal static bool ShouldTrackUnit(Unit? unit, FactionHQ? localHq)
@@ -503,7 +508,18 @@ internal static class CommanderGameAccess
             return false;
         }
 
-        return definition.unitPrefab.GetComponent<GroundVehicle>() != null;
+        // Must not be an Aircraft or Ship
+        if (definition.unitPrefab.GetComponentInChildren<Aircraft>(true) != null)
+        {
+            return false;
+        }
+
+        if (definition.unitPrefab.GetComponentInChildren<Ship>(true) != null)
+        {
+            return false;
+        }
+
+        return definition.unitPrefab.GetComponentInChildren<GroundVehicle>(true) != null || definition is VehicleDefinition;
     }
 
     internal static bool TryGetLocalVehicleDefinitions(List<VehicleDefinition> buffer)

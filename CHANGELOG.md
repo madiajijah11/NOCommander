@@ -46,6 +46,20 @@ All notable changes to the NOCommander mod are documented in this file.
 ---
 
 ### 🔧 Bug Fixes & Engine Optimizations (Perbaikan & Stabilitas)
+- **Aircraft Carrier & Runway Safety Overhaul:**
+  - **Carrier Bow-Drop Prevention:** Automatically applies positive vertical climb assist when aircraft launch from carrier bows, preventing nose dips and ocean impacts.
+  - **Helicopter Island Clearance:** Helicopters launching from naval ships climb vertically past superstructure height before forward translation.
+  - **TailHook Auto-Deployment:** Automatically lowers the aircraft TailHook during approach to aircraft carrier airbases for reliable wire capture.
+  - **Deck Arresting Deceleration:** Automatically dampens forward roll speed upon carrier deck touchdown to prevent aircraft from overshooting into the sea.
+  - **Helicopter / Fixed-Wing RTB Routing:** Corrected RTB state routing so helicopters switch to AIHeloLandingState instead of fixed-wing AIPilotLandingState.
+  - **Touchdown Anti-Crash Cushion:** Automatically dampens excessive downward vertical speed near ground touchdown and deploys landing gear automatically.
+  - **Descent Altitude Unlocking:** Bypasses cruise altitude hold clamps during final touchdown and delivery phases.
+- **True Multi-Part God Mode:**
+  - Patched all damage pipelines (UnitPart, AeroPart, ShipPart, and Unit) strictly for friendly faction units, ensuring 100% invulnerability while enemies take full normal damage.
+- **Moveable / Draggable Faction Funds Widget:**
+  - Made the FUNDS display draggable anywhere across the screen, resolving HUD and event log overlaps.
+- **Deep Entity Categorization:**
+  - Replaced shallow GetComponent checks with deep recursive GetComponentInChildren traversal and class type validation, ensuring vehicles, aircraft, ships, and buildings are 100% accurately categorized.
 - **Dead Reference Memory Leak Fix:**
   - Implemented automatic pruning (`RemoveWhere(u => u == null || u.disabled)`) across all static and instance unit collections (`CommanderDirectPathService`, `CommanderSamSiteCoreRegistry`, `CommanderRadarService`, `CommanderRepairService`, `CommanderSelectionService`, `CommanderSmartAiService`).
 - **Physics Anti-Jitter on Slopes:**

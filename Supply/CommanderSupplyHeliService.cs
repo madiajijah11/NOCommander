@@ -1175,19 +1175,41 @@ internal sealed partial class CommanderSupplyHeliService
         {
             return;
         }
+
+        // If aircraft is in landing state or in final touchdown approach, do not force cruise altitude
+        if (Instance.assignedAutopilotAircraft.TryGetValue(autopilot, out Aircraft aircraft) && aircraft != null)
+        {
+            if (aircraft.pilots != null && aircraft.pilots.Length > 0 && aircraft.pilots[0] != null)
+            {
+                PilotBaseState currentState = aircraft.pilots[0].currentState;
+                if (currentState is AIHeloLandingState || currentState is AIPilotLandingState)
+                {
+                    return;
+                }
+            }
+
+            if (Instance.assignedMissions.TryGetValue(aircraft, out CargoMission mission))
+            {
+                if (!mission.Airdrop && FastMath.InRange(aircraft.GlobalPosition(), mission.Target, 350f))
+                {
+                    return;
+                }
+            }
+        }
+
         if (followTerrain)
         {
             altitudeHold = Mathf.Max(altitudeHold, clearance);
         }
 
-        if (!Instance.assignedAutopilotAircraft.TryGetValue(autopilot, out Aircraft aircraft)
-            || !Instance.assignedMissions.TryGetValue(aircraft, out CargoMission mission)
-            || !mission.TargetOverrideActive
-            || mission.FoundationSiteId < 0)
+        if (!Instance.assignedAutopilotAircraft.TryGetValue(autopilot, out Aircraft ac)
+            || !Instance.assignedMissions.TryGetValue(ac, out CargoMission m)
+            || !m.TargetOverrideActive
+            || m.FoundationSiteId < 0)
         {
             return;
         }
-        altitudeHold = Mathf.Max(altitudeHold, mission.SteepLanding ? 100f : 60f);
+        altitudeHold = Mathf.Max(altitudeHold, m.SteepLanding ? 100f : 60f);
     }
 
     internal static void ForceAssignedVerticalTakeoff(SwivelDuctSystem swivelDuct)

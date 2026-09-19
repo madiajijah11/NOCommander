@@ -16,7 +16,7 @@ internal sealed partial class CommanderAirCommandService
         FactionHQ hq,
         AirCommandMode mode)
     {
-        Aircraft? aircraft = definition.unitPrefab.GetComponent<Aircraft>();
+        Aircraft? aircraft = definition.unitPrefab.GetComponentInChildren<Aircraft>(true);
         HardpointSet[]? sets = aircraft?.weaponManager?.hardpointSets;
         if (sets == null || sets.Length == 0)
         {

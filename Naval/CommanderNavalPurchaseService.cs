@@ -415,7 +415,7 @@ internal sealed class CommanderNavalPurchaseService
                 if (definition != null
                     && definition.unitPrefab != null
                     && definition.IsAllowed(includeEventContent: false)
-                    && definition.unitPrefab.GetComponent<Ship>() != null)
+                    && (definition.unitPrefab.GetComponentInChildren<Ship>(true) != null || definition is ShipDefinition))
                 {
                     shipDefinitions.Add(definition);
                 }

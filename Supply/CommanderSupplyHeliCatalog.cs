@@ -14,7 +14,7 @@ internal sealed partial class CommanderSupplyHeliService
             return null;
         }
 
-        Aircraft? aircraft = definition.unitPrefab.GetComponent<Aircraft>();
+        Aircraft? aircraft = definition.unitPrefab.GetComponentInChildren<Aircraft>(true);
         if (aircraft == null || aircraft.weaponManager == null || !HasHeloPilot(aircraft))
         {
             return null;

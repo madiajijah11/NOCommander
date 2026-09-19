@@ -62,9 +62,13 @@ internal sealed class CommanderFactionVehicleService
             AircraftDefinition[] aircraft = Resources.FindObjectsOfTypeAll<AircraftDefinition>();
             for (int i = 0; i < aircraft.Length; i++)
             {
-                if (aircraft[i] != null && aircraft[i].unitPrefab != null && !airDefinitions.Contains(aircraft[i]))
+                AircraftDefinition def = aircraft[i];
+                if (def != null && def.unitPrefab != null && !airDefinitions.Contains(def))
                 {
-                    airDefinitions.Add(aircraft[i]);
+                    if (def.unitPrefab.GetComponentInChildren<Aircraft>(true) != null || def is AircraftDefinition)
+                    {
+                        airDefinitions.Add(def);
+                    }
                 }
             }
         }
@@ -74,9 +78,13 @@ internal sealed class CommanderFactionVehicleService
             ShipDefinition[] ships = Resources.FindObjectsOfTypeAll<ShipDefinition>();
             for (int i = 0; i < ships.Length; i++)
             {
-                if (ships[i] != null && ships[i].unitPrefab != null && !navalDefinitions.Contains(ships[i]))
+                ShipDefinition def = ships[i];
+                if (def != null && def.unitPrefab != null && !navalDefinitions.Contains(def))
                 {
-                    navalDefinitions.Add(ships[i]);
+                    if (def.unitPrefab.GetComponentInChildren<Ship>(true) != null || def is ShipDefinition)
+                    {
+                        navalDefinitions.Add(def);
+                    }
                 }
             }
         }

@@ -1107,7 +1107,7 @@ internal sealed partial class CommanderAirCommandService
         loadout = null!;
         score = 0f;
         StandardLoadout[] standardLoadouts = definition.aircraftParameters.StandardLoadouts;
-        Aircraft? aircraftPrefab = definition.unitPrefab.GetComponent<Aircraft>();
+        Aircraft? aircraftPrefab = definition.unitPrefab.GetComponentInChildren<Aircraft>(true);
         if (standardLoadouts == null || aircraftPrefab?.weaponManager == null)
         {
             return false;
@@ -1404,7 +1404,7 @@ internal sealed partial class CommanderAirCommandService
 
     private static bool HasPlanePilot(AircraftDefinition definition)
     {
-        Aircraft? aircraft = definition.unitPrefab.GetComponent<Aircraft>();
+        Aircraft? aircraft = definition.unitPrefab.GetComponentInChildren<Aircraft>(true);
         if (aircraft?.pilots == null)
         {
             return false;
@@ -1478,8 +1478,30 @@ internal sealed partial class CommanderAirCommandService
         {
             Pilot pilot = aircraft.pilots[i];
             if (pilot == null) continue;
-            if (pilot.AILandingState == null) pilot.AILandingState = new AIPilotLandingState();
-            pilot.SwitchState(pilot.AILandingState);
+
+            bool isHelo = aircraft.GetComponent<AutopilotHelo>() != null
+                || aircraft.GetComponent<AutopilotTiltwing>() != null
+                || pilot.AIHeloLandingState != null;
+
+            if (isHelo)
+            {
+                if (pilot.AIHeloLandingState == null) pilot.AIHeloLandingState = new AIHeloLandingState();
+                pilot.SwitchState(pilot.AIHeloLandingState);
+            }
+            else
+            {
+                if (pilot.AILandingState == null) pilot.AILandingState = new AIPilotLandingState();
+                pilot.SwitchState(pilot.AILandingState);
+            }
+
+            try
+            {
+                aircraft.SetGear(true);
+            }
+            catch
+            {
+            }
+
             mission.RtbIssued = true;
             return;
         }

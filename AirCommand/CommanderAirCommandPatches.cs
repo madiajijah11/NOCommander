@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
+using UnityEngine;
 
 namespace NuclearOptionCommander;
 
@@ -11,6 +13,10 @@ internal static class CommanderAirCommandPatches
     private static readonly FieldInfo? DestinationField = AccessTools.Field(typeof(PilotBaseState), "destination");
     private static readonly FieldInfo? TimeWithoutTargetField = AccessTools.Field(typeof(AIPilotCombatModes), "timeWithoutTarget");
     private static readonly FieldInfo? TargetHeightField = AccessTools.Field(typeof(AIPilotCombatModes), "targetHeight");
+    private static readonly FieldInfo? TakeoffAirbaseField = AccessTools.Field(typeof(AIPilotTakeoffState), "airbase");
+    private static readonly FieldInfo? LandingAirbaseField = AccessTools.Field(typeof(AIPilotLandingState), "airbase");
+    private static readonly FieldInfo? AirbaseAttachedUnitField = AccessTools.Field(typeof(Airbase), "attachedUnit");
+    private static readonly FieldInfo? TailHookDeployedField = AccessTools.Field(typeof(TailHook), "deployed");
 
     [HarmonyPatch(typeof(CombatAI), nameof(CombatAI.ChooseHQTarget))]
     [HarmonyPrefix]
@@ -97,4 +103,170 @@ internal static class CommanderAirCommandPatches
         return StateAircraftField?.GetValue(state) as Aircraft;
     }
 
+    private static bool IsCarrierAirbase(Airbase? airbase)
+    {
+        if (airbase == null) return false;
+        Unit? attached = AirbaseAttachedUnitField?.GetValue(airbase) as Unit;
+        return attached is Ship || airbase.GetComponentInParent<Ship>() != null;
+    }
+
+    // ==========================================
+    // 🌟 CARRIER & RUNWAY TAKEOFF SAFETY SYSTEM
+    // ==========================================
+
+    [HarmonyPatch(typeof(AIPilotTakeoffState), nameof(AIPilotTakeoffState.FixedUpdateState))]
+    [HarmonyPrefix]
+    private static void PilotTakeoffFixedUpdatePrefix(AIPilotTakeoffState __instance)
+    {
+        Aircraft? aircraft = StateAircraftField?.GetValue(__instance) as Aircraft;
+        if (aircraft == null || aircraft.disabled || aircraft.rb == null)
+        {
+            return;
+        }
+
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null || !CommanderGameAccess.IsFriendlyUnit(aircraft, localHq))
+        {
+            return;
+        }
+
+        Airbase? airbase = TakeoffAirbaseField?.GetValue(__instance) as Airbase;
+        bool isCarrier = IsCarrierAirbase(airbase);
+
+        // Carrier bow drop prevention (aircraft leaving short carrier deck over water)
+        if (isCarrier || (aircraft.transform.position.y < Datum.LocalSeaY + 35f && aircraft.speed > 30f))
+        {
+            if (aircraft.radarAlt < 18f && aircraft.radarAlt > 1f)
+            {
+                Vector3 vel = aircraft.rb.velocity;
+                if (vel.y < 3.0f)
+                {
+                    aircraft.rb.velocity = new Vector3(vel.x, Mathf.Max(vel.y, 4.5f), vel.z);
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(AIHeloTakeoffState), nameof(AIHeloTakeoffState.FixedUpdateState))]
+    [HarmonyPrefix]
+    private static void HeloTakeoffFixedUpdatePrefix(AIHeloTakeoffState __instance)
+    {
+        Aircraft? aircraft = StateAircraftField?.GetValue(__instance) as Aircraft;
+        if (aircraft == null || aircraft.disabled || aircraft.rb == null)
+        {
+            return;
+        }
+
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null || !CommanderGameAccess.IsFriendlyUnit(aircraft, localHq))
+        {
+            return;
+        }
+
+        // Helo takeoff climb assist to clear carrier island / ship superstructure
+        if (aircraft.radarAlt < 22f && aircraft.radarAlt > 0.5f)
+        {
+            Vector3 vel = aircraft.rb.velocity;
+            if (vel.y < 2.0f)
+            {
+                aircraft.rb.velocity = new Vector3(vel.x, Mathf.Max(vel.y, 3.0f), vel.z);
+            }
+        }
+    }
+
+    // ==========================================
+    // 🌟 CARRIER & RUNWAY LANDING SAFETY SYSTEM
+    // ==========================================
+
+    [HarmonyPatch(typeof(AIPilotLandingState), nameof(AIPilotLandingState.FixedUpdateState))]
+    [HarmonyPrefix]
+    private static void PilotLandingFixedUpdatePrefix(AIPilotLandingState __instance)
+    {
+        Aircraft? aircraft = StateAircraftField?.GetValue(__instance) as Aircraft;
+        if (aircraft == null || aircraft.disabled || aircraft.rb == null)
+        {
+            return;
+        }
+
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null || !CommanderGameAccess.IsFriendlyUnit(aircraft, localHq))
+        {
+            return;
+        }
+
+        Airbase? airbase = LandingAirbaseField?.GetValue(__instance) as Airbase;
+        bool isCarrier = IsCarrierAirbase(airbase);
+
+        // 1. Ensure landing gear is deployed on approach
+        if (!aircraft.gearDeployed)
+        {
+            aircraft.SetGear(true);
+        }
+
+        // 2. Deploy TailHook for carrier landings
+        if (isCarrier)
+        {
+            TailHook? hook = aircraft.GetComponentInChildren<TailHook>(true);
+            if (hook != null)
+            {
+                TailHookDeployedField?.SetValue(hook, true);
+            }
+        }
+
+        // 3. Anti-crash touchdown cushion
+        if (aircraft.radarAlt < 8f && aircraft.radarAlt > 0.1f)
+        {
+            Vector3 vel = aircraft.rb.velocity;
+            if (vel.y < -3.0f)
+            {
+                aircraft.rb.velocity = new Vector3(vel.x, -2.0f, vel.z);
+            }
+
+            // Gently dampen angular wobble near touchdown to prevent wingtip strike
+            Vector3 angVel = aircraft.rb.angularVelocity;
+            aircraft.rb.angularVelocity = new Vector3(angVel.x * 0.9f, angVel.y * 0.9f, angVel.z * 0.8f);
+
+            // Carrier deck arresting deceleration: prevent rolling off the bow into water
+            if (isCarrier && aircraft.speed > 5f)
+            {
+                aircraft.rb.velocity = new Vector3(vel.x * 0.92f, vel.y, vel.z * 0.92f);
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(AIHeloLandingState), nameof(AIHeloLandingState.FixedUpdateState))]
+    [HarmonyPrefix]
+    private static void HeloLandingFixedUpdatePrefix(AIHeloLandingState __instance)
+    {
+        Aircraft? aircraft = StateAircraftField?.GetValue(__instance) as Aircraft;
+        if (aircraft == null || aircraft.disabled || aircraft.rb == null)
+        {
+            return;
+        }
+
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null || !CommanderGameAccess.IsFriendlyUnit(aircraft, localHq))
+        {
+            return;
+        }
+
+        // 1. Ensure landing gear is deployed
+        if (!aircraft.gearDeployed)
+        {
+            aircraft.SetGear(true);
+        }
+
+        // 2. Soft touchdown cushion for helicopters
+        if (aircraft.radarAlt < 6f && aircraft.radarAlt > 0.1f)
+        {
+            Vector3 vel = aircraft.rb.velocity;
+            if (vel.y < -2.5f)
+            {
+                aircraft.rb.velocity = new Vector3(vel.x, -1.5f, vel.z);
+            }
+
+            Vector3 angVel = aircraft.rb.angularVelocity;
+            aircraft.rb.angularVelocity = new Vector3(angVel.x * 0.85f, angVel.y * 0.85f, angVel.z * 0.85f);
+        }
+    }
 }
