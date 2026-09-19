@@ -184,8 +184,8 @@ internal sealed class CommanderInputController
             stanceService?.ToggleHoldFireForSelection();
         }
 
-        // F2 key: Select All Combat Army
-        if (Input.GetKeyDown(KeyCode.F2))
+        // Select All Combat Army (default key ~ / BackQuote, configurable)
+        if (CommanderShortcutInput.IsDown(CommanderSettings.SelectAllArmy))
         {
             controlGroupsService?.SelectAllArmy(combatOnly: true);
         }
@@ -207,6 +207,44 @@ internal sealed class CommanderInputController
             {
                 moveService.BeginPatrolOrder();
             }
+        }
+
+        // G key: Guard / Escort Order Toggle
+        if (CommanderShortcutInput.IsDown(CommanderSettings.GuardOrder))
+        {
+            if (moveService.AwaitingGuardSelection)
+            {
+                moveService.CancelGuardOrder();
+            }
+            else
+            {
+                moveService.BeginGuardOrder();
+            }
+        }
+
+        // B key: Artillery / Barrage Order Toggle
+        if (CommanderShortcutInput.IsDown(CommanderSettings.ArtilleryBarrage))
+        {
+            if (moveService.AwaitingBarrageSelection)
+            {
+                moveService.CancelBarrageOrder();
+            }
+            else
+            {
+                moveService.BeginBarrageOrder();
+            }
+        }
+
+        // V key: Cycle Formations (Ring, Line, Column, Wedge, Box, Echelon)
+        if (CommanderShortcutInput.IsDown(CommanderSettings.ToggleFormation))
+        {
+            moveService.CycleFormation();
+        }
+
+        // Ctrl + R: Global EMCON / Radar Silence Toggle
+        if (CommanderShortcutInput.IsDown(CommanderSettings.GlobalRadarSilence))
+        {
+            CommanderRadarService.Instance?.ToggleGlobalEmcon();
         }
 
         // Control Groups (0-9)

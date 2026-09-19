@@ -39,6 +39,11 @@ internal static class CommanderSettings
     internal static KeyboardShortcut CameraCenterFollow { get => GetShortcut("CameraCenterFollow", KeyCode.Space, "Tap to center; hold to center and follow."); set => Set("Keybinds", "CameraCenterFollow", value); }
     internal static KeyboardShortcut ToggleHoldFire { get => GetShortcut("ToggleHoldFire", KeyCode.F, "Toggle Hold Fire / Free Fire for selected units."); set => Set("Keybinds", "ToggleHoldFire", value); }
     internal static KeyboardShortcut ToggleUi { get => GetShortcut("ToggleUi", KeyCode.H, "Cycle visible, Commander UI hidden, and all UI hidden."); set => Set("Keybinds", "ToggleUi", value); }
+    internal static KeyboardShortcut SelectAllArmy { get => GetShortcut("SelectAllArmy", KeyCode.BackQuote, "Select all friendly combat army."); set => Set("Keybinds", "SelectAllArmy", value); }
+    internal static KeyboardShortcut ToggleFormation { get => GetShortcut("ToggleFormation", KeyCode.V, "Cycle unit formation shape (Ring, Line, Column, Wedge, Box)."); set => Set("Keybinds", "ToggleFormation", value); }
+    internal static KeyboardShortcut GuardOrder { get => GetShortcut("GuardOrder", KeyCode.G, "Order selected units to guard/escort target unit."); set => Set("Keybinds", "GuardOrder", value); }
+    internal static KeyboardShortcut ArtilleryBarrage { get => GetShortcut("ArtilleryBarrage", KeyCode.B, "Call in artillery/MRLS barrage on target area."); set => Set("Keybinds", "ArtilleryBarrage", value); }
+    internal static KeyboardShortcut GlobalRadarSilence { get => GetShortcut("GlobalRadarSilence", KeyCode.R, new[] { KeyCode.LeftControl }, "Toggle global EMCON / radar silence across all friendly units."); set => Set("Keybinds", "GlobalRadarSilence", value); }
     internal static KeyboardShortcut CameraForward { get => GetShortcut("CameraForward", KeyCode.W, "Move the Commander camera forward."); set => Set("Keybinds", "CameraForward", value); }
     internal static KeyboardShortcut CameraBackward { get => GetShortcut("CameraBackward", KeyCode.S, "Move the Commander camera backward."); set => Set("Keybinds", "CameraBackward", value); }
     internal static KeyboardShortcut CameraLeft { get => GetShortcut("CameraLeft", KeyCode.A, "Move the Commander camera left."); set => Set("Keybinds", "CameraLeft", value); }
@@ -92,7 +97,12 @@ internal static class CommanderSettings
 
     private static KeyboardShortcut GetShortcut(string key, KeyCode defaultKey, string description)
     {
-        if (config == null) return new KeyboardShortcut(defaultKey);
+        return GetShortcut(key, defaultKey, new KeyCode[0], description);
+    }
+
+    private static KeyboardShortcut GetShortcut(string key, KeyCode defaultKey, KeyCode[] modifiers, string description)
+    {
+        if (config == null) return new KeyboardShortcut(defaultKey, modifiers);
         string lookup = "Keybinds/" + key;
         if (entries.TryGetValue(lookup, out ConfigEntryBase existing))
         {
@@ -102,7 +112,7 @@ internal static class CommanderSettings
         ConfigEntry<KeyboardShortcut> created = config.Bind(
             "Keybinds",
             key,
-            new KeyboardShortcut(defaultKey),
+            new KeyboardShortcut(defaultKey, modifiers),
             new ConfigDescription(description + " Set the main key to None to disable it."));
         entries.Add(lookup, created);
         return created.Value;

@@ -115,6 +115,59 @@ internal sealed class CommanderRadarService
         }
     }
 
+    private bool globalEmconActive;
+
+    internal bool IsGlobalEmconActive => globalEmconActive;
+
+    internal void ToggleGlobalEmcon()
+    {
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null)
+        {
+            return;
+        }
+
+        globalEmconActive = !globalEmconActive;
+        bool enable = !globalEmconActive;
+
+        Unit[] allUnits = UnityEngine.Object.FindObjectsOfType<Unit>();
+        int count = 0;
+        for (int i = 0; i < allUnits.Length; i++)
+        {
+            Unit u = allUnits[i];
+            if (u == null || u.disabled || !CommanderGameAccess.IsFriendlyUnit(u, localHq))
+            {
+                continue;
+            }
+
+            Radar[] radars = u.GetComponentsInChildren<Radar>(true);
+            for (int r = 0; r < radars.Length; r++)
+            {
+                if (radars[r] != null)
+                {
+                    radars[r].activated = enable;
+                    radars[r].enabled = enable;
+                    if (!enable)
+                    {
+                        radars[r].detectedTargets.Clear();
+                        radars[r].ResetRotators();
+                    }
+                }
+            }
+
+            if (radars.Length > 0)
+            {
+                if (enable) offlineRadarUnits.Remove(u);
+                else offlineRadarUnits.Add(u);
+                count++;
+            }
+        }
+
+        SetStatus(globalEmconActive
+            ? $"EMCON ACTIVE: All {count} friendly radars silenced."
+            : $"EMCON LIFTED: All {count} friendly radars back online.");
+    }
+
     internal bool TryGetFocusedState(out RadarState state)
     {
         state = focusedState!;

@@ -81,6 +81,10 @@ internal sealed class CommanderWorldMarkerRenderer
                     DrawLargeMarker(camera, target.transform.GlobalPosition(), "ATTACK", new Color(1f, 0.25f, 0.2f, 0.95f));
                 }
             }
+            else if (moveService.TryGetGuardTarget(unit, out Unit guardTarget) && guardTarget != null && !guardTarget.disabled)
+            {
+                DrawMarker(camera, guardTarget.transform.GlobalPosition(), "GUARD", new Color(0.25f, 0.95f, 0.5f, 0.9f));
+            }
             else if (moveService.TryGetPatrolRoute(unit, patrolRouteScratch))
             {
                 for (int p = 0; p < patrolRouteScratch.Count; p++)
@@ -112,6 +116,16 @@ internal sealed class CommanderWorldMarkerRenderer
             string label = $"SPAWN: {CommanderCheatService.Instance.PendingSpawnDefinition.unitName} ({(CommanderCheatService.Instance.SpawnAsEnemy ? "ENEMY" : "FRIENDLY")})";
             Color col = CommanderCheatService.Instance.SpawnAsEnemy ? new Color(1f, 0.25f, 0.2f, 0.95f) : new Color(0.2f, 0.85f, 0.9f, 0.95f);
             DrawCursorMarker(label, col);
+        }
+
+        if (moveService.AwaitingGuardSelection)
+        {
+            DrawCursorMarker("SELECT GUARD TARGET", new Color(0.25f, 0.95f, 0.5f, 0.95f));
+        }
+
+        if (moveService.AwaitingBarrageSelection)
+        {
+            DrawCursorMarker("BARRAGE TARGET AREA", new Color(1f, 0.45f, 0.15f, 0.95f));
         }
 
         if (supplyHeliService.AwaitingTargetSelection)

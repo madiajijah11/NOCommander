@@ -12,8 +12,20 @@ This is a BepInEx mod for Nuclear Option that implements full RTS-style gameplay
   - *Double-tap* nomor grup: Memusatkan kamera langsung ke posisi grup.
 - **Dedicated Groups UI Tab:**
   - Tab **`GROUPS`** di jendela **UNIT LIST / PINS** menampilkan seluruh grup aktif, jumlah unit, dan ringkasan tipe kendaraan. Klik untuk memilih langsung.
-- **Select All Combat Army (`F2`):**
-  - Satu tombol untuk memilih seluruh unit tempur darat dan kapal permukaan milik friendly di seluruh peta.
+- **Select All Combat Army (`~` / `BackQuote`):**
+  - Satu tombol untuk memilih seluruh unit tempur darat dan kapal permukaan milik friendly di seluruh peta (menggunakan tombol tilde `~` agar tidak bentrok dengan kamera F1-F4 game).
+- **Military Formation Shapes (`V` / UI Button):**
+  - Mengatur formasi tempur saat konvoi bergerak: **RING**, **LINE** (baris tembak), **COLUMN** (kolom jalan), **WEDGE** (membaji serbu), **BOX** (grid), dan **ECHELON** (serong).
+- **Guard & Escort Order (`G` / `Alt + RMB` pada Unit Teman):**
+  - Memerintahkan unit mengawal unit kawan (truk munisi, pimpinan armada) secara otomatis.
+- **Auto-RTB (Return to Base for Repair & Rearm):**
+  - Sakelar otomatis pada unit: jika HP atau amunisi kritis, unit otomatis putar balik mencari truk reparasi atau depot terdekat.
+- **Artillery & MRLS Barrage Call-In (`B` / UI Button):**
+  - Tandai area target di peta/3D untuk memerintahkan semua artileri kawan menembakkan salvo ke titik tersebut.
+- **Global EMCON / Radar Silence (`Ctrl + R`):**
+  - Satu tombol untuk mematikan/menghidupkan seluruh emisi radar friendly di seluruh peta secara serentak dari ancaman rudal anti-radiasi (ARAD).
+- **Order of Battle (OOB) Dashboard (Tombol `ARMY OOB`):**
+  - Jendela dashboard status kekuatan militer faksi lengkap: jumlah tank, IFV, SAM, pesawat, kapal perang, pabrik, dan instalasi aktif.
 
 ### 2. Tactical Micro, Selection & Combat Orders
 - **Tactical Minimap Orders (RMB pada Minimap):**

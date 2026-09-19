@@ -1,8 +1,9 @@
-using HarmonyLib;
-using System.Reflection;
-using UnityEngine;
+using System;
 using System.Collections.Generic;
+using System.Reflection;
+using HarmonyLib;
 using NuclearOption.Networking;
+using UnityEngine;
 
 namespace NuclearOptionCommander;
 
@@ -11,6 +12,7 @@ internal sealed class CommanderMoveService
     private const float GroundFormationSpacingMeters = 25f;
     private const float ShipFormationSpacingMeters = 80f;
     private const float WaypointArrivalDistance = 25f;
+    private const float GuardFollowThreshold = 35f;
 
     private static readonly MethodInfo? RearmVehicleWaitMethod = AccessTools.Method(typeof(RearmVehicleAI), "Wait");
     private static readonly MethodInfo? RearmVehicleRestockMethod = AccessTools.Method(typeof(RearmVehicleAI), "DriveToRestock");
@@ -20,14 +22,23 @@ internal sealed class CommanderMoveService
     private readonly Dictionary<Unit, GlobalPosition> playerDestinations = new();
     private readonly Dictionary<Unit, Queue<GlobalPosition>> waypointQueues = new();
     private readonly Dictionary<Unit, Unit> focusAttackTargets = new();
+    private readonly Dictionary<Unit, Unit> guardTargets = new();
     private readonly Dictionary<Unit, List<GlobalPosition>> patrolRoutes = new();
     private readonly Dictionary<Unit, int> patrolIndices = new();
+    private readonly HashSet<Unit> autoRtbUnits = new();
 
     private bool awaitingPatrolSelection;
+    private bool awaitingGuardSelection;
+    private bool awaitingBarrageSelection;
+    private FormationShape currentFormation = FormationShape.Ring;
+    private float nextRtbCheckTime;
 
     internal static CommanderMoveService? Instance { get; private set; }
 
     internal bool AwaitingPatrolSelection => awaitingPatrolSelection;
+    internal bool AwaitingGuardSelection => awaitingGuardSelection;
+    internal bool AwaitingBarrageSelection => awaitingBarrageSelection;
+    internal FormationShape CurrentFormation => currentFormation;
 
     internal bool HasCommandableSelection
     {
@@ -50,19 +61,129 @@ internal sealed class CommanderMoveService
         Instance = this;
     }
 
+    internal void CycleFormation()
+    {
+        currentFormation = (FormationShape)(((int)currentFormation + 1) % 6);
+    }
+
+    internal void SetFormation(FormationShape shape)
+    {
+        currentFormation = shape;
+    }
+
     internal void BeginPatrolOrder()
     {
-        if (!HasCommandableSelection)
-        {
-            return;
-        }
-
+        if (!HasCommandableSelection) return;
         awaitingPatrolSelection = true;
+        awaitingGuardSelection = false;
+        awaitingBarrageSelection = false;
     }
 
     internal void CancelPatrolOrder()
     {
         awaitingPatrolSelection = false;
+    }
+
+    internal void BeginGuardOrder()
+    {
+        if (!HasCommandableSelection) return;
+        awaitingGuardSelection = true;
+        awaitingPatrolSelection = false;
+        awaitingBarrageSelection = false;
+    }
+
+    internal void CancelGuardOrder()
+    {
+        awaitingGuardSelection = false;
+    }
+
+    internal void BeginBarrageOrder()
+    {
+        if (!HasCommandableSelection) return;
+        awaitingBarrageSelection = true;
+        awaitingPatrolSelection = false;
+        awaitingGuardSelection = false;
+    }
+
+    internal void CancelBarrageOrder()
+    {
+        awaitingBarrageSelection = false;
+    }
+
+    internal bool TrySetGuardTarget(Vector2 screenPosition)
+    {
+        if (!awaitingGuardSelection || selectionService.SelectedUnits.Count == 0)
+        {
+            return false;
+        }
+
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (CommanderGameAccess.TryRaycastSelectableUnit(screenPosition, out Unit targetUnit)
+            && targetUnit != null
+            && !targetUnit.disabled
+            && localHq != null
+            && CommanderGameAccess.IsFriendlyUnit(targetUnit, localHq))
+        {
+            for (int i = 0; i < selectionService.SelectedUnits.Count; i++)
+            {
+                Unit unit = selectionService.SelectedUnits[i];
+                if (ReferenceEquals(unit, targetUnit) || !CommanderGameAccess.ShouldAllowCommanderMove(unit))
+                {
+                    continue;
+                }
+
+                stoppedUnits.Remove(unit);
+                focusAttackTargets.Remove(unit);
+                patrolRoutes.Remove(unit);
+                patrolIndices.Remove(unit);
+                guardTargets[unit] = targetUnit;
+                CommanderGameAccess.SetUnitHoldPosition(unit, false);
+            }
+            awaitingGuardSelection = false;
+            return true;
+        }
+
+        awaitingGuardSelection = false;
+        return false;
+    }
+
+    internal bool TrySetBarrageTarget(Vector2 screenPosition)
+    {
+        if (!awaitingBarrageSelection || selectionService.SelectedUnits.Count == 0)
+        {
+            return false;
+        }
+
+        bool hasGroundPos = CommanderGameAccess.TryRaycastWorldPosition(screenPosition, out GlobalPosition groundPos);
+        bool hasWaterPos = CommanderGameAccess.TryRaycastWaterPosition(screenPosition, out GlobalPosition waterPos);
+        if (!hasGroundPos && !hasWaterPos)
+        {
+            awaitingBarrageSelection = false;
+            return false;
+        }
+
+        GlobalPosition targetPos = hasGroundPos ? groundPos : waterPos;
+        for (int i = 0; i < selectionService.SelectedUnits.Count; i++)
+        {
+            Unit unit = selectionService.SelectedUnits[i];
+            if (!CommanderGameAccess.ShouldAllowCommanderMove(unit))
+            {
+                continue;
+            }
+
+            stoppedUnits.Remove(unit);
+            focusAttackTargets.Remove(unit);
+            patrolRoutes.Remove(unit);
+            patrolIndices.Remove(unit);
+            guardTargets.Remove(unit);
+
+            playerDestinations[unit] = targetPos;
+            CommanderGameAccess.SetUnitHoldPosition(unit, false);
+            CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(targetPos, true);
+        }
+
+        awaitingBarrageSelection = false;
+        return true;
     }
 
     internal bool TrySetPatrolDestination(Vector2 screenPosition)
@@ -90,8 +211,8 @@ internal sealed class CommanderMoveService
             }
 
             GlobalPosition targetPos = unit is Ship
-                ? CommanderDestinationFormation.ApplyOffset(waterPos, shipSlot++, ShipFormationSpacingMeters)
-                : CommanderDestinationFormation.ApplyOffset(groundPos, groundSlot++, GroundFormationSpacingMeters);
+                ? CommanderDestinationFormation.ApplyOffset(waterPos, shipSlot++, ShipFormationSpacingMeters, currentFormation)
+                : CommanderDestinationFormation.ApplyOffset(groundPos, groundSlot++, GroundFormationSpacingMeters, currentFormation);
 
             GlobalPosition startPos = unit.transform.GlobalPosition();
             patrolRoutes[unit] = new List<GlobalPosition> { startPos, targetPos };
@@ -99,6 +220,7 @@ internal sealed class CommanderMoveService
 
             stoppedUnits.Remove(unit);
             focusAttackTargets.Remove(unit);
+            guardTargets.Remove(unit);
             if (waypointQueues.TryGetValue(unit, out Queue<GlobalPosition> queue))
             {
                 queue.Clear();
@@ -137,6 +259,7 @@ internal sealed class CommanderMoveService
 
             stoppedUnits.Remove(unit);
             focusAttackTargets.Remove(unit);
+            guardTargets.Remove(unit);
             patrolRoutes.Remove(unit);
             patrolIndices.Remove(unit);
             if (waypointQueues.TryGetValue(unit, out Queue<GlobalPosition> queue))
@@ -148,6 +271,34 @@ internal sealed class CommanderMoveService
             playerDestinations[unit] = destination;
             CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(destination, true);
         }
+    }
+
+    internal void ToggleAutoRtbForSelection()
+    {
+        IReadOnlyList<Unit> selected = selectionService.SelectedUnits;
+        if (selected.Count == 0) return;
+
+        bool anyEnabled = false;
+        for (int i = 0; i < selected.Count; i++)
+        {
+            if (autoRtbUnits.Contains(selected[i]))
+            {
+                anyEnabled = true;
+                break;
+            }
+        }
+
+        bool newState = !anyEnabled;
+        for (int i = 0; i < selected.Count; i++)
+        {
+            if (newState) autoRtbUnits.Add(selected[i]);
+            else autoRtbUnits.Remove(selected[i]);
+        }
+    }
+
+    internal bool IsAutoRtb(Unit? unit)
+    {
+        return unit != null && autoRtbUnits.Contains(unit);
     }
 
     internal void IssueDirectMoveOrder(GlobalPosition targetPosition, bool queueWaypoint = false)
@@ -168,12 +319,13 @@ internal sealed class CommanderMoveService
             }
 
             focusAttackTargets.Remove(unit);
+            guardTargets.Remove(unit);
             patrolRoutes.Remove(unit);
             patrolIndices.Remove(unit);
 
             GlobalPosition destination = unit is Ship
-                ? CommanderDestinationFormation.ApplyOffset(targetPosition, shipSlot++, ShipFormationSpacingMeters)
-                : CommanderDestinationFormation.ApplyOffset(targetPosition, groundSlot++, GroundFormationSpacingMeters);
+                ? CommanderDestinationFormation.ApplyOffset(targetPosition, shipSlot++, ShipFormationSpacingMeters, currentFormation)
+                : CommanderDestinationFormation.ApplyOffset(targetPosition, groundSlot++, GroundFormationSpacingMeters, currentFormation);
 
             stoppedUnits.Remove(unit);
             CommanderGameAccess.SetUnitHoldPosition(unit, false);
@@ -213,17 +365,49 @@ internal sealed class CommanderMoveService
             return;
         }
 
+        if (awaitingGuardSelection)
+        {
+            TrySetGuardTarget(screenPosition);
+            return;
+        }
+
+        if (awaitingBarrageSelection)
+        {
+            TrySetBarrageTarget(screenPosition);
+            return;
+        }
+
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
 
         // 1. Check if an Enemy Unit was clicked -> Attack Order / Focus Fire
         if (CommanderGameAccess.TryRaycastSelectableUnit(screenPosition, out Unit targetUnit)
             && targetUnit != null
             && !targetUnit.disabled
-            && localHq != null
-            && !CommanderGameAccess.IsFriendlyUnit(targetUnit, localHq))
+            && localHq != null)
         {
-            IssueAttackOrder(targetUnit);
-            return;
+            if (!CommanderGameAccess.IsFriendlyUnit(targetUnit, localHq))
+            {
+                IssueAttackOrder(targetUnit);
+                return;
+            }
+            else if (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt))
+            {
+                // Alt + RMB on friendly unit -> Guard / Escort
+                for (int i = 0; i < selectionService.SelectedUnits.Count; i++)
+                {
+                    Unit unit = selectionService.SelectedUnits[i];
+                    if (!ReferenceEquals(unit, targetUnit) && CommanderGameAccess.ShouldAllowCommanderMove(unit))
+                    {
+                        stoppedUnits.Remove(unit);
+                        focusAttackTargets.Remove(unit);
+                        patrolRoutes.Remove(unit);
+                        patrolIndices.Remove(unit);
+                        guardTargets[unit] = targetUnit;
+                        CommanderGameAccess.SetUnitHoldPosition(unit, false);
+                    }
+                }
+                return;
+            }
         }
 
         // 2. Normal Ground / Water Move Order
@@ -240,26 +424,13 @@ internal sealed class CommanderMoveService
             }
 
             focusAttackTargets.Remove(unit);
+            guardTargets.Remove(unit);
             patrolRoutes.Remove(unit);
             patrolIndices.Remove(unit);
 
-            GlobalPosition destination;
-            if (unit is Ship)
-            {
-                if (!hasWaterDestination) continue;
-                destination = CommanderDestinationFormation.ApplyOffset(
-                    waterDestination,
-                    shipSlot++,
-                    ShipFormationSpacingMeters);
-            }
-            else
-            {
-                if (!hasGroundDestination) continue;
-                destination = CommanderDestinationFormation.ApplyOffset(
-                    groundDestination,
-                    groundSlot++,
-                    GroundFormationSpacingMeters);
-            }
+            GlobalPosition destination = unit is Ship
+                ? CommanderDestinationFormation.ApplyOffset(waterDestination, shipSlot++, ShipFormationSpacingMeters, currentFormation)
+                : CommanderDestinationFormation.ApplyOffset(groundDestination, groundSlot++, GroundFormationSpacingMeters, currentFormation);
 
             stoppedUnits.Remove(unit);
             CommanderGameAccess.SetUnitHoldPosition(unit, false);
@@ -288,7 +459,6 @@ internal sealed class CommanderMoveService
 
     private void IssueAttackOrder(Unit enemyTarget)
     {
-        int count = 0;
         for (int i = 0; i < selectionService.SelectedUnits.Count; i++)
         {
             Unit unit = selectionService.SelectedUnits[i];
@@ -300,6 +470,7 @@ internal sealed class CommanderMoveService
             stoppedUnits.Remove(unit);
             CommanderGameAccess.SetUnitHoldPosition(unit, false);
             focusAttackTargets[unit] = enemyTarget;
+            guardTargets.Remove(unit);
             patrolRoutes.Remove(unit);
             patrolIndices.Remove(unit);
 
@@ -311,61 +482,37 @@ internal sealed class CommanderMoveService
             GlobalPosition targetPos = enemyTarget.transform.GlobalPosition();
             playerDestinations[unit] = targetPos;
             CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(targetPos, true);
-            count++;
         }
     }
 
     internal void Tick()
     {
         stoppedUnits.RemoveWhere(static unit => unit == null || unit.disabled);
+        autoRtbUnits.RemoveWhere(static unit => unit == null || unit.disabled);
 
-        // Prune dead waypoint keys
-        List<Unit>? deadWaypointKeys = null;
-        foreach (KeyValuePair<Unit, Queue<GlobalPosition>> pair in waypointQueues)
-        {
-            if (pair.Key == null || pair.Key.disabled)
-            {
-                deadWaypointKeys ??= new List<Unit>();
-                deadWaypointKeys.Add(pair.Key);
-            }
-        }
-        if (deadWaypointKeys != null)
-        {
-            for (int i = 0; i < deadWaypointKeys.Count; i++) waypointQueues.Remove(deadWaypointKeys[i]);
-        }
+        // Prune dead collections
+        PruneDeadReferences();
 
-        // Prune dead attack targets
-        List<Unit>? deadAttackKeys = null;
-        foreach (KeyValuePair<Unit, Unit> pair in focusAttackTargets)
+        // Update Guard / Escort positions
+        foreach (KeyValuePair<Unit, Unit> pair in guardTargets)
         {
-            if (pair.Key == null || pair.Key.disabled || pair.Value == null || pair.Value.disabled)
+            if (pair.Key != null && !pair.Key.disabled && pair.Value != null && !pair.Value.disabled)
             {
-                deadAttackKeys ??= new List<Unit>();
-                deadAttackKeys.Add(pair.Key);
+                float dist = Vector3.Distance(pair.Key.transform.position, pair.Value.transform.position);
+                if (dist > GuardFollowThreshold)
+                {
+                    GlobalPosition guardPos = pair.Value.transform.GlobalPosition();
+                    playerDestinations[pair.Key] = guardPos;
+                    CommanderGameAccess.GetUnitCommand(pair.Key)?.SetDestination(guardPos, true);
+                }
             }
-        }
-        if (deadAttackKeys != null)
-        {
-            for (int i = 0; i < deadAttackKeys.Count; i++) focusAttackTargets.Remove(deadAttackKeys[i]);
         }
 
-        // Prune dead patrol routes
-        List<Unit>? deadPatrolKeys = null;
-        foreach (KeyValuePair<Unit, List<GlobalPosition>> pair in patrolRoutes)
+        // Periodic Auto-RTB check (every 3 seconds)
+        if (Time.unscaledTime >= nextRtbCheckTime)
         {
-            if (pair.Key == null || pair.Key.disabled)
-            {
-                deadPatrolKeys ??= new List<Unit>();
-                deadPatrolKeys.Add(pair.Key);
-            }
-        }
-        if (deadPatrolKeys != null)
-        {
-            for (int i = 0; i < deadPatrolKeys.Count; i++)
-            {
-                patrolRoutes.Remove(deadPatrolKeys[i]);
-                patrolIndices.Remove(deadPatrolKeys[i]);
-            }
+            nextRtbCheckTime = Time.unscaledTime + 3f;
+            CheckAutoRtb();
         }
 
         List<Unit>? staleDestinations = null;
@@ -387,9 +534,9 @@ internal sealed class CommanderMoveService
                     int currentIndex = patrolIndices.TryGetValue(entry.Key, out int idx) ? idx : 0;
                     int nextIndex = (currentIndex + 1) % route.Count;
                     patrolIndices[entry.Key] = nextIndex;
-                    GlobalPosition nextPatrolPos = route[nextIndex];
-                    playerDestinations[entry.Key] = nextPatrolPos;
-                    CommanderGameAccess.GetUnitCommand(entry.Key)?.SetDestination(nextPatrolPos, true);
+                    GlobalPosition nextPatrolPoint = route[nextIndex];
+                    playerDestinations[entry.Key] = nextPatrolPoint;
+                    CommanderGameAccess.GetUnitCommand(entry.Key)?.SetDestination(nextPatrolPoint, true);
                     continue;
                 }
 
@@ -438,6 +585,151 @@ internal sealed class CommanderMoveService
         }
     }
 
+    private void CheckAutoRtb()
+    {
+        if (autoRtbUnits.Count == 0) return;
+
+        foreach (Unit unit in autoRtbUnits)
+        {
+            if (unit == null || unit.disabled) continue;
+
+            bool needsService = false;
+
+            // Check damage
+            IRepairable[] repairables = unit.GetComponentsInChildren<IRepairable>(true);
+            for (int r = 0; r < repairables.Length; r++)
+            {
+                if (repairables[r] != null && repairables[r].NeedsRepair())
+                {
+                    needsService = true;
+                    break;
+                }
+            }
+
+            // Check ammo
+            if (!needsService && unit.weaponStations != null && unit.weaponStations.Count > 0)
+            {
+                float currentAmmo = 0f;
+                float maxAmmo = 0f;
+                for (int s = 0; s < unit.weaponStations.Count; s++)
+                {
+                    WeaponStation station = unit.weaponStations[s];
+                    if (station?.Weapons == null) continue;
+                    for (int w = 0; w < station.Weapons.Count; w++)
+                    {
+                        Weapon weapon = station.Weapons[w];
+                        if (weapon != null)
+                        {
+                            currentAmmo += weapon.ammo;
+                            maxAmmo += Mathf.Max(1, weapon.GetFullAmmo());
+                        }
+                    }
+                }
+                if (maxAmmo > 0f && (currentAmmo / maxAmmo) <= 0.2f)
+                {
+                    needsService = true;
+                }
+            }
+
+            if (needsService)
+            {
+                Unit? nearestLogistics = FindNearestLogistics(unit);
+                if (nearestLogistics != null)
+                {
+                    GlobalPosition dest = nearestLogistics.transform.GlobalPosition();
+                    playerDestinations[unit] = dest;
+                    CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(dest, true);
+                }
+            }
+        }
+    }
+
+    private static Unit? FindNearestLogistics(Unit unit)
+    {
+        FactionHQ? hq = CommanderGameAccess.GetLocalHq();
+        if (hq?.factionUnits == null) return null;
+
+        Unit? nearest = null;
+        float minDist = float.MaxValue;
+        Vector3 pos = unit.transform.position;
+
+        foreach (PersistentID id in hq.factionUnits)
+        {
+            if (id.TryGetUnit(out Unit u) && u != null && !u.disabled && !ReferenceEquals(u, unit))
+            {
+                if (u.GetComponentInChildren<Rearmer>(true) != null || u.GetComponentInChildren<Repairer>(true) != null)
+                {
+                    float d = Vector3.Distance(pos, u.transform.position);
+                    if (d < minDist)
+                    {
+                        minDist = d;
+                        nearest = u;
+                    }
+                }
+            }
+        }
+        return nearest;
+    }
+
+    internal bool TryGetFocusAttackTarget(Unit unit, out Unit target)
+    {
+        return focusAttackTargets.TryGetValue(unit, out target!) && target != null && !target.disabled;
+    }
+
+    internal bool TryGetGuardTarget(Unit unit, out Unit target)
+    {
+        return guardTargets.TryGetValue(unit, out target!) && target != null && !target.disabled;
+    }
+
+    internal bool TryGetPlayerDestination(Unit unit, out GlobalPosition destination)
+    {
+        return playerDestinations.TryGetValue(unit, out destination);
+    }
+
+    internal bool TryGetQueuedWaypoints(Unit unit, List<GlobalPosition> buffer)
+    {
+        buffer.Clear();
+        if (!waypointQueues.TryGetValue(unit, out Queue<GlobalPosition> queue) || queue.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (GlobalPosition wp in queue)
+        {
+            buffer.Add(wp);
+        }
+        return true;
+    }
+
+    internal bool TryGetPatrolRoute(Unit unit, List<GlobalPosition> buffer)
+    {
+        buffer.Clear();
+        if (!patrolRoutes.TryGetValue(unit, out List<GlobalPosition> route) || route.Count < 2)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < route.Count; i++)
+        {
+            buffer.Add(route[i]);
+        }
+        return true;
+    }
+
+    internal static void NotifyPlayerDestination(UnitCommand command, GlobalPosition waypoint, Player player)
+    {
+        if (Instance == null || command == null)
+        {
+            return;
+        }
+
+        Unit? unit = command.GetComponent<Unit>() ?? command.GetComponentInParent<Unit>();
+        if (unit != null && !unit.disabled)
+        {
+            Instance.playerDestinations[unit] = waypoint;
+        }
+    }
+
     internal void StopSelectedUnits()
     {
         for (int i = 0; i < selectionService.SelectedUnits.Count; i++)
@@ -453,6 +745,7 @@ internal sealed class CommanderMoveService
             stoppedUnits.Add(unit);
             playerDestinations.Remove(unit);
             focusAttackTargets.Remove(unit);
+            guardTargets.Remove(unit);
             patrolRoutes.Remove(unit);
             patrolIndices.Remove(unit);
             if (waypointQueues.TryGetValue(unit, out Queue<GlobalPosition> queue))
@@ -476,6 +769,7 @@ internal sealed class CommanderMoveService
             stoppedUnits.Remove(unit);
             playerDestinations.Remove(unit);
             focusAttackTargets.Remove(unit);
+            guardTargets.Remove(unit);
             patrolRoutes.Remove(unit);
             patrolIndices.Remove(unit);
             if (waypointQueues.TryGetValue(unit, out Queue<GlobalPosition> queue))
@@ -493,49 +787,66 @@ internal sealed class CommanderMoveService
         }
     }
 
-    internal bool TryGetPlayerDestination(Unit unit, out GlobalPosition destination)
+    internal void PruneDeadReferences()
     {
-        return playerDestinations.TryGetValue(unit, out destination);
-    }
-
-    internal bool TryGetQueuedWaypoints(Unit unit, List<GlobalPosition> buffer)
-    {
-        buffer.Clear();
-        if (waypointQueues.TryGetValue(unit, out Queue<GlobalPosition> queue) && queue.Count > 0)
+        List<Unit>? deadWaypointKeys = null;
+        foreach (KeyValuePair<Unit, Queue<GlobalPosition>> pair in waypointQueues)
         {
-            buffer.AddRange(queue);
-            return true;
+            if (pair.Key == null || pair.Key.disabled)
+            {
+                deadWaypointKeys ??= new List<Unit>();
+                deadWaypointKeys.Add(pair.Key);
+            }
         }
-        return false;
-    }
-
-    internal bool TryGetFocusAttackTarget(Unit unit, out Unit target)
-    {
-        return focusAttackTargets.TryGetValue(unit, out target);
-    }
-
-    internal bool TryGetPatrolRoute(Unit unit, List<GlobalPosition> buffer)
-    {
-        buffer.Clear();
-        if (patrolRoutes.TryGetValue(unit, out List<GlobalPosition> route) && route.Count > 1)
+        if (deadWaypointKeys != null)
         {
-            buffer.AddRange(route);
-            return true;
-        }
-        return false;
-    }
-
-    internal static void NotifyPlayerDestination(UnitCommand command, GlobalPosition waypoint, Player player)
-    {
-        if (Instance == null || command == null)
-        {
-            return;
+            for (int i = 0; i < deadWaypointKeys.Count; i++) waypointQueues.Remove(deadWaypointKeys[i]);
         }
 
-        Unit? unit = command.GetComponent<Unit>();
-        if (unit != null)
+        List<Unit>? deadAttackKeys = null;
+        foreach (KeyValuePair<Unit, Unit> pair in focusAttackTargets)
         {
-            Instance.playerDestinations[unit] = waypoint;
+            if (pair.Key == null || pair.Key.disabled || pair.Value == null || pair.Value.disabled)
+            {
+                deadAttackKeys ??= new List<Unit>();
+                deadAttackKeys.Add(pair.Key);
+            }
+        }
+        if (deadAttackKeys != null)
+        {
+            for (int i = 0; i < deadAttackKeys.Count; i++) focusAttackTargets.Remove(deadAttackKeys[i]);
+        }
+
+        List<Unit>? deadGuardKeys = null;
+        foreach (KeyValuePair<Unit, Unit> pair in guardTargets)
+        {
+            if (pair.Key == null || pair.Key.disabled || pair.Value == null || pair.Value.disabled)
+            {
+                deadGuardKeys ??= new List<Unit>();
+                deadGuardKeys.Add(pair.Key);
+            }
+        }
+        if (deadGuardKeys != null)
+        {
+            for (int i = 0; i < deadGuardKeys.Count; i++) guardTargets.Remove(deadGuardKeys[i]);
+        }
+
+        List<Unit>? deadPatrolKeys = null;
+        foreach (KeyValuePair<Unit, List<GlobalPosition>> pair in patrolRoutes)
+        {
+            if (pair.Key == null || pair.Key.disabled)
+            {
+                deadPatrolKeys ??= new List<Unit>();
+                deadPatrolKeys.Add(pair.Key);
+            }
+        }
+        if (deadPatrolKeys != null)
+        {
+            for (int i = 0; i < deadPatrolKeys.Count; i++)
+            {
+                patrolRoutes.Remove(deadPatrolKeys[i]);
+                patrolIndices.Remove(deadPatrolKeys[i]);
+            }
         }
     }
 
@@ -545,9 +856,13 @@ internal sealed class CommanderMoveService
         playerDestinations.Clear();
         waypointQueues.Clear();
         focusAttackTargets.Clear();
+        guardTargets.Clear();
         patrolRoutes.Clear();
         patrolIndices.Clear();
+        autoRtbUnits.Clear();
         awaitingPatrolSelection = false;
+        awaitingGuardSelection = false;
+        awaitingBarrageSelection = false;
     }
 
     private static bool TryReturnToBasegameLogistics(Unit unit)

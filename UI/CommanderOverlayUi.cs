@@ -15,6 +15,7 @@ internal sealed class CommanderOverlayUi
     private const int RadarWindowId = 0x434F4D44;
     private const int SettingsWindowId = 0x434F4D53;
     private const int CheatWindowId = 0x434F4D43;
+    private const int OobWindowId = 0x434F4D4F;
 
     private readonly CommanderSelectionService selectionService;
     private readonly CommanderMoveService moveService;
@@ -53,6 +54,10 @@ internal sealed class CommanderOverlayUi
     private string cheatSearchFilter = string.Empty;
     private bool cheatSpawnAsEnemy;
     private Vector2 cheatScroll;
+    private bool oobWindowVisible;
+    private bool oobHelpVisible;
+    private Vector2 oobScroll;
+    private Rect oobWindowRect;
     private bool advancedUnlockConfirmation;
     private int settingsTab;
     private string? bindingCapture;
@@ -227,6 +232,13 @@ internal sealed class CommanderOverlayUi
                 Mathf.Max(12f, (CommanderUiScale.Height - cheatHeight) * 0.5f),
                 cheatWidth,
                 cheatHeight);
+            float oobWidth = Mathf.Min(660f, CommanderUiScale.Width - 24f);
+            float oobHeight = Mathf.Min(620f, CommanderUiScale.Height - 24f);
+            oobWindowRect = new Rect(
+                Mathf.Max(12f, (CommanderUiScale.Width - oobWidth) * 0.5f),
+                Mathf.Max(12f, (CommanderUiScale.Height - oobHeight) * 0.5f),
+                oobWidth,
+                oobHeight);
             positionsInitialized = true;
         }
         else
@@ -238,12 +250,15 @@ internal sealed class CommanderOverlayUi
             settingsWindowRect.height = Mathf.Min(660f, CommanderUiScale.Height - 24f);
             cheatWindowRect.width = Mathf.Min(760f, CommanderUiScale.Width - 24f);
             cheatWindowRect.height = Mathf.Min(700f, CommanderUiScale.Height - 24f);
+            oobWindowRect.width = Mathf.Min(660f, CommanderUiScale.Width - 24f);
+            oobWindowRect.height = Mathf.Min(620f, CommanderUiScale.Height - 24f);
         }
         panelRect = CommanderUiTheme.ClampWindow(panelRect);
         reserveWindowRect = CommanderUiTheme.ClampWindow(reserveWindowRect);
         pinnedWindowRect = CommanderUiTheme.ClampWindow(pinnedWindowRect);
         settingsWindowRect = CommanderUiTheme.ClampWindow(settingsWindowRect);
         cheatWindowRect = CommanderUiTheme.ClampWindow(cheatWindowRect);
+        oobWindowRect = CommanderUiTheme.ClampWindow(oobWindowRect);
         pinnedLauncherRect = new Rect(
             Mathf.Min(CommanderUiScale.Width - 70f, pinnedWindowRect.xMax + 6f),
             pinnedWindowRect.y,
@@ -258,9 +273,9 @@ internal sealed class CommanderOverlayUi
             CommanderUiScale.Height - 24f);
         radarWindowRect = CommanderUiTheme.ClampWindow(radarWindowRect);
         selectionBarRect = new Rect(
-            Mathf.Max(12f, (CommanderUiScale.Width - 880f) * 0.5f),
+            Mathf.Max(12f, (CommanderUiScale.Width - 1040f) * 0.5f),
             CommanderUiScale.Height - 158f,
-            Mathf.Min(880f, CommanderUiScale.Width - 24f),
+            Mathf.Min(1040f, CommanderUiScale.Width - 24f),
             74f);
         selectionHelpRect = new Rect(selectionBarRect.x, selectionBarRect.y - 92f, selectionBarRect.width, 84f);
         if (CommanderFeatureGate.AdvancedFeaturesEnabled)
@@ -298,6 +313,7 @@ internal sealed class CommanderOverlayUi
             || (advanced && showNavalUi && navalPurchaseUi.ContainsScreenPoint(screenPoint))
             || (advanced && showSamAnalyzerUi && samSiteAnalyzerUi.ContainsScreenPoint(screenPoint))
             || (cheatWindowVisible && cheatWindowRect.Contains(guiPoint))
+            || (oobWindowVisible && oobWindowRect.Contains(guiPoint))
             || (settingsVisible && settingsWindowRect.Contains(guiPoint));
     }
 
@@ -388,6 +404,10 @@ internal sealed class CommanderOverlayUi
         if (cheatWindowVisible)
         {
             cheatWindowRect = GUI.Window(CheatWindowId, cheatWindowRect, DrawCheatWindow, "CHEAT / SANDBOX", CommanderUiTheme.Window);
+        }
+        if (oobWindowVisible)
+        {
+            oobWindowRect = GUI.Window(OobWindowId, oobWindowRect, DrawOobWindow, "ORDER OF BATTLE (ARMY STATUS)", CommanderUiTheme.Window);
         }
         if (showSelectionBar) DrawSelectionBar();
         DrawSettingsWindowIfVisible();
@@ -592,12 +612,16 @@ internal sealed class CommanderOverlayUi
             GUI.Label(new Rect(14f, y, panelRect.width - 28f, 36f), helper, CommanderUiTheme.MutedLabel);
         }
         GUI.Label(new Rect(12f, experimentalY, panelRect.width - 24f, 18f), "SANDBOX & TOOLS", CommanderUiTheme.MutedLabel);
-        float toolBtnWidth = (panelRect.width - 30f) * 0.5f;
-        if (GUI.Button(new Rect(12f, experimentalY + 20f, toolBtnWidth, 34f), "SAM ANALYZER", CommanderUiTheme.Button))
+        float toolBtnWidth = (panelRect.width - 36f) / 3f;
+        if (GUI.Button(new Rect(12f, experimentalY + 20f, toolBtnWidth, 34f), "SAM SITES", CommanderUiTheme.Button))
         {
             samSiteAnalyzerUi.Toggle();
         }
-        if (GUI.Button(new Rect(18f + toolBtnWidth, experimentalY + 20f, toolBtnWidth, 34f), "CHEAT / SANDBOX", CommanderUiTheme.PrimaryButton))
+        if (GUI.Button(new Rect(18f + toolBtnWidth, experimentalY + 20f, toolBtnWidth, 34f), "ARMY OOB", oobWindowVisible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        {
+            oobWindowVisible = !oobWindowVisible;
+        }
+        if (GUI.Button(new Rect(24f + toolBtnWidth * 2f, experimentalY + 20f, toolBtnWidth, 34f), "SANDBOX", CommanderUiTheme.PrimaryButton))
         {
             cheatWindowVisible = !cheatWindowVisible;
         }
@@ -1184,37 +1208,70 @@ internal sealed class CommanderOverlayUi
             : $"{count} UNITS SELECTED";
         GUI.Label(new Rect(selectionBarRect.x + 14f, selectionBarRect.y + 37f, selectionBarRect.width - 408f, 24f), label, CommanderUiTheme.Header);
 
-        float buttonX = selectionBarRect.xMax - 544f;
+        float buttonX = selectionBarRect.xMax - 780f;
         if (selectionHelpVisible)
         {
             CommanderUiTheme.DrawHelpOverlay(selectionHelpRect,
-                "STOP holds units. AI returns them to Basegame. PATROL ('P') loops waypoints. SCATTER ('X') evades area damage. ROAD toggles road network. STANCE ('F') toggles Hold Fire. PIN stores selection (Alt for DEL).");
+                "STOP holds units. AI returns to basegame. PATROL ('P') loops waypoints. GUARD ('G') escorts target. SCATTER ('X') evades area damage. FORM ('V') cycles military formations. RTB auto-returns for repair/rearm. STANCE ('F') toggles Hold Fire. PIN stores selection.");
         }
         bool oldEnabled = GUI.enabled;
         bool advanced = CommanderFeatureGate.AdvancedFeaturesEnabled;
+
+        // 1. STOP
         GUI.enabled = oldEnabled && moveService.HasCommandableSelection;
-        if (GUI.Button(new Rect(buttonX, selectionBarRect.y + 32f, 58f, 34f), "STOP", CommanderUiTheme.DangerButton))
+        if (GUI.Button(new Rect(buttonX, selectionBarRect.y + 32f, 52f, 34f), "STOP", CommanderUiTheme.DangerButton))
         {
             moveService.StopSelectedUnits();
         }
+
+        // 2. AI
         GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
-        if (GUI.Button(new Rect(buttonX + 62f, selectionBarRect.y + 32f, 48f, 34f), "AI", CommanderUiTheme.PrimaryButton))
+        if (GUI.Button(new Rect(buttonX + 56f, selectionBarRect.y + 32f, 44f, 34f), "AI", CommanderUiTheme.PrimaryButton))
         {
             moveService.ResumeAiForSelectedUnits();
         }
+
+        // 3. PATROL
         GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
         bool isPatrolling = moveService.AwaitingPatrolSelection;
-        if (GUI.Button(new Rect(buttonX + 114f, selectionBarRect.y + 32f, 68f, 34f), "PATROL",
+        if (GUI.Button(new Rect(buttonX + 104f, selectionBarRect.y + 32f, 62f, 34f), "PATROL",
             isPatrolling ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             if (isPatrolling) moveService.CancelPatrolOrder();
             else moveService.BeginPatrolOrder();
         }
-        GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
-        if (GUI.Button(new Rect(buttonX + 186f, selectionBarRect.y + 32f, 72f, 34f), "SCATTER", CommanderUiTheme.Button))
+
+        // 4. GUARD / ESCORT
+        bool isGuarding = moveService.AwaitingGuardSelection;
+        if (GUI.Button(new Rect(buttonX + 170f, selectionBarRect.y + 32f, 60f, 34f), "GUARD",
+            isGuarding ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        {
+            if (isGuarding) moveService.CancelGuardOrder();
+            else moveService.BeginGuardOrder();
+        }
+
+        // 5. SCATTER
+        if (GUI.Button(new Rect(buttonX + 234f, selectionBarRect.y + 32f, 66f, 34f), "SCATTER", CommanderUiTheme.Button))
         {
             moveService.ScatterSelectedUnits(55f);
         }
+
+        // 6. FORMATION CYCLE
+        string formName = moveService.CurrentFormation.ToString().ToUpper();
+        if (GUI.Button(new Rect(buttonX + 304f, selectionBarRect.y + 32f, 86f, 34f), "FORM: " + formName, CommanderUiTheme.Button))
+        {
+            moveService.CycleFormation();
+        }
+
+        // 7. AUTO-RTB
+        bool isRtb = moveService.IsAutoRtb(focused);
+        if (GUI.Button(new Rect(buttonX + 394f, selectionBarRect.y + 32f, 54f, 34f), isRtb ? "RTB ON" : "RTB",
+            isRtb ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        {
+            moveService.ToggleAutoRtbForSelection();
+        }
+
+        // 8. ROAD ON/OFF
         GUI.enabled = oldEnabled;
         bool canToggleRoad = advanced
             && count == 1
@@ -1224,27 +1281,31 @@ internal sealed class CommanderOverlayUi
             && !CommanderSamSiteService.IsReservedConstructionJacknife(focused);
         bool roadEnabled = !directPathService.IsEnabled(focused);
         GUI.enabled = oldEnabled && canToggleRoad;
-        if (GUI.Button(new Rect(buttonX + 262f, selectionBarRect.y + 32f, 80f, 34f),
+        if (GUI.Button(new Rect(buttonX + 452f, selectionBarRect.y + 32f, 76f, 34f),
             roadEnabled ? "ROAD ON" : "ROAD OFF",
             roadEnabled ? CommanderUiTheme.Button : CommanderUiTheme.DangerButton))
         {
             directPathService.ToggleFocusedUnit();
         }
+
+        // 9. STANCE (HOLD / FREE FIRE)
         GUI.enabled = oldEnabled;
         bool isHoldFire = CommanderStanceService.Instance?.IsHoldFire(focused) == true;
-        if (GUI.Button(new Rect(buttonX + 346f, selectionBarRect.y + 32f, 96f, 34f),
+        if (GUI.Button(new Rect(buttonX + 532f, selectionBarRect.y + 32f, 88f, 34f),
             isHoldFire ? "HOLD FIRE" : "FREE FIRE",
             isHoldFire ? CommanderUiTheme.DangerButton : CommanderUiTheme.Button))
         {
             CommanderStanceService.Instance?.ToggleHoldFireForSelection();
         }
+
+        // 10. PIN / DEL
         GUI.enabled = oldEnabled;
         bool deleteMode = CommanderSettings.DeleteUnitModifier.IsPressed();
         string pinLabel = deleteMode ? "DEL" : (selectionService.IsCurrentSelectionPinned ? "UNPIN" : "PIN");
         GUI.enabled = oldEnabled
             && advanced
             && (!deleteMode || selectionService.CanDeleteSelection);
-        if (GUI.Button(new Rect(buttonX + 446f, selectionBarRect.y + 32f, 90f, 34f), pinLabel,
+        if (GUI.Button(new Rect(buttonX + 624f, selectionBarRect.y + 32f, 68f, 34f), pinLabel,
             deleteMode ? CommanderUiTheme.DangerButton : CommanderUiTheme.Button))
         {
             if (deleteMode)
@@ -1257,6 +1318,118 @@ internal sealed class CommanderOverlayUi
             }
         }
         GUI.enabled = oldEnabled;
+    }
+
+    private void DrawOobWindow(int windowId)
+    {
+        if (CommanderUiTheme.DrawHelpButton(oobWindowRect.width, ref oobHelpVisible))
+        {
+            CommanderUiTheme.DrawHelpOverlay(
+                new Rect(12f, 34f, oobWindowRect.width - 24f, 68f),
+                "ORDER OF BATTLE (OOB) | Real-time breakdown of all active friendly forces, naval vessels, aircraft squadrons, factories, and strategic installations.");
+        }
+        if (GUI.Button(new Rect(oobWindowRect.width - 34f, 3f, 26f, 22f), "X", CommanderUiTheme.DangerButton))
+        {
+            oobWindowVisible = false;
+            return;
+        }
+
+        float y = oobHelpVisible ? 112f : 38f;
+
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null)
+        {
+            GUI.Label(new Rect(16f, y, oobWindowRect.width - 32f, 30f), "No active faction HQ.", CommanderUiTheme.Label);
+            GUI.DragWindow(new Rect(0f, 0f, oobWindowRect.width - 72f, 28f));
+            return;
+        }
+
+        int totalGround = 0;
+        int totalTanks = 0;
+        int totalIfvs = 0;
+        int totalSpaag = 0;
+        int totalLogistics = 0;
+        int totalAircraft = 0;
+        int totalWarships = 0;
+        int totalSamSites = 0;
+        int totalFactories = 0;
+
+        Unit[] allUnits = UnityEngine.Object.FindObjectsOfType<Unit>();
+        for (int i = 0; i < allUnits.Length; i++)
+        {
+            Unit u = allUnits[i];
+            if (u == null || u.disabled || !CommanderGameAccess.IsFriendlyUnit(u, localHq)) continue;
+
+            if (u is Aircraft) totalAircraft++;
+            else if (u is Ship) totalWarships++;
+            else if (u is GroundVehicle gv && gv.definition is VehicleDefinition vdef)
+            {
+                totalGround++;
+                string cat = CommanderGameAccess.GetVehicleCategoryLabel(vdef);
+                if (string.Equals(cat, "Tank", StringComparison.OrdinalIgnoreCase)) totalTanks++;
+                else if (string.Equals(cat, "AAA", StringComparison.OrdinalIgnoreCase) || string.Equals(cat, "SAM", StringComparison.OrdinalIgnoreCase)) totalSpaag++;
+                else if (string.Equals(cat, "Logistics", StringComparison.OrdinalIgnoreCase) || string.Equals(cat, "Support", StringComparison.OrdinalIgnoreCase)) totalLogistics++;
+                else totalIfvs++;
+            }
+            else if (u.GetComponent<Factory>() != null) totalFactories++;
+            else if (CommanderSamSiteCoreRegistry.IsTrackedSiteUnit(u)) totalSamSites++;
+        }
+
+        GUI.Box(new Rect(12f, y, oobWindowRect.width - 24f, 40f), string.Empty, CommanderUiTheme.Panel);
+        GUI.Label(new Rect(20f, y + 8f, oobWindowRect.width - 40f, 24f),
+            $"FACTION FUNDS: {spawnService.GetFactionFundsLabel()}    |    TOTAL ACTIVE ARMY: {totalGround + totalAircraft + totalWarships} UNITS",
+            CommanderUiTheme.Header);
+        y += 46f;
+
+        bool emcon = CommanderRadarService.Instance?.IsGlobalEmconActive == true;
+        if (GUI.Button(new Rect(12f, y, oobWindowRect.width - 24f, 32f),
+            emcon ? "GLOBAL EMCON ACTIVE: RADARS SILENCED (CLICK TO RESTORE)" : "GLOBAL RADAR SILENCE: EMCON OFF (CLICK TO SILENCE ALL)",
+            emcon ? CommanderUiTheme.DangerButton : CommanderUiTheme.Button))
+        {
+            CommanderRadarService.Instance?.ToggleGlobalEmcon();
+        }
+        y += 38f;
+
+        Rect view = new(12f, y, oobWindowRect.width - 24f, oobWindowRect.height - y - 14f);
+        Rect inner = new(0f, 0f, view.width - 20f, 380f);
+        oobScroll = GUI.BeginScrollView(view, oobScroll, inner);
+
+        float itemY = 4f;
+
+        DrawOobSection(new Rect(4f, itemY, inner.width - 8f, 84f), "GROUND COMBAT FORCES",
+            $"Total Ground Units: {totalGround}",
+            $"• Main Battle Tanks: {totalTanks}    • IFVs & Light Armor: {totalIfvs}",
+            $"• Air Defense (AAA/SAM): {totalSpaag}    • Munitions & Logistics: {totalLogistics}");
+        itemY += 90f;
+
+        DrawOobSection(new Rect(4f, itemY, inner.width - 8f, 74f), "AEROSPACE & HELICOPTER WING",
+            $"Total Aircraft & Helicopters Active: {totalAircraft}",
+            $"• In-Flight Missions: {selectionService.MissionUnits.Count}",
+            "• Airbase Status: Operational");
+        itemY += 80f;
+
+        DrawOobSection(new Rect(4f, itemY, inner.width - 8f, 74f), "SURFACE NAVAL FLEET",
+            $"Total Active Warships & Carriers: {totalWarships}",
+            $"• Naval Combat Patrols: {totalWarships}",
+            "• Coastal Support: Active");
+        itemY += 80f;
+
+        DrawOobSection(new Rect(4f, itemY, inner.width - 8f, 74f), "STRATEGIC INFRASTRUCTURE",
+            $"• Production Factories: {totalFactories}",
+            $"• SAM Defense Sites: {totalSamSites}",
+            $"• Active Vehicle Depots: {(spawnService.SelectedDepot != null ? 1 : 0)}");
+
+        GUI.EndScrollView();
+        GUI.DragWindow(new Rect(0f, 0f, oobWindowRect.width - 72f, 28f));
+    }
+
+    private static void DrawOobSection(Rect rect, string title, string line1, string line2, string line3)
+    {
+        GUI.Box(rect, string.Empty, CommanderUiTheme.Panel);
+        GUI.Label(new Rect(rect.x + 10f, rect.y + 4f, rect.width - 20f, 20f), title, CommanderUiTheme.Header);
+        GUI.Label(new Rect(rect.x + 12f, rect.y + 24f, rect.width - 24f, 18f), line1, CommanderUiTheme.Label);
+        GUI.Label(new Rect(rect.x + 12f, rect.y + 42f, rect.width - 24f, 18f), line2, CommanderUiTheme.MutedLabel);
+        GUI.Label(new Rect(rect.x + 12f, rect.y + 60f, rect.width - 24f, 18f), line3, CommanderUiTheme.MutedLabel);
     }
 
     private void DrawPinnedWindow(int windowId)
