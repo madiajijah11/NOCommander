@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using NuclearOption.Networking;
 using UnityEngine;
 
 namespace NuclearOptionCommander;
@@ -7,21 +9,245 @@ namespace NuclearOptionCommander;
 internal sealed class CommanderCheatService
 {
     private readonly CommanderSelectionService selectionService;
+    private readonly List<UnitDefinition> allDefinitions = new();
+    private readonly List<UnitDefinition> filteredDefinitions = new();
+    private readonly List<UnitDefinition> buildingDefinitions = new();
+    private readonly List<UnitDefinition> landDefinitions = new();
+    private readonly List<UnitDefinition> airDefinitions = new();
+    private readonly List<UnitDefinition> navalDefinitions = new();
+
+    private bool catalogInitialized;
     private float statusUntil;
     private string statusText = string.Empty;
+
+    // 3D Placement Mode
+    private bool awaitingPlacement;
+    private UnitDefinition? pendingSpawnDefinition;
+    private bool spawnAsEnemy;
 
     internal static CommanderCheatService? Instance { get; private set; }
 
     internal bool GodModeEnabled { get; set; }
     internal bool FreeSpawningEnabled { get; set; }
     internal bool InfiniteAmmoEnabled { get; set; }
+    internal bool FreezeAiEnabled { get; set; }
 
+    internal bool AwaitingPlacement => awaitingPlacement && pendingSpawnDefinition != null;
+    internal UnitDefinition? PendingSpawnDefinition => pendingSpawnDefinition;
+    internal bool SpawnAsEnemy => spawnAsEnemy;
     internal string StatusText => Time.unscaledTime <= statusUntil ? statusText : string.Empty;
 
     internal CommanderCheatService(CommanderSelectionService selectionService)
     {
         this.selectionService = selectionService;
         Instance = this;
+    }
+
+    internal void EnsureCatalogLoaded()
+    {
+        if (catalogInitialized && allDefinitions.Count > 0)
+        {
+            return;
+        }
+
+        allDefinitions.Clear();
+        buildingDefinitions.Clear();
+        landDefinitions.Clear();
+        airDefinitions.Clear();
+        navalDefinitions.Clear();
+
+        UnitDefinition[] available = Resources.FindObjectsOfTypeAll<UnitDefinition>();
+        HashSet<string> seenNames = new(StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 0; i < available.Length; i++)
+        {
+            UnitDefinition def = available[i];
+            if (def == null || def.unitPrefab == null || string.IsNullOrWhiteSpace(def.unitName))
+            {
+                continue;
+            }
+
+            if (!seenNames.Add(def.unitName))
+            {
+                continue;
+            }
+
+            allDefinitions.Add(def);
+
+            // Categorize
+            if (def.unitPrefab.GetComponent<Aircraft>() != null)
+            {
+                airDefinitions.Add(def);
+            }
+            else if (def.unitPrefab.GetComponent<Ship>() != null)
+            {
+                navalDefinitions.Add(def);
+            }
+            else if (def.unitPrefab.GetComponent<GroundVehicle>() != null)
+            {
+                landDefinitions.Add(def);
+            }
+            else
+            {
+                buildingDefinitions.Add(def);
+            }
+        }
+
+        allDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
+        buildingDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
+        landDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
+        airDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
+        navalDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
+
+        catalogInitialized = true;
+    }
+
+    internal IReadOnlyList<UnitDefinition> GetDefinitionsByCategory(int categoryIndex, string searchFilter)
+    {
+        EnsureCatalogLoaded();
+
+        IReadOnlyList<UnitDefinition> source = categoryIndex switch
+        {
+            1 => buildingDefinitions,
+            2 => landDefinitions,
+            3 => airDefinitions,
+            4 => navalDefinitions,
+            _ => allDefinitions
+        };
+
+        if (string.IsNullOrWhiteSpace(searchFilter))
+        {
+            return source;
+        }
+
+        filteredDefinitions.Clear();
+        for (int i = 0; i < source.Count; i++)
+        {
+            if (source[i].unitName.IndexOf(searchFilter, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                filteredDefinitions.Add(source[i]);
+            }
+        }
+
+        return filteredDefinitions;
+    }
+
+    internal void BeginPlacement(UnitDefinition definition, bool asEnemy)
+    {
+        if (definition == null || definition.unitPrefab == null)
+        {
+            SetStatus("Invalid unit definition.");
+            return;
+        }
+
+        awaitingPlacement = true;
+        pendingSpawnDefinition = definition;
+        spawnAsEnemy = asEnemy;
+        SetStatus("Select position in 3D world to spawn " + definition.unitName + " (" + (asEnemy ? "ENEMY" : "FRIENDLY") + ").");
+    }
+
+    internal void CancelPlacement()
+    {
+        awaitingPlacement = false;
+        pendingSpawnDefinition = null;
+        SetStatus("Spawn placement cancelled.");
+    }
+
+    internal bool TrySpawnAtWorldPoint(Vector2 screenPosition)
+    {
+        if (!awaitingPlacement || pendingSpawnDefinition == null)
+        {
+            return false;
+        }
+
+        Spawner? spawner = NetworkSceneSingleton<Spawner>.i;
+        if (spawner == null)
+        {
+            SetStatus("Spawner is not available.");
+            CancelPlacement();
+            return false;
+        }
+
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        FactionHQ? targetHq = localHq;
+
+        if (spawnAsEnemy)
+        {
+            targetHq = FindEnemyHq(localHq) ?? localHq;
+        }
+
+        if (targetHq == null)
+        {
+            SetStatus("Target faction HQ is not available.");
+            CancelPlacement();
+            return false;
+        }
+
+        UnitDefinition def = pendingSpawnDefinition;
+        bool isShip = def.unitPrefab.GetComponent<Ship>() != null;
+
+        GlobalPosition targetPos;
+        if (isShip)
+        {
+            if (!CommanderGameAccess.TryRaycastWaterPosition(screenPosition, out targetPos))
+            {
+                SetStatus("Target must be on water.");
+                return false;
+            }
+        }
+        else
+        {
+            if (!CommanderGameAccess.TryRaycastWorldPosition(screenPosition, out targetPos))
+            {
+                SetStatus("Target must be on terrain.");
+                return false;
+            }
+        }
+
+        Vector3 localPos = targetPos.ToLocalPosition() + def.spawnOffset;
+        Quaternion rotation = Quaternion.identity;
+
+        try
+        {
+            Unit spawnedUnit = spawner.SpawnFromUnitDefinitionInEditor(
+                def,
+                localPos.ToGlobalPosition(),
+                rotation,
+                targetHq,
+                "NOC_Cheat_" + def.unitName + "_" + Time.frameCount);
+
+            if (spawnedUnit != null)
+            {
+                SetStatus("Spawned " + def.unitName + " (" + (spawnAsEnemy ? "ENEMY" : "FRIENDLY") + ") at target location.");
+                selectionService.SelectUnit(spawnedUnit, additive: false);
+            }
+            else
+            {
+                SetStatus("Spawner failed to instantiate " + def.unitName + ".");
+            }
+        }
+        catch (Exception ex)
+        {
+            CommanderPlugin.Log.LogError("Cheat unit spawn failed: " + ex);
+            SetStatus("Failed to spawn " + def.unitName + ": " + ex.Message);
+        }
+
+        awaitingPlacement = false;
+        pendingSpawnDefinition = null;
+        return true;
+    }
+
+    private static FactionHQ? FindEnemyHq(FactionHQ? localHq)
+    {
+        FactionHQ[] allHqs = UnityEngine.Object.FindObjectsOfType<FactionHQ>();
+        for (int i = 0; i < allHqs.Length; i++)
+        {
+            if (allHqs[i] != null && allHqs[i] != localHq)
+            {
+                return allHqs[i];
+            }
+        }
+        return null;
     }
 
     internal void AddFunds(float amount)
@@ -34,7 +260,7 @@ internal sealed class CommanderCheatService
         }
 
         hq.AddFunds(amount);
-        SetStatus($"Added ${amount:N0} to faction funds.");
+        SetStatus("Added $" + amount.ToString("N0") + " to faction funds.");
     }
 
     internal void SetMaxFunds()
@@ -86,7 +312,7 @@ internal sealed class CommanderCheatService
             healedCount++;
         }
 
-        SetStatus($"Healed {healedCount} unit{(healedCount == 1 ? string.Empty : "s")} to 100% HP.");
+        SetStatus("Healed " + healedCount + " unit(s) to 100% HP.");
     }
 
     internal void RestockAmmoSelection()
@@ -140,7 +366,7 @@ internal sealed class CommanderCheatService
             restockedCount++;
         }
 
-        SetStatus($"Restocked ammo and ordnance on {restockedCount} unit{(restockedCount == 1 ? string.Empty : "s")}.");
+        SetStatus("Restocked ammo and ordnance on " + restockedCount + " unit(s).");
     }
 
     internal void DestroySelection()
@@ -179,7 +405,7 @@ internal sealed class CommanderCheatService
             destroyedCount++;
         }
 
-        SetStatus($"Eliminated {destroyedCount} target{(destroyedCount == 1 ? string.Empty : "s")}.");
+        SetStatus("Eliminated " + destroyedCount + " target(s).");
     }
 
     internal void RevealAllUnits()
@@ -213,15 +439,15 @@ internal sealed class CommanderCheatService
             }
         }
 
-        SetStatus($"Updated radar tracking for {revealedCount} enemy units.");
+        SetStatus("Updated radar tracking for " + revealedCount + " enemy units.");
     }
 
     internal void ResetSession()
     {
-        GodModeEnabled = false;
-        FreeSpawningEnabled = false;
-        InfiniteAmmoEnabled = false;
+        awaitingPlacement = false;
+        pendingSpawnDefinition = null;
         statusText = string.Empty;
+        catalogInitialized = false;
     }
 
     private void SetStatus(string text)

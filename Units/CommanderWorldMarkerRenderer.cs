@@ -107,6 +107,13 @@ internal sealed class CommanderWorldMarkerRenderer
             DrawMarker(camera, rallyPoint, "RALLY", new Color(0.95f, 0.78f, 0.22f, 0.9f));
         }
 
+        if (CommanderCheatService.Instance?.AwaitingPlacement == true && CommanderCheatService.Instance.PendingSpawnDefinition != null)
+        {
+            string label = $"SPAWN: {CommanderCheatService.Instance.PendingSpawnDefinition.unitName} ({(CommanderCheatService.Instance.SpawnAsEnemy ? "ENEMY" : "FRIENDLY")})";
+            Color col = CommanderCheatService.Instance.SpawnAsEnemy ? new Color(1f, 0.25f, 0.2f, 0.95f) : new Color(0.2f, 0.85f, 0.9f, 0.95f);
+            DrawCursorMarker(label, col);
+        }
+
         if (supplyHeliService.AwaitingTargetSelection)
         {
             DrawCursorMarker("LZ", new Color(0.35f, 0.9f, 0.42f, 0.95f));

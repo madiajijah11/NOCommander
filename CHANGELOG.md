@@ -37,8 +37,11 @@ All notable changes to the NOCommander mod are documented in this file.
   - **Adaptive Counter-Production:** Enemy AI monitors player force composition and dynamically alters factory output to counter air or armor spam (e.g. producing AAA/SAM when player deploys heavy air).
   - **Reactive Evasive Scatter:** AI ground vehicles automatically scatter (40–75 m) away from incoming artillery and bomb detonations.
   - **Threat-Scoring Heuristics:** Dynamic threat prioritization prioritizing active combat vehicles and aircraft over unarmed support trucks.
-- **Cheats & Sandbox Menu:**
-  - Integrated into **SETTINGS -> CHEATS**: Economy cheats (`+$100K`, `+$1M`, `MAX FUNDS`), `God Mode`, `Heal 100% HP`, `Restock Ammo`, `Kill Target`, and `Reveal All Enemies`.
+- **Dedicated Sandbox & Cheat Menu Window:**
+  - Replaced settings tab with an independent, dedicated floating window accessible via the **`CHEAT / SANDBOX`** panel button.
+  - **Interactive 3D Entity Spawner:** Spawn any entity directly into the 3D world: **BUILDINGS** (Radar towers, SAM sites, Factories, Hangars, Outposts), **LAND**, **AIR**, and **NAVAL** units with friendly/enemy faction assignment and 3D cursor placement.
+  - Category filters and dynamic search bar.
+  - Economy cheats (`+$100K`, `+$1M`, `MAX FUNDS`), `God Mode`, `Heal 100% HP`, `Restock Ammo`, `Kill Target`, and `Reveal All Enemies`.
 
 ---
 

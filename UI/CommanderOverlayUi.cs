@@ -14,6 +14,7 @@ internal sealed class CommanderOverlayUi
     private const int PinnedWindowId = 0x434F4D50;
     private const int RadarWindowId = 0x434F4D44;
     private const int SettingsWindowId = 0x434F4D53;
+    private const int CheatWindowId = 0x434F4D43;
 
     private readonly CommanderSelectionService selectionService;
     private readonly CommanderMoveService moveService;
@@ -45,6 +46,13 @@ internal sealed class CommanderOverlayUi
     private bool selectionHelpVisible;
     private bool settingsVisible;
     private bool settingsHelpVisible;
+    private bool cheatWindowVisible;
+    private bool cheatHelpVisible;
+    private int cheatTab;
+    private int cheatCategoryIndex;
+    private string cheatSearchFilter = string.Empty;
+    private bool cheatSpawnAsEnemy;
+    private Vector2 cheatScroll;
     private bool advancedUnlockConfirmation;
     private int settingsTab;
     private string? bindingCapture;
@@ -79,6 +87,7 @@ internal sealed class CommanderOverlayUi
     private Rect selectionBarRect;
     private Rect pinnedWindowRect;
     private Rect radarWindowRect;
+    private Rect cheatWindowRect;
     private Rect selectionHelpRect;
     private Rect settingsWindowRect;
     private Rect pinnedLauncherRect;
@@ -211,6 +220,13 @@ internal sealed class CommanderOverlayUi
                 Mathf.Max(12f, (CommanderUiScale.Height - settingsHeight) * 0.5f),
                 settingsWidth,
                 settingsHeight);
+            float cheatWidth = Mathf.Min(760f, CommanderUiScale.Width - 24f);
+            float cheatHeight = Mathf.Min(700f, CommanderUiScale.Height - 24f);
+            cheatWindowRect = new Rect(
+                Mathf.Max(12f, (CommanderUiScale.Width - cheatWidth) * 0.5f),
+                Mathf.Max(12f, (CommanderUiScale.Height - cheatHeight) * 0.5f),
+                cheatWidth,
+                cheatHeight);
             positionsInitialized = true;
         }
         else
@@ -220,11 +236,14 @@ internal sealed class CommanderOverlayUi
             reserveWindowRect.height = Mathf.Min(610f, CommanderUiScale.Height - 24f);
             settingsWindowRect.width = Mathf.Min(680f, CommanderUiScale.Width - 24f);
             settingsWindowRect.height = Mathf.Min(660f, CommanderUiScale.Height - 24f);
+            cheatWindowRect.width = Mathf.Min(760f, CommanderUiScale.Width - 24f);
+            cheatWindowRect.height = Mathf.Min(700f, CommanderUiScale.Height - 24f);
         }
         panelRect = CommanderUiTheme.ClampWindow(panelRect);
         reserveWindowRect = CommanderUiTheme.ClampWindow(reserveWindowRect);
         pinnedWindowRect = CommanderUiTheme.ClampWindow(pinnedWindowRect);
         settingsWindowRect = CommanderUiTheme.ClampWindow(settingsWindowRect);
+        cheatWindowRect = CommanderUiTheme.ClampWindow(cheatWindowRect);
         pinnedLauncherRect = new Rect(
             Mathf.Min(CommanderUiScale.Width - 70f, pinnedWindowRect.xMax + 6f),
             pinnedWindowRect.y,
@@ -278,6 +297,7 @@ internal sealed class CommanderOverlayUi
             || (advanced && showAirCommandUi && airCommandUi.ContainsScreenPoint(screenPoint))
             || (advanced && showNavalUi && navalPurchaseUi.ContainsScreenPoint(screenPoint))
             || (advanced && showSamAnalyzerUi && samSiteAnalyzerUi.ContainsScreenPoint(screenPoint))
+            || (cheatWindowVisible && cheatWindowRect.Contains(guiPoint))
             || (settingsVisible && settingsWindowRect.Contains(guiPoint));
     }
 
@@ -365,6 +385,10 @@ internal sealed class CommanderOverlayUi
         if (advanced && showAirCommandUi) airCommandUi.Draw();
         if (advanced && showNavalUi) navalPurchaseUi.Draw();
         if (advanced && showSamAnalyzerUi) samSiteAnalyzerUi.Draw();
+        if (cheatWindowVisible)
+        {
+            cheatWindowRect = GUI.Window(CheatWindowId, cheatWindowRect, DrawCheatWindow, "CHEAT / SANDBOX", CommanderUiTheme.Window);
+        }
         if (showSelectionBar) DrawSelectionBar();
         DrawSettingsWindowIfVisible();
         DrawBoxSelectionIfActive();
@@ -567,10 +591,15 @@ internal sealed class CommanderOverlayUi
         {
             GUI.Label(new Rect(14f, y, panelRect.width - 28f, 36f), helper, CommanderUiTheme.MutedLabel);
         }
-        GUI.Label(new Rect(12f, experimentalY, panelRect.width - 24f, 18f), "EXPERIMENTAL", CommanderUiTheme.MutedLabel);
-        if (GUI.Button(new Rect(12f, experimentalY + 20f, panelRect.width - 24f, 34f), "SAM SITE ANALYZER", CommanderUiTheme.Button))
+        GUI.Label(new Rect(12f, experimentalY, panelRect.width - 24f, 18f), "SANDBOX & TOOLS", CommanderUiTheme.MutedLabel);
+        float toolBtnWidth = (panelRect.width - 30f) * 0.5f;
+        if (GUI.Button(new Rect(12f, experimentalY + 20f, toolBtnWidth, 34f), "SAM ANALYZER", CommanderUiTheme.Button))
         {
             samSiteAnalyzerUi.Toggle();
+        }
+        if (GUI.Button(new Rect(18f + toolBtnWidth, experimentalY + 20f, toolBtnWidth, 34f), "CHEAT / SANDBOX", CommanderUiTheme.PrimaryButton))
+        {
+            cheatWindowVisible = !cheatWindowVisible;
         }
         GUI.enabled = oldEnabled;
         if (GUI.Button(new Rect(12f, settingsY, panelRect.width - 24f, 34f), "SETTINGS", CommanderUiTheme.Button))
@@ -627,11 +656,10 @@ internal sealed class CommanderOverlayUi
         }
 
         float y = settingsHelpVisible ? 118f : 38f;
-        float tabWidth = (settingsWindowRect.width - 42f) / 4f;
+        float tabWidth = (settingsWindowRect.width - 36f) / 3f;
         DrawSettingsTab(new Rect(12f, y, tabWidth, 32f), "GAMEPLAY", 0);
         DrawSettingsTab(new Rect(12f + tabWidth + 6f, y, tabWidth, 32f), "UI / HIDE", 1);
         DrawSettingsTab(new Rect(12f + (tabWidth + 6f) * 2f, y, tabWidth, 32f), "CONTROLS", 2);
-        DrawSettingsTab(new Rect(12f + (tabWidth + 6f) * 3f, y, tabWidth, 32f), "CHEATS", 3);
         y += 44f;
 
         if (settingsTab == 0)
@@ -642,13 +670,9 @@ internal sealed class CommanderOverlayUi
         {
             DrawUiSettings(y);
         }
-        else if (settingsTab == 2)
-        {
-            DrawControlSettings(y);
-        }
         else
         {
-            DrawCheatSettings(y);
+            DrawControlSettings(y);
         }
 
         GUI.DragWindow(new Rect(0f, 0f, settingsWindowRect.width - 72f, 28f));
@@ -804,77 +828,183 @@ internal sealed class CommanderOverlayUi
         }
     }
 
-    private void DrawCheatSettings(float y)
+    private void DrawCheatWindow(int windowId)
     {
         CommanderCheatService? cheats = CommanderCheatService.Instance;
-        float windowWidth = settingsWindowRect.width - 24f;
-        GUI.Box(new Rect(12f, y, windowWidth, 480f), string.Empty, CommanderUiTheme.Panel);
+        if (CommanderUiTheme.DrawHelpButton(cheatWindowRect.width, ref cheatHelpVisible))
+        {
+            CommanderUiTheme.DrawHelpOverlay(
+                new Rect(12f, 34f, cheatWindowRect.width - 24f, 84f),
+                "SANDBOX & CHEAT MENU | Spawn any vehicle, warship, aircraft, or building directly in the 3D world. Manage economy, enable God Mode, repair/restock selection, or reveal all enemy radar positions.");
+        }
+        if (GUI.Button(new Rect(cheatWindowRect.width - 34f, 3f, 26f, 22f), "X", CommanderUiTheme.DangerButton))
+        {
+            cheatWindowVisible = false;
+            cheats?.CancelPlacement();
+            return;
+        }
 
-        float currentY = y + 10f;
+        float y = cheatHelpVisible ? 128f : 38f;
+
+        // Status Header
         if (cheats != null && !string.IsNullOrEmpty(cheats.StatusText))
         {
-            GUI.Box(new Rect(24f, currentY, windowWidth - 24f, 26f), string.Empty, CommanderUiTheme.Panel);
-            GUI.Label(new Rect(32f, currentY + 2f, windowWidth - 40f, 22f), cheats.StatusText, CommanderUiTheme.Header);
-            currentY += 32f;
+            GUI.Box(new Rect(12f, y, cheatWindowRect.width - 24f, 28f), string.Empty, CommanderUiTheme.Panel);
+            GUI.Label(new Rect(20f, y + 2f, cheatWindowRect.width - 40f, 24f), cheats.StatusText, CommanderUiTheme.Header);
+            y += 34f;
         }
 
-        // 1. Economy Cheats
-        GUI.Label(new Rect(24f, currentY, windowWidth - 24f, 22f), "FACTION FUNDS & ECONOMY", CommanderUiTheme.Header);
-        currentY += 26f;
-        float btnWidth = (windowWidth - 36f) / 3f;
-        if (GUI.Button(new Rect(24f, currentY, btnWidth, 32f), "+ $100,000", CommanderUiTheme.Button))
+        // Tab Navigation
+        float tabWidth = (cheatWindowRect.width - 42f) / 4f;
+        if (GUI.Button(new Rect(12f, y, tabWidth, 32f), "SPAWN ENTITIES", cheatTab == 0 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
-            cheats?.AddFunds(100000f);
+            cheatTab = 0;
+            cheatScroll = Vector2.zero;
         }
-        if (GUI.Button(new Rect(24f + btnWidth + 6f, currentY, btnWidth, 32f), "+ $1,000,000", CommanderUiTheme.Button))
+        if (GUI.Button(new Rect(16f + tabWidth, y, tabWidth, 32f), "ECONOMY", cheatTab == 1 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
-            cheats?.AddFunds(1000000f);
+            cheatTab = 1;
+            cheatScroll = Vector2.zero;
         }
-        if (GUI.Button(new Rect(24f + (btnWidth + 6f) * 2f, currentY, btnWidth, 32f), "MAX FUNDS", CommanderUiTheme.PrimaryButton))
+        if (GUI.Button(new Rect(20f + tabWidth * 2f, y, tabWidth, 32f), "COMBAT & GOD", cheatTab == 2 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
-            cheats?.SetMaxFunds();
+            cheatTab = 2;
+            cheatScroll = Vector2.zero;
         }
-        currentY += 44f;
+        if (GUI.Button(new Rect(24f + tabWidth * 3f, y, tabWidth, 32f), "MAP & VISION", cheatTab == 3 ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        {
+            cheatTab = 3;
+            cheatScroll = Vector2.zero;
+        }
+        y += 40f;
 
-        // 2. Unit & Combat Cheats
-        GUI.Label(new Rect(24f, currentY, windowWidth - 24f, 22f), "COMBAT & INVULNERABILITY", CommanderUiTheme.Header);
-        currentY += 26f;
-        if (cheats != null)
-        {
-            cheats.GodModeEnabled = GUI.Toggle(
-                new Rect(24f, currentY, windowWidth - 24f, 28f),
-                cheats.GodModeEnabled,
-                "GOD MODE (All Friendly Units Invulnerable)",
-                CommanderUiTheme.Toggle);
-        }
-        currentY += 32f;
+        Rect view = new(12f, y, cheatWindowRect.width - 24f, cheatWindowRect.height - y - 14f);
 
-        float actionWidth = (windowWidth - 30f) * 0.5f;
-        if (GUI.Button(new Rect(24f, currentY, actionWidth, 34f), "HEAL SELECTION (100% HP)", CommanderUiTheme.Button))
+        if (cheatTab == 0)
         {
-            cheats?.HealSelection();
-        }
-        if (GUI.Button(new Rect(30f + actionWidth, currentY, actionWidth, 34f), "RESTOCK AMMO SELECTION", CommanderUiTheme.Button))
-        {
-            cheats?.RestockAmmoSelection();
-        }
-        currentY += 40f;
+            // TAB 0: SPAWN UNITS & BUILDINGS
+            float catWidth = (view.width - 32f) / 5f;
+            string[] catNames = { "ALL", "BUILDINGS", "LAND", "AIR", "NAVAL" };
+            for (int c = 0; c < 5; c++)
+            {
+                if (GUI.Button(new Rect(view.x + c * (catWidth + 6f), view.y, catWidth, 26f), catNames[c],
+                    cheatCategoryIndex == c ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+                {
+                    cheatCategoryIndex = c;
+                    cheatScroll = Vector2.zero;
+                }
+            }
 
-        if (GUI.Button(new Rect(24f, currentY, windowWidth - 24f, 34f), "DESTROY TARGET (KILL SELECTION)", CommanderUiTheme.DangerButton))
-        {
-            cheats?.DestroySelection();
-        }
-        currentY += 48f;
+            // Search Bar & Faction Toggle Row
+            float searchY = view.y + 32f;
+            GUI.Label(new Rect(view.x, searchY + 4f, 60f, 22f), "SEARCH:", CommanderUiTheme.MutedLabel);
+            cheatSearchFilter = GUI.TextField(new Rect(view.x + 65f, searchY + 2f, view.width - 260f, 24f), cheatSearchFilter, CommanderUiTheme.Panel);
 
-        // 3. Map & Sensors Cheats
-        GUI.Label(new Rect(24f, currentY, windowWidth - 24f, 22f), "GLOBAL RECON & RADAR", CommanderUiTheme.Header);
-        currentY += 26f;
-        if (GUI.Button(new Rect(24f, currentY, windowWidth - 24f, 34f), "REVEAL ALL ENEMY UNITS ON MAP", CommanderUiTheme.Button))
-        {
-            cheats?.RevealAllUnits();
+            // Faction Spawn toggle
+            cheatSpawnAsEnemy = GUI.Toggle(new Rect(view.xMax - 180f, searchY + 2f, 180f, 24f), cheatSpawnAsEnemy,
+                cheatSpawnAsEnemy ? "SPAWN AS: ENEMY" : "SPAWN AS: FRIENDLY", CommanderUiTheme.Toggle);
+
+            // List of Unit & Building Definitions
+            Rect listRect = new(view.x, searchY + 32f, view.width, view.height - 66f);
+            if (cheats != null)
+            {
+                IReadOnlyList<UnitDefinition> definitions = cheats.GetDefinitionsByCategory(cheatCategoryIndex, cheatSearchFilter);
+                Rect inner = new(0f, 0f, listRect.width - 20f, Mathf.Max(listRect.height, definitions.Count * 46f + 6f));
+                cheatScroll = GUI.BeginScrollView(listRect, cheatScroll, inner);
+
+                for (int i = 0; i < definitions.Count; i++)
+                {
+                    UnitDefinition def = definitions[i];
+                    Rect row = new(4f, 3f + i * 46f, inner.width - 8f, 42f);
+                    GUI.Box(row, string.Empty, CommanderUiTheme.Panel);
+
+                    string typeStr = def.unitPrefab.GetComponent<Building>() != null ? "BUILDING" :
+                                     def.unitPrefab.GetComponent<Aircraft>() != null ? "AIRCRAFT" :
+                                     def.unitPrefab.GetComponent<Ship>() != null ? "WARSHIP" : "VEHICLE";
+
+                    GUI.Label(new Rect(row.x + 10f, row.y + 3f, row.width - 170f, 20f), def.unitName, CommanderUiTheme.Label);
+                    GUI.Label(new Rect(row.x + 10f, row.y + 21f, row.width - 170f, 18f), "TYPE: " + typeStr, CommanderUiTheme.MutedLabel);
+
+                    if (GUI.Button(new Rect(row.xMax - 150f, row.y + 6f, 140f, 30f), "PLACE IN 3D", CommanderUiTheme.PrimaryButton))
+                    {
+                        cheats.BeginPlacement(def, cheatSpawnAsEnemy);
+                    }
+                }
+
+                GUI.EndScrollView();
+
+                if (definitions.Count == 0)
+                {
+                    GUI.Label(listRect, "No matching unit or building definitions found.", CommanderUiTheme.MutedLabel);
+                }
+            }
         }
+        else if (cheatTab == 1)
+        {
+            // TAB 1: ECONOMY
+            GUI.Box(view, string.Empty, CommanderUiTheme.Panel);
+            float itemY = view.y + 16f;
+
+            GUI.Label(new Rect(view.x + 16f, itemY, view.width - 32f, 24f), "FACTION TREASURY CHEATS", CommanderUiTheme.Header);
+            itemY += 32f;
+
+            float btnW = (view.width - 48f) / 3f;
+            if (GUI.Button(new Rect(view.x + 16f, itemY, btnW, 36f), "+ $100,000", CommanderUiTheme.Button)) cheats?.AddFunds(100000f);
+            if (GUI.Button(new Rect(view.x + 24f + btnW, itemY, btnW, 36f), "+ $1,000,000", CommanderUiTheme.Button)) cheats?.AddFunds(1000000f);
+            if (GUI.Button(new Rect(view.x + 32f + btnW * 2f, itemY, btnW, 36f), "+ $10,000,000", CommanderUiTheme.PrimaryButton)) cheats?.SetMaxFunds();
+            itemY += 50f;
+
+            if (GUI.Button(new Rect(view.x + 16f, itemY, view.width - 32f, 36f), "SET MAX FUNDS ($10,000,000)", CommanderUiTheme.SelectedButton))
+            {
+                cheats?.SetMaxFunds();
+            }
+        }
+        else if (cheatTab == 2)
+        {
+            // TAB 2: COMBAT & GODMODE
+            GUI.Box(view, string.Empty, CommanderUiTheme.Panel);
+            float itemY = view.y + 16f;
+
+            GUI.Label(new Rect(view.x + 16f, itemY, view.width - 32f, 24f), "INVULNERABILITY & SELECTION CHEATS", CommanderUiTheme.Header);
+            itemY += 32f;
+
+            if (cheats != null)
+            {
+                cheats.GodModeEnabled = GUI.Toggle(
+                    new Rect(view.x + 16f, itemY, view.width - 32f, 28f),
+                    cheats.GodModeEnabled,
+                    "GOD MODE (All Friendly Units & Buildings Invulnerable)",
+                    CommanderUiTheme.Toggle);
+            }
+            itemY += 38f;
+
+            float halfW = (view.width - 40f) * 0.5f;
+            if (GUI.Button(new Rect(view.x + 16f, itemY, halfW, 36f), "HEAL SELECTION (100% HP)", CommanderUiTheme.Button)) cheats?.HealSelection();
+            if (GUI.Button(new Rect(view.x + 24f + halfW, itemY, halfW, 36f), "RESTOCK AMMO SELECTION", CommanderUiTheme.Button)) cheats?.RestockAmmoSelection();
+            itemY += 46f;
+
+            if (GUI.Button(new Rect(view.x + 16f, itemY, view.width - 32f, 36f), "DESTROY / KILL TARGET (Instant Elimination)", CommanderUiTheme.DangerButton))
+            {
+                cheats?.DestroySelection();
+            }
+        }
+        else
+        {
+            // TAB 3: MAP & VISION
+            GUI.Box(view, string.Empty, CommanderUiTheme.Panel);
+            float itemY = view.y + 16f;
+
+            GUI.Label(new Rect(view.x + 16f, itemY, view.width - 32f, 24f), "TACTICAL VISION & RADAR REVEAL", CommanderUiTheme.Header);
+            itemY += 32f;
+
+            if (GUI.Button(new Rect(view.x + 16f, itemY, view.width - 32f, 38f), "REVEAL ALL ENEMY UNITS (Full Radar Vision)", CommanderUiTheme.PrimaryButton))
+            {
+                cheats?.RevealAllUnits();
+            }
+        }
+
+        GUI.DragWindow(new Rect(0f, 0f, cheatWindowRect.width - 72f, 28f));
     }
-
 
     private void DrawBinding(Rect rect, string label, string binding)
     {

@@ -241,6 +241,12 @@ internal sealed class CommanderInputController
             return;
         }
 
+        if (CommanderCheatService.Instance?.AwaitingPlacement == true)
+        {
+            CommanderCheatService.Instance.TrySpawnAtWorldPoint(mousePosition);
+            return;
+        }
+
         if (supplyHeliService.AwaitingTargetSelection)
         {
             supplyHeliService.TrySpawnAtWorldPoint(mousePosition);
@@ -291,6 +297,12 @@ internal sealed class CommanderInputController
     {
         if (overlayUi.ContainsScreenPoint(mousePosition))
         {
+            return;
+        }
+
+        if (CommanderCheatService.Instance?.AwaitingPlacement == true)
+        {
+            CommanderCheatService.Instance.CancelPlacement();
             return;
         }
 

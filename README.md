@@ -38,10 +38,15 @@ This is a BepInEx mod for Nuclear Option that implements full RTS-style gameplay
 - **Under-Attack Incident Jump (`Space`):**
   - Saat ada unit friendly yang terkena serangan, menekan tombol `Space` (saat tidak ada unit terfokus) akan langsung melompatkan kamera ke lokasi insiden dan menyeleksi unit yang terkena damage.
 
-### 4. Cheats & Sandbox Menu
-Menu terintegrasi pada tab **`CHEATS`** di jendela **SETTINGS**:
+### 4. Dedicated Cheat & Sandbox Menu (Jendela Khusus)
+Dibuka via tombol **`CHEAT / SANDBOX`** di panel utama Commander:
+- **3D Unit & Building Spawner:**
+  - Men-spawn semua jenis entitas game: **BUILDINGS** (Menara Radar, Hanggar, Pabrik, Pos SAM, Bunker), **LAND** (Tank, Truk, Traktor), **AIR** (Pesawat tempur, Helikopter), dan **NAVAL** (Kapal perang).
+  - Filter kategori & bar pencarian (*Search Box*).
+  - Sakelar Faksi: **SPAWN AS: FRIENDLY** atau **SPAWN AS: ENEMY**.
+  - Penempatan 3D Interaktif: Klik tombol **`PLACE IN 3D`** $ightarrow$ klik di tanah/air untuk instan spawn di titik kursor.
 - **Economy Cheats:** `+ $100,000`, `+ $1,000,000`, dan `MAX FUNDS ($10M)`.
-- **God Mode (Toggle):** Semua unit friendly kebal dari proyektil, rudal, dan bom.
+- **God Mode (Toggle):** Semua unit & bangunan friendly kebal dari proyektil, rudal, dan bom.
 - **Heal Selection (100% HP):** Pulihkan HP dan perbaiki seluruh subsistem unit terpilih seketika.
 - **Restock Ammo Selection:** Isi penuh semua amunisi rudal, bom, kanon, dan kapasitas logistik.
 - **Destroy Target (Kill Selection):** Hancurkan unit musuh/target seketika.
