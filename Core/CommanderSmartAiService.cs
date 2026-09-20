@@ -11,8 +11,10 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderSmartAiService
 {
-    private const float AdaptiveCheckInterval = 30f;
+    private const float AdaptiveCheckInterval = 20f;
     private const float ScatterCooldownSeconds = 10f;
+    private const float AutoSupplyCheckInterval = 25f;
+    private const float AutoScrambleCheckInterval = 15f;
 
     private static readonly MethodInfo? FactoryProductionSetter =
         AccessTools.PropertySetter(typeof(Factory), "NetworkproductionUnit")
@@ -24,6 +26,8 @@ internal sealed class CommanderSmartAiService
 
     private float nextAdaptiveCheckTime;
     private float nextCacheRefreshTime;
+    private float nextSupplyCheckTime;
+    private float nextScrambleCheckTime;
     private bool cachedSceneObjects;
 
     internal static CommanderSmartAiService? Instance { get; private set; }
@@ -43,10 +47,11 @@ internal sealed class CommanderSmartAiService
         float now = Time.unscaledTime;
         if (!cachedSceneObjects || now >= nextCacheRefreshTime)
         {
-            nextCacheRefreshTime = now + 60f;
+            nextCacheRefreshTime = now + 45f;
             RefreshSceneCache();
         }
 
+        // 1. Adaptive Counter-Production & Auto-Deploy
         if (now >= nextAdaptiveCheckTime)
         {
             nextAdaptiveCheckTime = now + AdaptiveCheckInterval;
@@ -65,6 +70,25 @@ internal sealed class CommanderSmartAiService
             {
                 TryAutoDeployNavalReserve();
             }
+
+            if (CommanderSettings.AiAutoReinforceDepots)
+            {
+                TryAutoReinforceGroundDepots();
+            }
+        }
+
+        // 2. Autonomous Frontline Ammo Logistics Ferry Loop
+        if (CommanderSettings.AiAutoFrontlineSupply && now >= nextSupplyCheckTime)
+        {
+            nextSupplyCheckTime = now + AutoSupplyCheckInterval;
+            TryAutoSupplyFrontline();
+        }
+
+        // 3. Autonomous Air Wing Intercept & Scramble
+        if (CommanderSettings.AiAutoScrambleAirGuard && now >= nextScrambleCheckTime)
+        {
+            nextScrambleCheckTime = now + AutoScrambleCheckInterval;
+            TryAutoScrambleInterceptors();
         }
 
         PruneDeadReferences();
@@ -145,7 +169,7 @@ internal sealed class CommanderSmartAiService
                     if (result.Allowed)
                     {
                         localHq.ModifyUnitSupply(def, -1);
-                        CommanderPlugin.Log.LogInfo($"[Smart AI] Auto-deployed reserve aircraft: {def.unitName} from airbase.");
+                        CommanderPlugin.Log.LogInfo($"[Autonomous Commander] Auto-deployed reserve aircraft: {def.unitName} from airbase.");
                         break;
                     }
                 }
@@ -237,12 +261,157 @@ internal sealed class CommanderSmartAiService
                 if (ship != null)
                 {
                     localHq.ModifyUnitSupply(def, -1);
-                    CommanderPlugin.Log.LogInfo($"[Smart AI] Auto-deployed reserve naval vessel: {def.unitName} to sea lane.");
+                    CommanderPlugin.Log.LogInfo($"[Autonomous Commander] Auto-deployed reserve warship: {def.unitName} to sea lane.");
                     break;
                 }
             }
             catch
             {
+            }
+        }
+    }
+
+    private void TryAutoSupplyFrontline()
+    {
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        CommanderSupplyHeliService? supplySvc = CommanderSupplyHeliService.Instance;
+        if (localHq == null || supplySvc == null)
+        {
+            return;
+        }
+
+        // Check FOBs first
+        if (CommanderForwardOutpostService.Instance?.DeployedFobs != null)
+        {
+            foreach (Unit fob in CommanderForwardOutpostService.Instance.DeployedFobs)
+            {
+                if (fob != null && !fob.disabled)
+                {
+                    supplySvc.RequestAutomaticCargoRun(fob.transform.position.ToGlobalPosition());
+                    CommanderPlugin.Log.LogInfo($"[Autonomous Logistics] Dispatched automated ammo resupply to FOB at {fob.unitName}.");
+                    return;
+                }
+            }
+        }
+
+        // Check frontline combat vehicles for low ammo (< 30%)
+        if (localHq.factionUnits != null)
+        {
+            foreach (PersistentID id in localHq.factionUnits)
+            {
+                if (!id.TryGetUnit(out Unit unit) || unit == null || unit.disabled || unit is not GroundVehicle)
+                {
+                    continue;
+                }
+
+                if (unit.weaponStations != null && unit.weaponStations.Count > 0)
+                {
+                    float currentAmmo = 0f;
+                    float maxAmmo = 0f;
+                    for (int s = 0; s < unit.weaponStations.Count; s++)
+                    {
+                        WeaponStation station = unit.weaponStations[s];
+                        if (station?.Weapons == null) continue;
+                        for (int w = 0; w < station.Weapons.Count; w++)
+                        {
+                            Weapon wp = station.Weapons[w];
+                            if (wp != null)
+                            {
+                                currentAmmo += wp.ammo;
+                                maxAmmo += Mathf.Max(1, wp.GetFullAmmo());
+                            }
+                        }
+                    }
+
+                    if (maxAmmo > 0f && (currentAmmo / maxAmmo) <= 0.30f)
+                    {
+                        supplySvc.RequestAutomaticCargoRun(unit.transform.position.ToGlobalPosition());
+                        CommanderPlugin.Log.LogInfo($"[Autonomous Logistics] Dispatched automated ammo drop to low-ammo unit: {unit.unitName}.");
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    private void TryAutoScrambleInterceptors()
+    {
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq?.trackingDatabase == null || friendlyAirbases.Count == 0)
+        {
+            return;
+        }
+
+        Vector3 friendlyCenter = friendlyAirbases[0].transform.position;
+        bool hostileAirSpotted = false;
+
+        foreach (KeyValuePair<PersistentID, TrackingInfo> entry in localHq.trackingDatabase)
+        {
+            if (entry.Key.TryGetUnit(out Unit unit) && unit != null && !unit.disabled && unit is Aircraft && !CommanderGameAccess.IsFriendlyUnit(unit, localHq))
+            {
+                float dist = Vector3.Distance(friendlyCenter, unit.transform.position);
+                if (dist <= 40000f)
+                {
+                    hostileAirSpotted = true;
+                    break;
+                }
+            }
+        }
+
+        if (hostileAirSpotted)
+        {
+            // Auto-deploy ready AirGuard aircraft
+            TryAutoDeployAirReserve();
+        }
+    }
+
+    private void TryAutoReinforceGroundDepots()
+    {
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        CommanderFactionVehicleService? factionSvc = CommanderFactionVehicleService.Instance;
+        CommanderSpawnService? spawnSvc = CommanderSpawnService.Instance;
+        if (localHq == null || factionSvc == null || spawnSvc == null)
+        {
+            return;
+        }
+
+        int friendlyGroundCount = 0;
+        if (localHq.factionUnits != null)
+        {
+            foreach (PersistentID id in localHq.factionUnits)
+            {
+                if (id.TryGetUnit(out Unit u) && u != null && !u.disabled && u is GroundVehicle)
+                {
+                    friendlyGroundCount++;
+                }
+            }
+        }
+
+        // If ground presence is below 12 units, auto-deploy from reserve
+        if (friendlyGroundCount < 12)
+        {
+            IReadOnlyList<VehicleDefinition> landDefs = factionSvc.LandDefinitions;
+            for (int d = 0; d < landDefs.Count; d++)
+            {
+                VehicleDefinition def = landDefs[d];
+                if (def == null || factionSvc.IsDefinitionHeld(def))
+                {
+                    continue;
+                }
+
+                if (localHq.GetUnitSupply(def) > 0)
+                {
+                    spawnSvc.SelectNearestDepot();
+                    if (spawnSvc.SelectedDepot != null)
+                    {
+                        if (spawnSvc.SelectedDepot.TrySpawnVehicle(def))
+                        {
+                            localHq.ModifyUnitSupply(def, -1);
+                            CommanderPlugin.Log.LogInfo($"[Autonomous Army] Reinforced front line with reserve {def.unitName}.");
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
@@ -269,9 +438,9 @@ internal sealed class CommanderSmartAiService
                     {
                         friendlyAircraftCount++;
                     }
-                    else if (unit is GroundVehicle gv && gv.definition is VehicleDefinition vdef)
+                    else if (unit is GroundVehicle gv && gv.definition is VehicleDefinition def)
                     {
-                        string cat = CommanderGameAccess.GetVehicleCategoryLabel(vdef);
+                        string cat = CommanderGameAccess.GetVehicleCategoryLabel(def);
                         if (string.Equals(cat, "Tank", StringComparison.OrdinalIgnoreCase) || string.Equals(cat, "Armor", StringComparison.OrdinalIgnoreCase))
                         {
                             friendlyArmorCount++;
@@ -281,21 +450,13 @@ internal sealed class CommanderSmartAiService
             }
         }
 
-        string targetCategory = "Tank";
-        if (friendlyAircraftCount >= 2)
-        {
-            targetCategory = "AAA";
-        }
-        else if (friendlyArmorCount >= 3)
-        {
-            targetCategory = "Tank";
-        }
-
-        IReadOnlyList<VehicleDefinition> landDefs = factionSvc.LandDefinitions;
+        string targetCategory = friendlyAircraftCount >= 3 ? "AAA" : "Tank";
+        IReadOnlyList<VehicleDefinition> allDefs = factionSvc.LandDefinitions;
         VehicleDefinition? bestCounterDef = null;
-        for (int i = 0; i < landDefs.Count; i++)
+
+        for (int i = 0; i < allDefs.Count; i++)
         {
-            VehicleDefinition def = landDefs[i];
+            VehicleDefinition def = allDefs[i];
             string cat = CommanderGameAccess.GetVehicleCategoryLabel(def);
             if (string.Equals(cat, targetCategory, StringComparison.OrdinalIgnoreCase))
             {
@@ -419,5 +580,7 @@ internal sealed class CommanderSmartAiService
         cachedSceneObjects = false;
         nextAdaptiveCheckTime = 0f;
         nextCacheRefreshTime = 0f;
+        nextSupplyCheckTime = 0f;
+        nextScrambleCheckTime = 0f;
     }
 }

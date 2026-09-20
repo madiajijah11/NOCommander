@@ -1467,8 +1467,77 @@ internal sealed partial class CommanderAirCommandService
     {
         foreach (KeyValuePair<Aircraft, AirMission> entry in missions)
         {
-            if (entry.Value.Returning && !entry.Value.RtbIssued) IssueReturnToBase(entry.Key, entry.Value);
+            Aircraft aircraft = entry.Key;
+            AirMission mission = entry.Value;
+            if (aircraft == null || aircraft.disabled) continue;
+
+            // Auto-RTB: Winchester (ammo dry) or Bingo Fuel (< 15%)
+            if (!mission.Returning && IsWinchesterOrBingo(aircraft, mission.Mode))
+            {
+                mission.Returning = true;
+                CommanderPlugin.Log.LogInfo($"[Air Command] Auto-RTB triggered for {aircraft.unitName} (Winchester / Bingo Fuel).");
+            }
+
+            if (mission.Returning && !mission.RtbIssued)
+            {
+                IssueReturnToBase(aircraft, mission);
+            }
         }
+    }
+
+    private static bool IsWinchesterOrBingo(Aircraft aircraft, AirCommandMode mode)
+    {
+        if (aircraft == null || aircraft.disabled) return false;
+
+        // 1. Bingo Fuel Check (< 15%)
+        if (aircraft.GetFuelLevel() <= 0.15f)
+        {
+            return true;
+        }
+
+        // AWACS stays on station until fuel is low
+        if (mode == AirCommandMode.AwacsJammer)
+        {
+            return false;
+        }
+
+        // 2. Winchester Check (all missiles/bombs expended)
+        if (aircraft.weaponStations != null && aircraft.weaponStations.Count > 0)
+        {
+            bool hasOffensiveWeapon = false;
+            bool hasRemainingAmmo = false;
+
+            for (int s = 0; s < aircraft.weaponStations.Count; s++)
+            {
+                WeaponStation station = aircraft.weaponStations[s];
+                if (station?.Weapons == null) continue;
+
+                for (int w = 0; w < station.Weapons.Count; w++)
+                {
+                    Weapon weapon = station.Weapons[w];
+                    if (weapon == null) continue;
+
+                    bool isGun = weapon.name != null && (weapon.name.ToLowerInvariant().Contains("cannon") || weapon.name.ToLowerInvariant().Contains("gun"));
+                    if (!isGun)
+                    {
+                        hasOffensiveWeapon = true;
+                        if (weapon.ammo > 0)
+                        {
+                            hasRemainingAmmo = true;
+                            break;
+                        }
+                    }
+                }
+                if (hasRemainingAmmo) break;
+            }
+
+            if (hasOffensiveWeapon && !hasRemainingAmmo)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void IssueReturnToBase(Aircraft aircraft, AirMission mission)

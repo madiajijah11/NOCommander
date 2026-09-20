@@ -198,12 +198,20 @@ internal sealed class CommanderDepotUi
     {
         List<VehicleDefinition> vehicles = spawnService.GetFilteredVehicleDefinitions(selectedCategory, reserveOnly);
         Rect view = new(12f, y, windowRect.width - 24f, height);
-        Rect inner = new(0f, 0f, view.width - 20f, Mathf.Max(height, vehicles.Count * 34f + 6f));
+        Rect inner = new(0f, 0f, view.width - 20f, Mathf.Max(height, vehicles.Count * 48f + 6f));
         vehicleScroll = GUI.BeginScrollView(view, vehicleScroll, inner);
         for (int i = 0; i < vehicles.Count; i++)
         {
             VehicleDefinition definition = vehicles[i];
-            if (GUI.Button(new Rect(4f, 3f + i * 34f, inner.width - 8f, 30f), spawnService.GetVehicleSpawnLabel(definition), CommanderUiTheme.Button))
+            Rect row = new(4f, 3f + i * 48f, inner.width - 8f, 44f);
+            GUI.Box(row, string.Empty, CommanderUiTheme.Card);
+
+            string catLabel = CommanderCheatService.GetCategoryLabel(definition);
+
+            GUI.Label(new Rect(row.x + 10f, row.y + 3f, row.width - 130f, 20f), definition.unitName, CommanderUiTheme.Label);
+            GUI.Label(new Rect(row.x + 10f, row.y + 21f, row.width - 130f, 18f), "[" + catLabel + "]   VALUE: $" + definition.value.ToString("N0"), CommanderUiTheme.MutedLabel);
+
+            if (GUI.Button(new Rect(row.xMax - 116f, row.y + 6f, 108f, 32f), "+ QUEUE", CommanderUiTheme.PrimaryButton))
             {
                 spawnService.AddVehicleToSpawnList(definition);
             }

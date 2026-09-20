@@ -29,6 +29,9 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderStanceService? stanceService;
     private CommanderCheatService? cheatService;
     private CommanderSmartAiService? smartAiService;
+    private CommanderFactoryProductionService? factoryProductionService;
+    private CommanderForwardOutpostService? forwardOutpostService;
+    private CommanderBuildingEconomyService? buildingEconomyService;
     private CommanderOverlayUi? overlayUi;
     private CommanderInputController? inputController;
     private CommanderPersistentOperations? persistentOperations;
@@ -73,6 +76,9 @@ internal sealed class CommanderModeController : MonoBehaviour
         stanceService = new CommanderStanceService(selectionService);
         cheatService = new CommanderCheatService(selectionService);
         smartAiService = new CommanderSmartAiService();
+        factoryProductionService = new CommanderFactoryProductionService();
+        forwardOutpostService = new CommanderForwardOutpostService(selectionService);
+        buildingEconomyService = new CommanderBuildingEconomyService();
         overlayUi = new CommanderOverlayUi(
             selectionService,
             moveService,
@@ -144,6 +150,9 @@ internal sealed class CommanderModeController : MonoBehaviour
             navalPurchaseService?.TickActive();
             samSiteAnalyzerService?.TickActive();
             spawnService?.TickActive();
+            factoryProductionService?.Tick();
+            forwardOutpostService?.Tick();
+            buildingEconomyService?.Tick();
         }
         overlayUi?.Tick();
         inputController?.Tick();
@@ -368,6 +377,9 @@ internal sealed class CommanderModeController : MonoBehaviour
         stanceService?.ResetSession();
         cheatService?.ResetSession();
         smartAiService?.ResetSession();
+        factoryProductionService?.ResetSession();
+        forwardOutpostService?.ResetSession();
+        buildingEconomyService?.ResetSession();
         moveService?.ResetSession();
     }
 

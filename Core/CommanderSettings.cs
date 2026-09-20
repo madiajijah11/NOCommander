@@ -17,6 +17,9 @@ internal static class CommanderSettings
     internal static bool AiAdaptiveProduction { get => Get("Gameplay", "AiAdaptiveProduction", true); set => Set("Gameplay", "AiAdaptiveProduction", value); }
     internal static bool AiAutoDeployAir { get => Get("Gameplay", "AiAutoDeployAir", true); set => Set("Gameplay", "AiAutoDeployAir", value); }
     internal static bool AiAutoDeployNaval { get => Get("Gameplay", "AiAutoDeployNaval", true); set => Set("Gameplay", "AiAutoDeployNaval", value); }
+    internal static bool AiAutoScrambleAirGuard { get => Get("Gameplay", "AiAutoScrambleAirGuard", true); set => Set("Gameplay", "AiAutoScrambleAirGuard", value); }
+    internal static bool AiAutoFrontlineSupply { get => Get("Gameplay", "AiAutoFrontlineSupply", true); set => Set("Gameplay", "AiAutoFrontlineSupply", value); }
+    internal static bool AiAutoReinforceDepots { get => Get("Gameplay", "AiAutoReinforceDepots", true); set => Set("Gameplay", "AiAutoReinforceDepots", value); }
     internal static bool ShowCommandButton { get => Get("UI", "ShowCommandButton", true); set => Set("UI", "ShowCommandButton", value); }
     internal static bool ShowFactionMoney { get => Get("UI", "ShowFactionMoney", true); set => Set("UI", "ShowFactionMoney", value); }
     internal static bool ShowTacticalMap { get => Get("UI", "ShowTacticalMap", true); set => Set("UI", "ShowTacticalMap", value); }
@@ -52,6 +55,10 @@ internal static class CommanderSettings
     internal static KeyboardShortcut CameraDown { get => GetShortcut("CameraDown", KeyCode.E, "Move the Commander camera downward."); set => Set("Keybinds", "CameraDown", value); }
     internal static KeyboardShortcut CameraFreeLook { get => GetShortcut("CameraFreeLook", KeyCode.Mouse2, "Hold while moving the mouse to look around in Commander mode."); set => Set("Keybinds", "CameraFreeLook", value); }
     internal static KeyboardShortcut CameraBoost { get => GetShortcut("CameraBoost", KeyCode.LeftShift, "Hold for faster Commander camera movement."); set => Set("Keybinds", "CameraBoost", value); }
+    internal static KeyboardShortcut CameraRotateLeft { get => GetShortcut("CameraRotateLeft", KeyCode.LeftArrow, "Rotate the Commander camera view left."); set => Set("Keybinds", "CameraRotateLeft", value); }
+    internal static KeyboardShortcut CameraRotateRight { get => GetShortcut("CameraRotateRight", KeyCode.RightArrow, "Rotate the Commander camera view right."); set => Set("Keybinds", "CameraRotateRight", value); }
+    internal static KeyboardShortcut CameraPitchUp { get => GetShortcut("CameraPitchUp", KeyCode.UpArrow, "Tilt the Commander camera view upward."); set => Set("Keybinds", "CameraPitchUp", value); }
+    internal static KeyboardShortcut CameraPitchDown { get => GetShortcut("CameraPitchDown", KeyCode.DownArrow, "Tilt the Commander camera view downward."); set => Set("Keybinds", "CameraPitchDown", value); }
 
     internal static string AirCommandMode { get => Get("Air Command", "MissionMode", "AirGuard"); set => Set("Air Command", "MissionMode", value); }
     internal static string AirLoadoutBalance { get => Get("Air Command", "LoadoutBalance", "Primary"); set => Set("Air Command", "LoadoutBalance", value); }

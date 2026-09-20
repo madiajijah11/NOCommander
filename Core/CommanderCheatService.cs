@@ -114,13 +114,42 @@ internal sealed class CommanderCheatService
 
     internal static string GetCategoryLabel(UnitDefinition def)
     {
-        return ResolveCategory(def) switch
+        string name = (!string.IsNullOrEmpty(def.unitName) ? def.unitName : def.name).ToLowerInvariant();
+        EntityCategory cat = ResolveCategory(def);
+
+        switch (cat)
         {
-            EntityCategory.Air => "AIRCRAFT",
-            EntityCategory.Naval => "WARSHIP",
-            EntityCategory.Land => "LAND VEHICLE",
-            _ => "BUILDING"
-        };
+            case EntityCategory.Air:
+                if (name.Contains("heli") || name.Contains("cricket") || name.Contains("tarantula")) return "AIR | HELICOPTER";
+                if (name.Contains("medusa") || name.Contains("vtol") || name.Contains("cargo")) return "AIR | CARGO & VTOL";
+                if (name.Contains("darkreach") || name.Contains("bomber") || name.Contains("strike")) return "AIR | HEAVY BOMBER";
+                if (name.Contains("compass") || name.Contains("cas") || name.Contains("ground attack")) return "AIR | CLOSE AIR SUPPORT";
+                if (name.Contains("revoker") || name.Contains("ifrit") || name.Contains("fighter") || name.Contains("intercept")) return "AIR | AIR SUPERIORITY";
+                return "AIR | MULTIROLE AIRCRAFT";
+
+            case EntityCategory.Naval:
+                if (name.Contains("carrier") || name.Contains("flagship")) return "NAVAL | AIRCRAFT CARRIER";
+                if (name.Contains("destroyer") || name.Contains("frigate")) return "NAVAL | GUIDED MISSILE WARSHIP";
+                if (name.Contains("corvette") || name.Contains("patrol") || name.Contains("boat")) return "NAVAL | CORVETTE / PATROL";
+                if (name.Contains("barge") || name.Contains("cargo") || name.Contains("supply")) return "NAVAL | SUPPLY & LOGISTICS";
+                return "NAVAL | SURFACE WARSHIP";
+
+            case EntityCategory.Land:
+                if (name.Contains("tank") || name.Contains("mbt") || name.Contains("heavy")) return "LAND | MAIN BATTLE TANK";
+                if (name.Contains("spaag") || name.Contains("aaa") || name.Contains("sam") || name.Contains("air defense")) return "LAND | AIR DEFENSE (AAA/SAM)";
+                if (name.Contains("mrls") || name.Contains("artillery") || name.Contains("mortar") || name.Contains("howitzer")) return "LAND | ROCKET ARTILLERY";
+                if (name.Contains("ifv") || name.Contains("apc") || name.Contains("scout") || name.Contains("light")) return "LAND | ARMORED FIGHTING VEHICLE";
+                if (name.Contains("truck") || name.Contains("tractor") || name.Contains("rearm") || name.Contains("repair") || name.Contains("jacknife") || name.Contains("logistics") || name.Contains("trailer")) return "LAND | LOGISTICS & SUPPORT";
+                return "LAND | COMBAT VEHICLE";
+
+            case EntityCategory.Building:
+            default:
+                if (name.Contains("factory") || name.Contains("plant") || name.Contains("refinery") || name.Contains("industrial") || name.Contains("power")) return "BUILDING | INDUSTRY & REVENUE";
+                if (name.Contains("hangar") || name.Contains("depot") || name.Contains("dock") || name.Contains("shipyard") || name.Contains("runway")) return "BUILDING | MILITARY SPAWNER";
+                if (name.Contains("radar") || name.Contains("sam") || name.Contains("tower") || name.Contains("strato") || name.Contains("bunker") || name.Contains("gun")) return "BUILDING | AIR DEFENSE & RADAR";
+                if (name.Contains("fob") || name.Contains("storage") || name.Contains("warehouse") || name.Contains("fuel") || name.Contains("ammo")) return "BUILDING | FIELD LOGISTICS";
+                return "BUILDING | MILITARY STRUCTURE";
+        }
     }
 
     internal void EnsureCatalogLoaded()
@@ -203,7 +232,9 @@ internal sealed class CommanderCheatService
         filteredDefinitions.Clear();
         for (int i = 0; i < source.Count; i++)
         {
-            if (source[i].unitName.IndexOf(searchFilter, StringComparison.OrdinalIgnoreCase) >= 0)
+            string catLabel = GetCategoryLabel(source[i]);
+            if (source[i].unitName.IndexOf(searchFilter, StringComparison.OrdinalIgnoreCase) >= 0
+                || catLabel.IndexOf(searchFilter, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 filteredDefinitions.Add(source[i]);
             }
@@ -321,8 +352,6 @@ internal sealed class CommanderCheatService
                 rbs[i].detectCollisions = false;
             }
 
-            // Audio & scripts are disabled via MonoBehaviour stripping
-
             Color tint = spawnAsEnemy ? new Color(1f, 0.3f, 0.25f, 0.75f) : new Color(0.25f, 0.9f, 0.95f, 0.75f);
             Renderer[] renderers = ghostPreviewObject.GetComponentsInChildren<Renderer>(true);
             for (int r = 0; r < renderers.Length; r++)
@@ -342,8 +371,6 @@ internal sealed class CommanderCheatService
             CommanderPlugin.Log.LogWarning("Could not instantiate ghost preview: " + ex.Message);
         }
     }
-
-
 
     private void DestroyGhostPreview()
     {

@@ -137,20 +137,35 @@ internal static class CommanderFreeCameraInputPatch
             ? Vector3.zero
             : customVelocity;
 
-        if (!CommanderCameraFollowService.IsPovActive
-            && CommanderShortcutInput.IsPressed(CommanderSettings.CameraFreeLook))
+        if (!CommanderCameraFollowService.IsPovActive)
         {
-            float fovScale = Mathf.Min(cam.mainCamera.fieldOfView / 20f, 1f);
-            float pitchDirection = PlayerSettings.viewInvertPitch ? 1f : -1f;
-            __state.Tilt += pitchDirection
-                * fovScale
-                * Input.GetAxisRaw("Mouse Y")
-                * MouseLookScale
-                * PlayerSettings.viewSensitivity;
-            __state.Pan += fovScale
-                * Input.GetAxisRaw("Mouse X")
-                * MouseLookScale
-                * PlayerSettings.viewSensitivity;
+            // 1. Mouse Free Look
+            if (CommanderShortcutInput.IsPressed(CommanderSettings.CameraFreeLook))
+            {
+                float fovScale = Mathf.Min(cam.mainCamera.fieldOfView / 20f, 1f);
+                float pitchDirection = PlayerSettings.viewInvertPitch ? 1f : -1f;
+                __state.Tilt += pitchDirection
+                    * fovScale
+                    * Input.GetAxisRaw("Mouse Y")
+                    * MouseLookScale
+                    * PlayerSettings.viewSensitivity;
+                __state.Pan += fovScale
+                    * Input.GetAxisRaw("Mouse X")
+                    * MouseLookScale
+                    * PlayerSettings.viewSensitivity;
+            }
+
+            // 2. Keyboard Camera Rotation & Pitch
+            float keyYaw = Axis(CommanderSettings.CameraRotateRight, CommanderSettings.CameraRotateLeft);
+            float keyPitch = Axis(CommanderSettings.CameraPitchDown, CommanderSettings.CameraPitchUp);
+            if (Mathf.Abs(keyYaw) > 0.01f)
+            {
+                __state.Pan += keyYaw * 80f * Time.unscaledDeltaTime;
+            }
+            if (Mathf.Abs(keyPitch) > 0.01f)
+            {
+                __state.Tilt += keyPitch * 65f * Time.unscaledDeltaTime;
+            }
         }
     }
 

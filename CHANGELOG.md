@@ -7,6 +7,10 @@ All notable changes to the NOCommander mod are documented in this file.
 ## [0.2.0.0] - 2026-09-19
 
 ### 🌟 New Features
+- **Live Unit Telemetry & Combat Inspector HUD:**
+  - Displays real-time speed (km/h), compass heading, radar altitude (m), fuel percentage, combat readiness badge, and armament breakdown for focused units.
+- **Rich Depot Spawner & Reserve Cards:**
+  - Upgraded vehicle selection entries in Depots and Reserve with sub-category badges, unit valuation, and one-click queueing.
 - **Control Groups & Quick Recall:**
   - `Ctrl + 0..9` to assign selected units to control groups.
   - `0..9` to recall control groups (hold `Shift` for additive multi-group selection).
@@ -23,8 +27,6 @@ All notable changes to the NOCommander mod are documented in this file.
   - **Rules of Engagement / Fire Stance (`F` / UI Button):** Toggle between `HOLD FIRE` (disables turret/weapon target acquisition) and `FREE FIRE`.
 - **Combat Alerts & Emergency Reaction:**
   - **Under-Attack Incident Jump (`Space`):** Automatically detects incoming damage on friendly units; pressing `Space` when no unit is selected jumps the camera to the latest incident and selects the damaged unit.
-- **3D Overhead Health & Status Bars:**
-  - Dynamic floating HP bars (Green/Yellow/Red) and Weapon Ammo bars (Cyan) rendered directly above selected units in 3D world space.
 - **Multi-Domain Faction Reserve Upgrades:**
   - Added dedicated tabs for **`LAND`**, **`AIR`**, and **`NAVAL`** branches, plus **`CATEGORIES`**.
   - **Batch Multipliers (`x1`, `x5`, `x10`, `MAX`):** Buy, sell, or deploy units in bulk without repetitive clicking.
@@ -32,11 +34,27 @@ All notable changes to the NOCommander mod are documented in this file.
   - **`SELL`:** Scrap surplus reserve units for a 75% cash refund to faction funds.
   - **`FREE / DEPLOY`:** Instantly deploy reserve units to active depots at zero cost ($0).
   - **`HOLD ALL / RELEASE ALL`:** Bulk toggle factory output retention per category.
+- **Autonomous Theater Commander & AI Automation:**
+  - **Winchester & Bingo Fuel Auto-RTB:** Combat aircraft autonomously RTB upon expending offensive munitions or hitting $\le 15\%$ fuel reserves.
+  - **Autonomous Air Intercept Scramble:** Auto-scrambles ready Air Guard fighters when hostile aircraft enter within 40 km of friendly airspace.
+  - **Autonomous Frontline Logistics Loop:** Auto-dispatches cargo helicopters with ammo crates to frontline combat units, SAM sites, and FOBs low on ammo ($< 30\%$).
+  - **Autonomous Ground Army Reinforcement:** Auto-deploys reserve armor and IFVs to friendly depots when frontline counts drop.
 - **Smart AI System & Macro Counters:**
   - **Autonomous Air & Naval Auto-Deploy:** AI bot allies automatically sortie reserve aircraft from nearby airbases and deploy reserve warships to sea lanes (when units are not set to `HOLD`).
   - **Adaptive Counter-Production:** Enemy AI monitors player force composition and dynamically alters factory output to counter air or armor spam (e.g. producing AAA/SAM when player deploys heavy air).
   - **Reactive Evasive Scatter:** AI ground vehicles automatically scatter (40–75 m) away from incoming artillery and bomb detonations.
   - **Threat-Scoring Heuristics:** Dynamic threat prioritization prioritizing active combat vehicles and aircraft over unarmed support trucks.
+- **Buildings & Infrastructure Economy Dashboard (Core RTS):**
+  - Added dedicated **`BUILDINGS & ECONOMY`** overview dashboard categorizing all friendly structures into **Economy**, **Spawning**, **Defense**, and **Logistics**.
+  - Displays real-time financial stats: **Income Rate (+$/min)**, **Sector Control**, and **Total Asset Count**.
+  - Added **`JUMP TO`** camera focus action on every building entry.
+- **Factory Production Line Manager (Core RTS):**
+  - Added dedicated **`FACTORIES / PRODUCTION`** window to monitor and reassign factory manufacturing lines on the fly (switch factories to MBT, SPAAG, IFV, or Radar SAM lines).
+  - Live visual progress bar for each factory production cycle.
+- **Deployable Field Forward Operating Bases (FOB Logistics):**
+  - **`DEPLOY FOB`** button on logistics trucks and trailers.
+  - Active FOBs project a 75m aura that automatically repairs friendly units and reloads munitions in the field.
+  - Distinct 3D **`[FOB LOGISTICS]`** world marker.
 - **Dedicated Sandbox & Cheat Menu Window:**
   - Replaced settings tab with an independent, dedicated floating window accessible via the **`CHEAT / SANDBOX`** panel button.
   - **Interactive 3D Entity Spawner:** Spawn any entity directly into the 3D world: **BUILDINGS** (Radar towers, SAM sites, Factories, Hangars, Outposts), **LAND**, **AIR**, and **NAVAL** units with friendly/enemy faction assignment and 3D cursor placement.

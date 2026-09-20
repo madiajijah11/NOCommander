@@ -16,6 +16,8 @@ internal sealed class CommanderOverlayUi
     private const int SettingsWindowId = 0x434F4D53;
     private const int CheatWindowId = 0x434F4D43;
     private const int OobWindowId = 0x434F4D4F;
+    private const int FactoryWindowId = 0x434F4D46;
+    private const int BuildingWindowId = 0x434F4D42;
     private const int MoneyWindowId = 0x434F4D24;
 
     private readonly CommanderSelectionService selectionService;
@@ -59,6 +61,16 @@ internal sealed class CommanderOverlayUi
     private bool oobHelpVisible;
     private Vector2 oobScroll;
     private Rect oobWindowRect;
+    private bool factoryWindowVisible;
+    private bool factoryHelpVisible;
+    private Vector2 factoryScroll;
+    private Rect factoryWindowRect;
+    private bool buildingWindowVisible;
+    private bool buildingHelpVisible;
+    private int buildingCategoryTab;
+    private string buildingSearchFilter = string.Empty;
+    private Vector2 buildingScroll;
+    private Rect buildingWindowRect;
     private bool advancedUnlockConfirmation;
     private int settingsTab;
     private string? bindingCapture;
@@ -240,6 +252,20 @@ internal sealed class CommanderOverlayUi
                 Mathf.Max(12f, (CommanderUiScale.Height - oobHeight) * 0.5f),
                 oobWidth,
                 oobHeight);
+            float factoryWidth = Mathf.Min(720f, CommanderUiScale.Width - 24f);
+            float factoryHeight = Mathf.Min(640f, CommanderUiScale.Height - 24f);
+            factoryWindowRect = new Rect(
+                Mathf.Max(12f, (CommanderUiScale.Width - factoryWidth) * 0.5f),
+                Mathf.Max(12f, (CommanderUiScale.Height - factoryHeight) * 0.5f),
+                factoryWidth,
+                factoryHeight);
+            float bldWidth = Mathf.Min(740f, CommanderUiScale.Width - 24f);
+            float bldHeight = Mathf.Min(680f, CommanderUiScale.Height - 24f);
+            buildingWindowRect = new Rect(
+                Mathf.Max(12f, (CommanderUiScale.Width - bldWidth) * 0.5f),
+                Mathf.Max(12f, (CommanderUiScale.Height - bldHeight) * 0.5f),
+                bldWidth,
+                bldHeight);
             positionsInitialized = true;
         }
         else
@@ -253,6 +279,10 @@ internal sealed class CommanderOverlayUi
             cheatWindowRect.height = Mathf.Min(700f, CommanderUiScale.Height - 24f);
             oobWindowRect.width = Mathf.Min(660f, CommanderUiScale.Width - 24f);
             oobWindowRect.height = Mathf.Min(620f, CommanderUiScale.Height - 24f);
+            factoryWindowRect.width = Mathf.Min(720f, CommanderUiScale.Width - 24f);
+            factoryWindowRect.height = Mathf.Min(640f, CommanderUiScale.Height - 24f);
+            buildingWindowRect.width = Mathf.Min(740f, CommanderUiScale.Width - 24f);
+            buildingWindowRect.height = Mathf.Min(680f, CommanderUiScale.Height - 24f);
             moneyRect.width = 220f;
             moneyRect.height = 32f;
         }
@@ -263,6 +293,8 @@ internal sealed class CommanderOverlayUi
         settingsWindowRect = CommanderUiTheme.ClampWindow(settingsWindowRect);
         cheatWindowRect = CommanderUiTheme.ClampWindow(cheatWindowRect);
         oobWindowRect = CommanderUiTheme.ClampWindow(oobWindowRect);
+        factoryWindowRect = CommanderUiTheme.ClampWindow(factoryWindowRect);
+        buildingWindowRect = CommanderUiTheme.ClampWindow(buildingWindowRect);
         pinnedLauncherRect = new Rect(
             Mathf.Min(CommanderUiScale.Width - 70f, pinnedWindowRect.xMax + 6f),
             pinnedWindowRect.y,
@@ -413,6 +445,14 @@ internal sealed class CommanderOverlayUi
         {
             oobWindowRect = GUI.Window(OobWindowId, oobWindowRect, DrawOobWindow, "ORDER OF BATTLE (ARMY STATUS)", CommanderUiTheme.Window);
         }
+        if (advanced && factoryWindowVisible)
+        {
+            factoryWindowRect = GUI.Window(FactoryWindowId, factoryWindowRect, DrawFactoryWindow, "FACTORIES & PRODUCTION LINES", CommanderUiTheme.Window);
+        }
+        if (advanced && buildingWindowVisible)
+        {
+            buildingWindowRect = GUI.Window(BuildingWindowId, buildingWindowRect, DrawBuildingEconomyWindow, "BUILDINGS & INFRASTRUCTURE ECONOMY", CommanderUiTheme.Window);
+        }
         if (showSelectionBar) DrawSelectionBar();
         DrawSettingsWindowIfVisible();
         DrawBoxSelectionIfActive();
@@ -562,6 +602,11 @@ internal sealed class CommanderOverlayUi
             spawnService.SelectNearestDepot();
         }
         y += 38f;
+        if (GUI.Button(new Rect(12f, y, panelRect.width - 24f, 34f), "FACTORIES / PRODUCTION", CommanderUiTheme.PrimaryButton))
+        {
+            factoryWindowVisible = !factoryWindowVisible;
+        }
+        y += 38f;
         if (GUI.Button(new Rect(12f, y, panelRect.width - 24f, 34f), "FACTION RESERVE", CommanderUiTheme.PrimaryButton))
         {
             reserveWindowVisible = !reserveWindowVisible;
@@ -612,22 +657,29 @@ internal sealed class CommanderOverlayUi
                 ? "Select the rally point on the tactical map or in the 3D world."
                 : string.Empty;
         float settingsY = panelRect.height - 102f;
-        float experimentalY = settingsY - 84f;
+        float experimentalY = settingsY - 138f;
         if (!string.IsNullOrEmpty(helper) && experimentalY - y >= 36f)
         {
             GUI.Label(new Rect(14f, y, panelRect.width - 28f, 36f), helper, CommanderUiTheme.MutedLabel);
         }
-        GUI.Label(new Rect(12f, experimentalY, panelRect.width - 24f, 18f), "SANDBOX & TOOLS", CommanderUiTheme.MutedLabel);
+
+        GUI.Label(new Rect(12f, experimentalY, panelRect.width - 24f, 18f), "INFRASTRUCTURE & ECONOMY", CommanderUiTheme.MutedLabel);
+        if (GUI.Button(new Rect(12f, experimentalY + 20f, panelRect.width - 24f, 34f), "BUILDINGS & ECONOMY", buildingWindowVisible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.PrimaryButton))
+        {
+            buildingWindowVisible = !buildingWindowVisible;
+        }
+
+        GUI.Label(new Rect(12f, experimentalY + 62f, panelRect.width - 24f, 18f), "SANDBOX & TOOLS", CommanderUiTheme.MutedLabel);
         float toolBtnWidth = (panelRect.width - 36f) / 3f;
-        if (GUI.Button(new Rect(12f, experimentalY + 20f, toolBtnWidth, 34f), "SAM SITES", CommanderUiTheme.Button))
+        if (GUI.Button(new Rect(12f, experimentalY + 82f, toolBtnWidth, 34f), "SAM SITES", CommanderUiTheme.Button))
         {
             samSiteAnalyzerUi.Toggle();
         }
-        if (GUI.Button(new Rect(18f + toolBtnWidth, experimentalY + 20f, toolBtnWidth, 34f), "ARMY OOB", oobWindowVisible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        if (GUI.Button(new Rect(18f + toolBtnWidth, experimentalY + 82f, toolBtnWidth, 34f), "ARMY OOB", oobWindowVisible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             oobWindowVisible = !oobWindowVisible;
         }
-        if (GUI.Button(new Rect(24f + toolBtnWidth * 2f, experimentalY + 20f, toolBtnWidth, 34f), "SANDBOX", CommanderUiTheme.PrimaryButton))
+        if (GUI.Button(new Rect(24f + toolBtnWidth * 2f, experimentalY + 82f, toolBtnWidth, 34f), "SANDBOX", CommanderUiTheme.PrimaryButton))
         {
             cheatWindowVisible = !cheatWindowVisible;
         }
@@ -831,7 +883,11 @@ internal sealed class CommanderOverlayUi
         DrawBinding(new Rect(left, rowY + 180f, columnWidth, 32f), "Move down", "down");
         DrawBinding(new Rect(left, rowY + 216f, columnWidth, 32f), "Free look", "look");
         DrawBinding(new Rect(left, rowY + 252f, columnWidth, 32f), "Speed boost", "boost");
-        Rect centerFollowRect = new(left, rowY + 288f, columnWidth, 32f);
+        DrawBinding(new Rect(left, rowY + 288f, columnWidth, 32f), "Rotate left", "rot_left");
+        DrawBinding(new Rect(left, rowY + 324f, columnWidth, 32f), "Rotate right", "rot_right");
+        DrawBinding(new Rect(left, rowY + 360f, columnWidth, 32f), "Tilt up", "pitch_up");
+        DrawBinding(new Rect(left, rowY + 396f, columnWidth, 32f), "Tilt down", "pitch_down");
+        Rect centerFollowRect = new(left, rowY + 432f, columnWidth, 32f);
         DrawBinding(centerFollowRect, "Center / follow", "center_follow");
 
         DrawBinding(new Rect(right, rowY, columnWidth, 32f), "Select / place", "primary");
@@ -848,16 +904,231 @@ internal sealed class CommanderOverlayUi
                 "Press briefly to center on the selected unit. Hold to center and follow it.");
         }
 
-        if (GUI.Button(new Rect(left, y + 432f, columnWidth, 32f), "RESET CAMERA", CommanderUiTheme.Button))
+        if (GUI.Button(new Rect(left, y + 472f, columnWidth, 32f), "RESET CAMERA", CommanderUiTheme.Button))
         {
             ResetCameraBindings();
             bindingCapture = null;
         }
-        if (GUI.Button(new Rect(right, y + 432f, columnWidth, 32f), "RESET ACTIONS", CommanderUiTheme.Button))
+        if (GUI.Button(new Rect(right, y + 472f, columnWidth, 32f), "RESET ACTIONS", CommanderUiTheme.Button))
         {
             ResetActionBindings();
             bindingCapture = null;
         }
+    }
+
+
+    private void DrawFactoryWindow(int windowId)
+    {
+        CommanderUiTheme.DrawHeaderStripe(new Rect(0f, 0f, factoryWindowRect.width, factoryWindowRect.height));
+        CommanderUiTheme.DrawMutedFrame(new Rect(0f, 0f, factoryWindowRect.width, factoryWindowRect.height));
+        if (CommanderUiTheme.DrawHelpButton(factoryWindowRect.width, ref factoryHelpVisible))
+        {
+            CommanderUiTheme.DrawHelpOverlay(
+                new Rect(12f, 34f, factoryWindowRect.width - 24f, 84f),
+                "FACTORIES & PRODUCTION LINES | Select an active friendly factory to reconfigure its production line. Selected factories will manufacture the chosen vehicle type in their standard production cycle.");
+        }
+        if (CommanderUiTheme.DrawCloseButton(factoryWindowRect.width))
+        {
+            factoryWindowVisible = false;
+            return;
+        }
+
+        float y = factoryHelpVisible ? 128f : 38f;
+        CommanderFactoryProductionService? factorySvc = CommanderFactoryProductionService.Instance;
+        if (factorySvc == null || factorySvc.FriendlyFactories.Count == 0)
+        {
+            GUI.Label(new Rect(16f, y, factoryWindowRect.width - 32f, 30f), "No active friendly vehicle factories found on this map.", CommanderUiTheme.Label);
+            GUI.DragWindow(new Rect(0f, 0f, factoryWindowRect.width - 72f, 28f));
+            return;
+        }
+
+        // Factory Selector Tabs
+        IReadOnlyList<Factory> factories = factorySvc.FriendlyFactories;
+        float tabW = Mathf.Min(160f, (factoryWindowRect.width - 36f) / factories.Count);
+        for (int i = 0; i < factories.Count; i++)
+        {
+            Factory f = factories[i];
+            string fName = f.attachedUnit != null ? f.attachedUnit.unitName : ("Factory " + (i + 1));
+            if (GUI.Button(new Rect(12f + i * (tabW + 6f), y, tabW, 30f), fName,
+                factorySvc.SelectedFactoryIndex == i ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+            {
+                factorySvc.SelectFactory(i);
+            }
+        }
+        y += 38f;
+
+        Factory? currentFactory = factorySvc.SelectedFactory;
+        if (currentFactory == null || currentFactory.attachedUnit == null)
+        {
+            GUI.DragWindow(new Rect(0f, 0f, factoryWindowRect.width - 72f, 28f));
+            return;
+        }
+
+        // Status Card
+        Rect statusBox = new(12f, y, factoryWindowRect.width - 24f, 70f);
+        GUI.Box(statusBox, string.Empty, CommanderUiTheme.Panel);
+        CommanderUiTheme.DrawMutedFrame(statusBox);
+
+        string currentProd = currentFactory.ProductionUnit != null ? currentFactory.ProductionUnit.unitName : "None";
+        float progress = factorySvc.GetProductionProgress(currentFactory);
+
+        GUI.Label(new Rect(statusBox.x + 12f, statusBox.y + 8f, statusBox.width - 24f, 22f),
+            "ACTIVE LINE: " + currentProd.ToUpperInvariant() + "   |   CYCLE: " + Mathf.RoundToInt(currentFactory.productionInterval) + "s", CommanderUiTheme.Header);
+
+        Rect progBg = new(statusBox.x + 12f, statusBox.y + 36f, statusBox.width - 24f, 18f);
+        GUI.Box(progBg, string.Empty, CommanderUiTheme.Card);
+        Color prevCol = GUI.color;
+        GUI.color = CommanderUiTheme.Accent;
+        GUI.DrawTexture(new Rect(progBg.x, progBg.y, progBg.width * progress, progBg.height), Texture2D.whiteTexture);
+        GUI.color = prevCol;
+        GUI.Label(progBg, " " + Mathf.RoundToInt(progress * 100f) + "%", CommanderUiTheme.Label);
+
+        y += 80f;
+
+        GUI.Label(new Rect(12f, y, factoryWindowRect.width - 24f, 20f), "REASSIGN PRODUCTION LINE (VEHICLES):", CommanderUiTheme.SubHeader);
+        y += 24f;
+
+        // Vehicle Grid
+        IReadOnlyList<VehicleDefinition> availableDefs = factorySvc.AvailableVehicleDefinitions;
+        Rect scrollRect = new(12f, y, factoryWindowRect.width - 24f, factoryWindowRect.height - y - 14f);
+        Rect innerRect = new(0f, 0f, scrollRect.width - 20f, Mathf.Max(scrollRect.height, availableDefs.Count * 48f + 8f));
+
+        factoryScroll = GUI.BeginScrollView(scrollRect, factoryScroll, innerRect);
+        for (int v = 0; v < availableDefs.Count; v++)
+        {
+            VehicleDefinition def = availableDefs[v];
+            Rect row = new(4f, 4f + v * 48f, innerRect.width - 8f, 44f);
+            GUI.Box(row, string.Empty, CommanderUiTheme.Card);
+
+            bool isCurrent = ReferenceEquals(currentFactory.ProductionUnit, def);
+            if (isCurrent)
+            {
+                CommanderUiTheme.DrawFrame(row, 1.5f);
+            }
+
+            string catLabel = CommanderGameAccess.GetVehicleCategoryLabel(def);
+            GUI.Label(new Rect(row.x + 12f, row.y + 4f, row.width - 170f, 20f), def.unitName, CommanderUiTheme.Label);
+            GUI.Label(new Rect(row.x + 12f, row.y + 22f, row.width - 170f, 18f), "CATEGORY: " + catLabel.ToUpperInvariant() + "   |   VALUE: $" + def.value.ToString("N0"), CommanderUiTheme.MutedLabel);
+
+            GUI.enabled = !isCurrent;
+            if (GUI.Button(new Rect(row.xMax - 140f, row.y + 6f, 130f, 32f), isCurrent ? "PRODUCING" : "SET LINE", isCurrent ? CommanderUiTheme.SelectedButton : CommanderUiTheme.PrimaryButton))
+            {
+                factorySvc.SetProductionUnit(currentFactory, def);
+            }
+            GUI.enabled = true;
+        }
+        GUI.EndScrollView();
+
+        GUI.DragWindow(new Rect(0f, 0f, factoryWindowRect.width - 72f, 28f));
+    }
+
+
+    private void DrawBuildingEconomyWindow(int windowId)
+    {
+        CommanderUiTheme.DrawHeaderStripe(new Rect(0f, 0f, buildingWindowRect.width, buildingWindowRect.height));
+        CommanderUiTheme.DrawMutedFrame(new Rect(0f, 0f, buildingWindowRect.width, buildingWindowRect.height));
+        if (CommanderUiTheme.DrawHelpButton(buildingWindowRect.width, ref buildingHelpVisible))
+        {
+            CommanderUiTheme.DrawHelpOverlay(
+                new Rect(12f, 34f, buildingWindowRect.width - 24f, 84f),
+                "BUILDINGS & ECONOMY | Overview of all active friendly structures, factories, airbases, defense turrets, and logistics hubs. Monitor sector control, estimated income rate, and jump camera directly to any asset.");
+        }
+        if (CommanderUiTheme.DrawCloseButton(buildingWindowRect.width))
+        {
+            buildingWindowVisible = false;
+            return;
+        }
+
+        float y = buildingHelpVisible ? 128f : 38f;
+        CommanderBuildingEconomyService? bldSvc = CommanderBuildingEconomyService.Instance;
+        if (bldSvc == null)
+        {
+            GUI.DragWindow(new Rect(0f, 0f, buildingWindowRect.width - 72f, 28f));
+            return;
+        }
+
+        // Financial & Sector Metrics Card
+        Rect statsCard = new(12f, y, buildingWindowRect.width - 24f, 54f);
+        GUI.Box(statsCard, string.Empty, CommanderUiTheme.Panel);
+        CommanderUiTheme.DrawMutedFrame(statsCard);
+
+        float third = statsCard.width / 3f;
+        GUI.Label(new Rect(statsCard.x + 8f, statsCard.y + 6f, third - 12f, 18f), "INCOME RATE", CommanderUiTheme.MutedLabel);
+        GUI.Label(new Rect(statsCard.x + 8f, statsCard.y + 24f, third - 12f, 22f), "+$" + Mathf.RoundToInt(bldSvc.EstimatedIncomePerMinute).ToString("N0") + " / min", CommanderUiTheme.Money);
+
+        GUI.Label(new Rect(statsCard.x + third + 8f, statsCard.y + 6f, third - 12f, 18f), "SECTORS CONTROLLED", CommanderUiTheme.MutedLabel);
+        GUI.Label(new Rect(statsCard.x + third + 8f, statsCard.y + 24f, third - 12f, 22f), bldSvc.ControlledSectorsCount + " / " + bldSvc.TotalSectorsCount, CommanderUiTheme.Header);
+
+        GUI.Label(new Rect(statsCard.x + third * 2f + 8f, statsCard.y + 6f, third - 12f, 18f), "TOTAL ASSETS", CommanderUiTheme.MutedLabel);
+        GUI.Label(new Rect(statsCard.x + third * 2f + 8f, statsCard.y + 24f, third - 12f, 22f), bldSvc.AllEntries.Count + " STRUCTURES", CommanderUiTheme.Header);
+
+        y += 62f;
+
+        // Category Filter Tabs
+        string[] tabNames = { "ALL (" + bldSvc.AllEntries.Count + ")", "ECONOMY (" + bldSvc.EconomyEntries.Count + ")", "SPAWNERS (" + bldSvc.MilitaryEntries.Count + ")", "DEFENSE (" + bldSvc.DefenseEntries.Count + ")", "LOGISTICS (" + bldSvc.LogisticsEntries.Count + ")" };
+        float tabW = (buildingWindowRect.width - 24f) / tabNames.Length;
+        for (int t = 0; t < tabNames.Length; t++)
+        {
+            if (GUI.Button(new Rect(12f + t * tabW, y, tabW - 4f, 30f), tabNames[t],
+                buildingCategoryTab == t ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+            {
+                buildingCategoryTab = t;
+                buildingScroll = Vector2.zero;
+            }
+        }
+        y += 36f;
+
+        // Search Bar
+        GUI.Label(new Rect(14f, y + 4f, 70f, 22f), "SEARCH:", CommanderUiTheme.MutedLabel);
+        buildingSearchFilter = GUI.TextField(new Rect(86f, y, buildingWindowRect.width - 100f, 26f), buildingSearchFilter, CommanderUiTheme.Panel);
+        y += 34f;
+
+        // Building List ScrollView
+        IReadOnlyList<CommanderBuildingEconomyService.BuildingEntry> entries = bldSvc.GetEntriesByCategory(
+            (CommanderBuildingEconomyService.BuildingCategory)buildingCategoryTab,
+            buildingSearchFilter);
+
+        Rect scrollRect = new(12f, y, buildingWindowRect.width - 24f, buildingWindowRect.height - y - 14f);
+        Rect innerRect = new(0f, 0f, scrollRect.width - 20f, Mathf.Max(scrollRect.height, entries.Count * 50f + 8f));
+
+        buildingScroll = GUI.BeginScrollView(scrollRect, buildingScroll, innerRect);
+        for (int i = 0; i < entries.Count; i++)
+        {
+            CommanderBuildingEconomyService.BuildingEntry entry = entries[i];
+            Rect row = new(4f, 4f + i * 50f, innerRect.width - 8f, 44f);
+            GUI.Box(row, string.Empty, CommanderUiTheme.Card);
+
+            Color badgeCol = entry.Category switch
+            {
+                CommanderBuildingEconomyService.BuildingCategory.Economy => new Color(0.95f, 0.8f, 0.2f, 0.95f),
+                CommanderBuildingEconomyService.BuildingCategory.MilitarySpawning => new Color(0.2f, 0.85f, 1f, 0.95f),
+                CommanderBuildingEconomyService.BuildingCategory.Defense => new Color(1f, 0.35f, 0.2f, 0.95f),
+                CommanderBuildingEconomyService.BuildingCategory.Logistics => new Color(0.3f, 0.95f, 0.5f, 0.95f),
+                _ => Color.white
+            };
+
+            GUI.Label(new Rect(row.x + 12f, row.y + 4f, row.width - 150f, 20f), entry.Name, CommanderUiTheme.Label);
+            Color prev = GUI.color;
+            GUI.color = badgeCol;
+            GUI.Label(new Rect(row.x + 12f, row.y + 22f, row.width - 150f, 18f), "[" + entry.RoleLabel + "]   " + (entry.IsOperational ? "OPERATIONAL" : "OFFLINE / DAMAGED"), CommanderUiTheme.MutedLabel);
+            GUI.color = prev;
+
+            if (GUI.Button(new Rect(row.xMax - 110f, row.y + 6f, 100f, 32f), "JUMP TO", CommanderUiTheme.Button))
+            {
+                if (entry.AttachedUnit != null && !entry.AttachedUnit.disabled)
+                {
+                    selectionService.SelectUnit(entry.AttachedUnit, additive: false);
+                    CommanderTacticalMapService.Instance?.JumpCameraToPosition(entry.AttachedUnit.transform.GlobalPosition());
+                }
+                else
+                {
+                    CommanderTacticalMapService.Instance?.JumpCameraToPosition(entry.WorldPosition.ToGlobalPosition());
+                }
+            }
+        }
+        GUI.EndScrollView();
+
+        GUI.DragWindow(new Rect(0f, 0f, buildingWindowRect.width - 72f, 28f));
     }
 
     private void DrawCheatWindow(int windowId)
@@ -1110,6 +1381,10 @@ internal sealed class CommanderOverlayUi
             "down" => CommanderSettings.CameraDown,
             "look" => CommanderSettings.CameraFreeLook,
             "boost" => CommanderSettings.CameraBoost,
+            "rot_left" => CommanderSettings.CameraRotateLeft,
+            "rot_right" => CommanderSettings.CameraRotateRight,
+            "pitch_up" => CommanderSettings.CameraPitchUp,
+            "pitch_down" => CommanderSettings.CameraPitchDown,
             "primary" => CommanderSettings.PrimaryAction,
             "secondary" => CommanderSettings.SecondaryAction,
             "add_selection" => CommanderSettings.AddToSelection,
@@ -1133,6 +1408,10 @@ internal sealed class CommanderOverlayUi
             case "down": CommanderSettings.CameraDown = shortcut; break;
             case "look": CommanderSettings.CameraFreeLook = shortcut; break;
             case "boost": CommanderSettings.CameraBoost = shortcut; break;
+            case "rot_left": CommanderSettings.CameraRotateLeft = shortcut; break;
+            case "rot_right": CommanderSettings.CameraRotateRight = shortcut; break;
+            case "pitch_up": CommanderSettings.CameraPitchUp = shortcut; break;
+            case "pitch_down": CommanderSettings.CameraPitchDown = shortcut; break;
             case "primary": CommanderSettings.PrimaryAction = shortcut; break;
             case "secondary": CommanderSettings.SecondaryAction = shortcut; break;
             case "add_selection": CommanderSettings.AddToSelection = shortcut; break;
@@ -1153,6 +1432,10 @@ internal sealed class CommanderOverlayUi
         CommanderSettings.CameraDown = new KeyboardShortcut(KeyCode.E);
         CommanderSettings.CameraFreeLook = new KeyboardShortcut(KeyCode.Mouse2);
         CommanderSettings.CameraBoost = new KeyboardShortcut(KeyCode.LeftShift);
+        CommanderSettings.CameraRotateLeft = new KeyboardShortcut(KeyCode.LeftArrow);
+        CommanderSettings.CameraRotateRight = new KeyboardShortcut(KeyCode.RightArrow);
+        CommanderSettings.CameraPitchUp = new KeyboardShortcut(KeyCode.UpArrow);
+        CommanderSettings.CameraPitchDown = new KeyboardShortcut(KeyCode.DownArrow);
         CommanderSettings.CameraCenterFollow = new KeyboardShortcut(KeyCode.Space);
     }
 
@@ -1196,6 +1479,91 @@ internal sealed class CommanderOverlayUi
         return ghostCommandStyle;
     }
 
+    private void DrawFocusedUnitTelemetry(Rect rect, Unit unit)
+    {
+        if (unit == null || unit.disabled) return;
+
+        GUI.Box(rect, string.Empty, CommanderUiTheme.Panel);
+        CommanderUiTheme.DrawMutedFrame(rect);
+
+        // 1. Header: Sub-role & Unit Name
+        string catLabel = unit.definition != null
+            ? CommanderCheatService.GetCategoryLabel(unit.definition)
+            : (unit is Aircraft ? "AIR | AIRCRAFT" : (unit is Ship ? "NAVAL | WARSHIP" : "LAND | COMBAT UNIT"));
+
+        float hpPct = 1f;
+        IRepairable[] rep = unit.GetComponentsInChildren<IRepairable>(true);
+        if (rep.Length > 0)
+        {
+            int damaged = 0;
+            for (int r = 0; r < rep.Length; r++)
+            {
+                if (rep[r] != null && rep[r].NeedsRepair()) damaged++;
+            }
+            hpPct = Mathf.Clamp01(1f - ((float)damaged / rep.Length));
+        }
+
+        string statusTag = hpPct <= 0.35f
+            ? "CRITICAL DAMAGE"
+            : (hpPct < 0.85f ? "DAMAGED" : "COMBAT READY");
+        Color statusCol = hpPct <= 0.35f
+            ? new Color(1f, 0.25f, 0.2f, 0.95f)
+            : (hpPct < 0.85f ? new Color(0.95f, 0.78f, 0.15f, 0.95f) : new Color(0.2f, 0.85f, 0.35f, 0.95f));
+
+        GUI.Label(new Rect(rect.x + 12f, rect.y + 4f, rect.width - 200f, 20f),
+            "[" + catLabel + "]  " + unit.unitName.ToUpperInvariant(), CommanderUiTheme.Header);
+
+        Color prev = GUI.color;
+        GUI.color = statusCol;
+        GUI.Label(new Rect(rect.xMax - 180f, rect.y + 4f, 168f, 20f), "[" + statusTag + "]", CommanderUiTheme.Header);
+        GUI.color = prev;
+
+        // 2. Telemetry Row: Speed, Heading, Altitude, Fuel, Stance
+        float speedKmh = unit.rb != null ? unit.rb.velocity.magnitude * 3.6f : 0f;
+        int heading = Mathf.RoundToInt(unit.transform.eulerAngles.y) % 360;
+        float altM = unit.transform.position.y;
+        if (unit is Aircraft air) altM = air.radarAlt;
+
+        int fuelPct = unit is Aircraft ac ? Mathf.RoundToInt(ac.GetFuelLevel() * 100f) : 100;
+        bool isHold = CommanderStanceService.Instance?.IsHoldFire(unit) == true;
+
+        string compassDir = heading >= 337 || heading < 23 ? "N"
+            : (heading < 68 ? "NE"
+            : (heading < 113 ? "E"
+            : (heading < 158 ? "SE"
+            : (heading < 203 ? "S"
+            : (heading < 248 ? "SW"
+            : (heading < 293 ? "W" : "NW"))))));
+
+        string telemText = "SPEED: " + Mathf.RoundToInt(speedKmh) + " km/h   |   HDG: " + heading.ToString("000") + "° (" + compassDir + ")   |   ALT: " + Mathf.RoundToInt(altM) + "m   |   FUEL: " + fuelPct + "%   |   STANCE: " + (isHold ? "HOLD FIRE" : "FREE FIRE");
+        GUI.Label(new Rect(rect.x + 12f, rect.y + 24f, rect.width - 24f, 18f), telemText, CommanderUiTheme.MutedLabel);
+
+        // 3. Armament Breakdown Row
+        List<string> weaponSummaries = new();
+        if (unit.weaponStations != null)
+        {
+            for (int s = 0; s < unit.weaponStations.Count; s++)
+            {
+                WeaponStation st = unit.weaponStations[s];
+                if (st?.Weapons == null) continue;
+                for (int w = 0; w < st.Weapons.Count; w++)
+                {
+                    Weapon wp = st.Weapons[w];
+                    if (wp != null && !string.IsNullOrWhiteSpace(wp.name))
+                    {
+                        weaponSummaries.Add(wp.name + " [" + wp.ammo + "/" + wp.GetFullAmmo() + "]");
+                    }
+                }
+            }
+        }
+
+        string wpText = weaponSummaries.Count > 0
+            ? "ARMAMENT:  " + string.Join("   •   ", weaponSummaries)
+            : "ARMAMENT:  UNARMED LOGISTICS / SUPPORT PLATFORM";
+
+        GUI.Label(new Rect(rect.x + 12f, rect.y + 42f, rect.width - 24f, 18f), wpText, CommanderUiTheme.Label);
+    }
+
     private void DrawSelectionBar()
     {
         int count = selectionService.SelectedUnits.Count;
@@ -1204,13 +1572,19 @@ internal sealed class CommanderOverlayUi
             return;
         }
 
+        Unit? focused = selectionService.FocusedSelection;
+        if (count == 1 && focused != null)
+        {
+            Rect telemRect = new(selectionBarRect.x, selectionBarRect.y - 68f, selectionBarRect.width, 64f);
+            DrawFocusedUnitTelemetry(telemRect, focused);
+        }
+
         GUI.Box(selectionBarRect, string.Empty, CommanderUiTheme.Panel);
         GUI.Label(new Rect(selectionBarRect.x + 12f, selectionBarRect.y + 3f, 190f, 24f), "UNIT SELECTION", CommanderUiTheme.MutedLabel);
         if (GUI.Button(new Rect(selectionBarRect.xMax - 34f, selectionBarRect.y + 3f, 26f, 22f), "?", CommanderUiTheme.HelpButton))
         {
             selectionHelpVisible = !selectionHelpVisible;
         }
-        Unit? focused = selectionService.FocusedSelection;
         string label = count == 1 && focused != null
             ? CommanderGameAccess.GetUnitLabel(focused)
             : $"{count} UNITS SELECTED";
@@ -1279,22 +1653,37 @@ internal sealed class CommanderOverlayUi
             moveService.ToggleAutoRtbForSelection();
         }
 
-        // 8. ROAD ON/OFF
+        // 8. FOB DEPLOY or ROAD ON/OFF
         GUI.enabled = oldEnabled;
-        bool canToggleRoad = advanced
-            && count == 1
-            && focused != null
-            && directPathService.CanConfigure(focused)
-            && !CommanderMobileEmplacementService.IsReservedHauler(focused)
-            && !CommanderSamSiteService.IsReservedConstructionJacknife(focused);
-        bool roadEnabled = !directPathService.IsEnabled(focused);
-        GUI.enabled = oldEnabled && canToggleRoad;
-        if (GUI.Button(new Rect(buttonX + 452f, selectionBarRect.y + 32f, 76f, 34f),
-            roadEnabled ? "ROAD ON" : "ROAD OFF",
-            roadEnabled ? CommanderUiTheme.Button : CommanderUiTheme.DangerButton))
+        bool canFob = advanced && count == 1 && focused != null && CommanderForwardOutpostService.Instance?.CanDeployFob(focused) == true;
+        if (canFob)
         {
-            directPathService.ToggleFocusedUnit();
+            bool isFob = CommanderForwardOutpostService.Instance?.IsFobDeployed(focused) == true;
+            if (GUI.Button(new Rect(buttonX + 452f, selectionBarRect.y + 32f, 76f, 34f),
+                isFob ? "PACK FOB" : "DEPLOY FOB",
+                isFob ? CommanderUiTheme.SelectedButton : CommanderUiTheme.PrimaryButton))
+            {
+                CommanderForwardOutpostService.Instance?.ToggleFobForSelection();
+            }
         }
+        else
+        {
+            bool canToggleRoad = advanced
+                && count == 1
+                && focused != null
+                && directPathService.CanConfigure(focused)
+                && !CommanderMobileEmplacementService.IsReservedHauler(focused)
+                && !CommanderSamSiteService.IsReservedConstructionJacknife(focused);
+            bool roadEnabled = !directPathService.IsEnabled(focused);
+            GUI.enabled = oldEnabled && canToggleRoad;
+            if (GUI.Button(new Rect(buttonX + 452f, selectionBarRect.y + 32f, 76f, 34f),
+                roadEnabled ? "ROAD ON" : "ROAD OFF",
+                roadEnabled ? CommanderUiTheme.Button : CommanderUiTheme.DangerButton))
+            {
+                directPathService.ToggleFocusedUnit();
+            }
+        }
+        GUI.enabled = oldEnabled;
 
         // 9. STANCE (HOLD / FREE FIRE)
         GUI.enabled = oldEnabled;
