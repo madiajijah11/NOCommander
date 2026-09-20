@@ -32,6 +32,7 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderFactoryProductionService? factoryProductionService;
     private CommanderForwardOutpostService? forwardOutpostService;
     private CommanderBuildingEconomyService? buildingEconomyService;
+    private CommanderAlliedAiService? alliedAiService;
     private CommanderOverlayUi? overlayUi;
     private CommanderInputController? inputController;
     private CommanderPersistentOperations? persistentOperations;
@@ -62,15 +63,17 @@ internal sealed class CommanderModeController : MonoBehaviour
             samSiteAnalyzerService,
             supplyHeliService);
         spawnService = new CommanderSpawnService(selectionService, factionVehicleService, tacticalMapService);
+        markerService = new CommanderMarkerService(selectionService);
+        moveService = new CommanderMoveService(selectionService);
+        alliedAiService = new CommanderAlliedAiService(moveService);
         persistentOperations = new CommanderPersistentOperations(
             spawnService,
             supplyHeliService,
             airCommandService,
             mobileEmplacementService,
             samSiteAnalyzerService,
-            samSiteService);
-        markerService = new CommanderMarkerService(selectionService);
-        moveService = new CommanderMoveService(selectionService);
+            samSiteService,
+            alliedAiService);
         controlGroupsService = new CommanderControlGroupsService(selectionService);
         alertService = new CommanderAlertService();
         stanceService = new CommanderStanceService(selectionService);
@@ -380,6 +383,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         factoryProductionService?.ResetSession();
         forwardOutpostService?.ResetSession();
         buildingEconomyService?.ResetSession();
+        alliedAiService?.ResetSession();
         moveService?.ResetSession();
     }
 

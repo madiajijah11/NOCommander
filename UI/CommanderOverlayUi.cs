@@ -802,12 +802,17 @@ internal sealed class CommanderOverlayUi
             CommanderUiTheme.Toggle);
 
         y += 104f;
-        GUI.Box(new Rect(12f, y, settingsWindowRect.width - 24f, 246f), string.Empty, CommanderUiTheme.Panel);
-        GUI.Label(new Rect(24f, y + 10f, settingsWindowRect.width - 48f, 22f), "SMART AI BEHAVIORS & COUNTERS", CommanderUiTheme.Header);
+        GUI.Box(new Rect(12f, y, settingsWindowRect.width - 24f, 280f), string.Empty, CommanderUiTheme.Panel);
+        GUI.Label(new Rect(24f, y + 10f, settingsWindowRect.width - 48f, 22f), "ALLIED AUTO-COMMANDER & SMART AI", CommanderUiTheme.Header);
+        CommanderSettings.AlliedAutoCommanderEnabled = GUI.Toggle(
+            new Rect(24f, y + 36f, settingsWindowRect.width - 48f, 26f),
+            CommanderSettings.AlliedAutoCommanderEnabled,
+            "Allied Auto-Commander (Factory Retooling, Economy Reinvestment & QRF Scrambles)",
+            CommanderUiTheme.Toggle);
         CommanderSettings.SmartAiEnabled = GUI.Toggle(
-            new Rect(24f, y + 40f, settingsWindowRect.width - 48f, 26f),
+            new Rect(24f, y + 64f, settingsWindowRect.width - 48f, 26f),
             CommanderSettings.SmartAiEnabled,
-            "Enable Smart AI System",
+            "Enable Smart AI Tactics & Counter-Scrambles",
             CommanderUiTheme.Toggle);
         CommanderSettings.AiReactiveScatter = GUI.Toggle(
             new Rect(24f, y + 70f, settingsWindowRect.width - 48f, 26f),

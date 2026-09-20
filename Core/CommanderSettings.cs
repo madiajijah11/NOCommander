@@ -12,6 +12,7 @@ internal static class CommanderSettings
     internal static float UiScale { get; set; } = 1.5f;
     internal static bool ModEnabled { get => Get("General", "Enabled", true); set => Set("General", "Enabled", value); }
     internal static bool LimitToFactoryVehicles { get => Get("Gameplay", "LimitToFactoryVehicles", false); set => Set("Gameplay", "LimitToFactoryVehicles", value); }
+    internal static bool AlliedAutoCommanderEnabled { get => Get("Gameplay", "AlliedAutoCommanderEnabled", true); set => Set("Gameplay", "AlliedAutoCommanderEnabled", value); }
     internal static bool SmartAiEnabled { get => Get("Gameplay", "SmartAiEnabled", true); set => Set("Gameplay", "SmartAiEnabled", value); }
     internal static bool AiReactiveScatter { get => Get("Gameplay", "AiReactiveScatter", true); set => Set("Gameplay", "AiReactiveScatter", value); }
     internal static bool AiAdaptiveProduction { get => Get("Gameplay", "AiAdaptiveProduction", true); set => Set("Gameplay", "AiAdaptiveProduction", value); }

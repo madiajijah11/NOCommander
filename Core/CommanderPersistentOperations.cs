@@ -8,6 +8,7 @@ internal sealed class CommanderPersistentOperations
     private readonly CommanderMobileEmplacementService mobileEmplacementService;
     private readonly CommanderSamSiteAnalyzerService samSiteAnalyzerService;
     private readonly CommanderSamSiteService samSiteService;
+    private readonly CommanderAlliedAiService? alliedAiService;
 
     internal CommanderPersistentOperations(
         CommanderSpawnService spawnService,
@@ -15,7 +16,8 @@ internal sealed class CommanderPersistentOperations
         CommanderAirCommandService airCommandService,
         CommanderMobileEmplacementService mobileEmplacementService,
         CommanderSamSiteAnalyzerService samSiteAnalyzerService,
-        CommanderSamSiteService samSiteService)
+        CommanderSamSiteService samSiteService,
+        CommanderAlliedAiService? alliedAiService = null)
     {
         this.spawnService = spawnService;
         this.supplyHeliService = supplyHeliService;
@@ -23,6 +25,7 @@ internal sealed class CommanderPersistentOperations
         this.mobileEmplacementService = mobileEmplacementService;
         this.samSiteAnalyzerService = samSiteAnalyzerService;
         this.samSiteService = samSiteService;
+        this.alliedAiService = alliedAiService;
     }
 
     internal void Tick()
@@ -33,5 +36,6 @@ internal sealed class CommanderPersistentOperations
         mobileEmplacementService.TickPersistent();
         samSiteAnalyzerService.TickPersistent();
         samSiteService.TickPersistent();
+        alliedAiService?.Tick();
     }
 }

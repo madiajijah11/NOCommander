@@ -733,6 +733,11 @@ internal sealed class CommanderMoveService
         return playerDestinations.TryGetValue(unit, out destination);
     }
 
+    internal bool HasActivePlayerDestination(Unit unit)
+    {
+        return playerDestinations.ContainsKey(unit);
+    }
+
     internal bool TryGetQueuedWaypoints(Unit unit, List<GlobalPosition> buffer)
     {
         buffer.Clear();
