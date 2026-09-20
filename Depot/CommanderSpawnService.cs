@@ -448,6 +448,23 @@ internal sealed class CommanderSpawnService
         SetStatus("Select a rally point on the tactical map or in the 3D world.");
     }
 
+    internal void CancelRallySelection(bool showStatus = true)
+    {
+        if (!awaitingRallyPointSelection)
+        {
+            return;
+        }
+
+        awaitingRallyPointSelection = false;
+        rallySelectionQueue = null;
+        tacticalMapService.SuppressMapFollow = false;
+        rallyClickTracker.Reset();
+        if (showStatus)
+        {
+            SetStatus("Rally point selection cancelled.");
+        }
+    }
+
     internal void ClearRallyPoint()
     {
         DepotSpawnQueue? queue = GetSelectedQueue();

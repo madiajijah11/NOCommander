@@ -4,7 +4,7 @@ namespace NuclearOptionCommander;
 
 internal static class CommanderUiScale
 {
-    private const float BaselineScale = 1.5f;
+    private const float BaselineScale = 1.0f;
     private static int lastScreenWidth;
     private static int lastScreenHeight;
 
@@ -17,7 +17,7 @@ internal static class CommanderUiScale
     {
         lastScreenWidth = Screen.width;
         lastScreenHeight = Screen.height;
-        CommanderSettings.UiScale = Screen.height <= 1200 ? 1f : Screen.height <= 1600 ? 1.25f : 1.5f;
+        CommanderSettings.UiScale = Screen.height <= 1080 ? 1.0f : Screen.height <= 1440 ? 1.25f : 1.6f;
     }
 
     internal static void RefreshResolutionPreset()

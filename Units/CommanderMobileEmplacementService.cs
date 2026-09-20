@@ -132,6 +132,20 @@ internal sealed class CommanderMobileEmplacementService
         return cachedHaulerAvailable;
     }
 
+    internal void CancelDestination(bool showStatus = true)
+    {
+        if (pendingRelocation == null)
+        {
+            return;
+        }
+
+        pendingRelocation = null;
+        if (showStatus)
+        {
+            SetStatus("Trailer relocation cancelled.");
+        }
+    }
+
     internal void BeginRelocation()
     {
         if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active)

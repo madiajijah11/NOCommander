@@ -25,8 +25,9 @@ internal sealed class CommanderBuildingEconomyService
         internal string RoleLabel { get; }
         internal Vector3 WorldPosition { get; }
         internal bool IsOperational { get; }
+        internal int UpgradeLevel { get; set; }
 
-        internal BuildingEntry(Building? building, Unit? unit, string name, BuildingCategory category, string roleLabel, Vector3 pos, bool operational)
+        internal BuildingEntry(Building? building, Unit? unit, string name, BuildingCategory category, string roleLabel, Vector3 pos, bool operational, int upgradeLevel = 1)
         {
             Building = building;
             AttachedUnit = unit;
@@ -35,6 +36,31 @@ internal sealed class CommanderBuildingEconomyService
             RoleLabel = roleLabel;
             WorldPosition = pos;
             IsOperational = operational;
+            UpgradeLevel = upgradeLevel;
+        }
+    }
+
+    internal sealed class EconomicProject
+    {
+        internal int Id { get; }
+        internal string Title { get; }
+        internal string Description { get; }
+        internal float BaseCost { get; }
+        internal float IncomeBoostPerMin { get; }
+        internal int CurrentLevel { get; set; }
+        internal int MaxLevel { get; }
+
+        internal float CurrentCost => BaseCost * (CurrentLevel + 1);
+
+        internal EconomicProject(int id, string title, string description, float baseCost, float incomeBoostPerMin, int maxLevel = 5)
+        {
+            Id = id;
+            Title = title;
+            Description = description;
+            BaseCost = baseCost;
+            IncomeBoostPerMin = incomeBoostPerMin;
+            MaxLevel = maxLevel;
+            CurrentLevel = 0;
         }
     }
 
@@ -44,8 +70,12 @@ internal sealed class CommanderBuildingEconomyService
     private readonly List<BuildingEntry> defenseEntries = new();
     private readonly List<BuildingEntry> logisticsEntries = new();
     private readonly List<BuildingEntry> filteredEntries = new();
+    private readonly Dictionary<Building, int> buildingUpgradeLevels = new();
+    private readonly List<EconomicProject> projects = new();
 
     private float nextRefreshTime;
+    private float nextIncomeTickTime;
+    private float accumulatedBonusFunds;
 
     internal static CommanderBuildingEconomyService? Instance { get; private set; }
 
@@ -54,14 +84,44 @@ internal sealed class CommanderBuildingEconomyService
     internal IReadOnlyList<BuildingEntry> MilitaryEntries => militaryEntries;
     internal IReadOnlyList<BuildingEntry> DefenseEntries => defenseEntries;
     internal IReadOnlyList<BuildingEntry> LogisticsEntries => logisticsEntries;
+    internal IReadOnlyList<EconomicProject> Projects => projects;
 
     internal float EstimatedIncomePerMinute { get; private set; }
+    internal float ProjectsIncomePerMinute { get; private set; }
+    internal float FacilityUpgradesIncomePerMinute { get; private set; }
     internal int ControlledSectorsCount { get; private set; }
     internal int TotalSectorsCount { get; private set; }
 
     internal CommanderBuildingEconomyService()
     {
         Instance = this;
+        InitializeProjects();
+    }
+
+    private void InitializeProjects()
+    {
+        projects.Clear();
+        projects.Add(new EconomicProject(
+            1,
+            "MINING & ENERGY CONVOYS",
+            "Establish strategic raw mineral and power trade routes to generate continuous capital.",
+            75000f,
+            35000f,
+            5));
+        projects.Add(new EconomicProject(
+            2,
+            "INDUSTRIAL AUTOMATION & REFINERIES",
+            "Overclock factory assembly lines, automated manufacturing, and fuel processing nodes.",
+            150000f,
+            75000f,
+            5));
+        projects.Add(new EconomicProject(
+            3,
+            "OFFSHORE & STRATEGIC TRADE GRID",
+            "Secure maritime shipping lanes, deep-sea exploration, and high-yield strategic exports.",
+            300000f,
+            160000f,
+            5));
     }
 
     internal void Tick()
@@ -72,6 +132,125 @@ internal sealed class CommanderBuildingEconomyService
             nextRefreshTime = now + 3f;
             RefreshBuildingDatabase();
         }
+
+        // Generate recurring economic bonus into faction funds
+        if (now >= nextIncomeTickTime)
+        {
+            nextIncomeTickTime = now + 1f; // tick every second
+            DistributeEconomicIncome(1f);
+        }
+    }
+
+    private void DistributeEconomicIncome(float deltaSeconds)
+    {
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null)
+        {
+            return;
+        }
+
+        float totalBonusPerMinute = ProjectsIncomePerMinute + FacilityUpgradesIncomePerMinute;
+        if (totalBonusPerMinute <= 0f)
+        {
+            return;
+        }
+
+        float secondIncrement = (totalBonusPerMinute / 60f) * deltaSeconds;
+        accumulatedBonusFunds += secondIncrement;
+
+        if (accumulatedBonusFunds >= 10f)
+        {
+            float toAdd = Mathf.Floor(accumulatedBonusFunds);
+            accumulatedBonusFunds -= toAdd;
+            localHq.AddFunds(toAdd);
+        }
+    }
+
+    internal bool TryInvestInProject(int projectId, out string status)
+    {
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null)
+        {
+            status = "No active faction HQ.";
+            return false;
+        }
+
+        EconomicProject? project = projects.Find(p => p.Id == projectId);
+        if (project == null)
+        {
+            status = "Unknown economic project.";
+            return false;
+        }
+
+        if (project.CurrentLevel >= project.MaxLevel)
+        {
+            status = $"{project.Title} is already fully upgraded (MAX LEVEL).";
+            return false;
+        }
+
+        float cost = project.CurrentCost;
+        if (localHq.factionFunds < cost)
+        {
+            string costStr = UnitConverter.ValueReading(cost) ?? ("$" + cost.ToString("N0"));
+            status = $"Insufficient funds ({costStr} required).";
+            return false;
+        }
+
+        localHq.AddFunds(-cost);
+        project.CurrentLevel++;
+        CalculateTotalEconomy();
+
+        string newIncStr = UnitConverter.ValueReading(project.IncomeBoostPerMin) ?? ("$" + project.IncomeBoostPerMin.ToString("N0"));
+        status = $"Invested in {project.Title} Lv.{project.CurrentLevel} (+{newIncStr}/min)!";
+        return true;
+    }
+
+    internal bool TryUpgradeBuildingFacility(Building building, out string status)
+    {
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null || building == null)
+        {
+            status = "Structure unavailable.";
+            return false;
+        }
+
+        int currentLevel = 1;
+        if (buildingUpgradeLevels.TryGetValue(building, out int lvl))
+        {
+            currentLevel = lvl;
+        }
+
+        if (currentLevel >= 3)
+        {
+            status = "Facility is already at maximum level (LEVEL 3 - OVERCLOCKED).";
+            return false;
+        }
+
+        float cost = 60000f * currentLevel;
+        if (localHq.factionFunds < cost)
+        {
+            string costStr = UnitConverter.ValueReading(cost) ?? ("$" + cost.ToString("N0"));
+            status = $"Insufficient funds ({costStr} required to upgrade).";
+            return false;
+        }
+
+        localHq.AddFunds(-cost);
+        int newLevel = currentLevel + 1;
+        buildingUpgradeLevels[building] = newLevel;
+
+        CalculateTotalEconomy();
+        string name = CleanBuildingName(building.name);
+        status = $"{name} upgraded to Level {newLevel} (+ $20,000/min output)!";
+        return true;
+    }
+
+    internal int GetBuildingUpgradeLevel(Building? building)
+    {
+        if (building != null && buildingUpgradeLevels.TryGetValue(building, out int level))
+        {
+            return level;
+        }
+        return 1;
     }
 
     internal IReadOnlyList<BuildingEntry> GetEntriesByCategory(BuildingCategory category, string searchFilter)
@@ -139,8 +318,9 @@ internal sealed class CommanderBuildingEconomyService
             string name = !string.IsNullOrWhiteSpace(b.name) ? b.name : (unit != null ? unit.unitName : "Structure");
             name = CleanBuildingName(name);
 
+            int upLevel = GetBuildingUpgradeLevel(b);
             bool operational = unit == null || !unit.disabled;
-            BuildingEntry entry = new(b, unit, name, cat, roleLabel, b.transform.position, operational);
+            BuildingEntry entry = new(b, unit, name, cat, roleLabel, b.transform.position, operational, upLevel);
 
             allEntries.Add(entry);
             switch (cat)
@@ -177,7 +357,8 @@ internal sealed class CommanderBuildingEconomyService
                     BuildingCategory.MilitarySpawning,
                     "AIRBASE & HANGARS",
                     ab.transform.position,
-                    !ab.disabled);
+                    !ab.disabled,
+                    1);
                 allEntries.Add(abEntry);
                 militaryEntries.Add(abEntry);
             }
@@ -196,17 +377,44 @@ internal sealed class CommanderBuildingEconomyService
                     BuildingCategory.Logistics,
                     "FORWARD LOGISTICS BASE",
                     fob.transform.position,
-                    true);
+                    true,
+                    1);
                 allEntries.Add(fobEntry);
                 logisticsEntries.Add(fobEntry);
             }
         }
 
-        // 4. Calculate Economy & Income Rate
-        float baseIncome = localHq.regularIncome * 60f; // per minute
-        float factoryBonus = economyEntries.Count * 12500f; // estimated factory output value per min
-        EstimatedIncomePerMinute = baseIncome + factoryBonus;
+        CalculateTotalEconomy();
+    }
 
+    private void CalculateTotalEconomy()
+    {
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null) return;
+
+        float baseIncome = localHq.regularIncome * 60f; // per minute
+        float factoryBaseOutput = economyEntries.Count * 12500f;
+
+        // Calculate Project Bonuses
+        float projectBonus = 0f;
+        for (int p = 0; p < projects.Count; p++)
+        {
+            projectBonus += projects[p].CurrentLevel * projects[p].IncomeBoostPerMin;
+        }
+        ProjectsIncomePerMinute = projectBonus;
+
+        // Calculate Facility Upgrade Bonuses
+        float facilityBonus = 0f;
+        foreach (KeyValuePair<Building, int> entry in buildingUpgradeLevels)
+        {
+            if (entry.Key != null)
+            {
+                facilityBonus += (entry.Value - 1) * 20000f; // +20k/min per level
+            }
+        }
+        FacilityUpgradesIncomePerMinute = facilityBonus;
+
+        EstimatedIncomePerMinute = baseIncome + factoryBaseOutput + ProjectsIncomePerMinute + FacilityUpgradesIncomePerMinute;
         ControlledSectorsCount = economyEntries.Count + militaryEntries.Count;
         TotalSectorsCount = Mathf.Max(ControlledSectorsCount + 4, 12);
     }
@@ -237,21 +445,32 @@ internal sealed class CommanderBuildingEconomyService
             return BuildingCategory.Defense;
         }
 
-        // 4. Logistics & Storage
-        if (b.GetComponentInChildren<Rearmer>(true) != null || name.Contains("storage") || name.Contains("warehouse") || name.Contains("fuel") || name.Contains("ammo") || name.Contains("supply") || name.Contains("pad"))
-        {
-            roleLabel = "SUPPLY & LOGISTICS";
-            return BuildingCategory.Logistics;
-        }
-
-        roleLabel = "GENERAL INFRASTRUCTURE";
-        return BuildingCategory.Economy;
+        // 4. Logistics (Storage, Depot, Warehouse, Fuel)
+        roleLabel = "STRATEGIC INFRASTRUCTURE";
+        return BuildingCategory.Logistics;
     }
 
     private static string CleanBuildingName(string raw)
     {
-        if (string.IsNullOrWhiteSpace(raw)) return "Structure";
-        return raw.Replace("(Clone)", string.Empty).Replace("_", " ").Trim();
+        if (string.IsNullOrWhiteSpace(raw)) return "Military Structure";
+
+        string cleaned = raw.Replace("(Clone)", string.Empty).Trim();
+        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"[d_]+$", string.Empty).Trim();
+
+        return cleaned.ToLowerInvariant() switch
+        {
+            "factory large" => "Heavy Industrial Factory Complex",
+            "factory tall" => "Advanced Manufacturing Plant",
+            "vehicledepot" => "Vehicle Depot Facility",
+            "radarstation" => "Early Warning Radar Station",
+            "radartower" => "Surveillance Radar Tower",
+            "hangar" => "Aircraft Maintenance Hangar",
+            "refinery" => "Petroleum & Fuel Refinery",
+            "powerplant" => "Thermal Energy Power Grid",
+            "warehouse" => "Munitions Storage Warehouse",
+            "headquarters" or "hq" => "Supreme Command Headquarters",
+            _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cleaned)
+        };
     }
 
     internal void ResetSession()
@@ -261,7 +480,11 @@ internal sealed class CommanderBuildingEconomyService
         militaryEntries.Clear();
         defenseEntries.Clear();
         logisticsEntries.Clear();
-        filteredEntries.Clear();
+        buildingUpgradeLevels.Clear();
+        accumulatedBonusFunds = 0f;
+        ProjectsIncomePerMinute = 0f;
+        FacilityUpgradesIncomePerMinute = 0f;
         EstimatedIncomePerMinute = 0f;
+        InitializeProjects();
     }
 }

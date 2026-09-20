@@ -59,7 +59,6 @@ internal sealed class CommanderWorldMarkerRenderer
             Unit unit = selectionService.SelectedUnits[i];
             if (unit == null || unit.disabled) continue;
 
-            Vector3 unitWorldPos = unit.transform.position;
             bool hasUnitScreen = CommanderGameAccess.TryGetWorldMarkerState(unit.transform.GlobalPosition(), camera, out Vector3 unitScreenPos, out _);
             Vector2 unitGuiPoint = hasUnitScreen ? CommanderUiScale.ScreenToGui(unitScreenPos) : Vector2.zero;
 
@@ -68,7 +67,7 @@ internal sealed class CommanderWorldMarkerRenderer
             {
                 if (drawnAttackTargets.Add(target))
                 {
-                    DrawLargeMarker(camera, target.transform.GlobalPosition(), "ATTACK", new Color(1f, 0.25f, 0.2f, 0.95f));
+                    DrawMarker(camera, target.transform.GlobalPosition(), "ATTACK", new Color(1f, 0.25f, 0.2f, 0.95f), large: true);
                 }
 
                 if (hasUnitScreen && CommanderGameAccess.TryGetWorldMarkerState(target.transform.GlobalPosition(), camera, out Vector3 tgtScreen, out _))
@@ -140,7 +139,7 @@ internal sealed class CommanderWorldMarkerRenderer
                     for (int wp = 0; wp < queuedWaypointsScratch.Count; wp++)
                     {
                         GlobalPosition wpPos = queuedWaypointsScratch[wp];
-                        DrawMarker(camera, wpPos, $"WAYPOINT {wp + 1}", new Color(0.95f, 0.85f, 0.3f, 0.85f));
+                        DrawMarker(camera, wpPos, $"WP {wp + 1}", new Color(0.95f, 0.85f, 0.3f, 0.85f));
 
                         if (CommanderGameAccess.TryGetWorldMarkerState(wpPos, camera, out Vector3 wpScreen, out _))
                         {
@@ -180,7 +179,7 @@ internal sealed class CommanderWorldMarkerRenderer
             {
                 if (fob != null && !fob.disabled)
                 {
-                    DrawLargeMarker(camera, fob.transform.GlobalPosition(), "FOB LOGISTICS", new Color(0.2f, 0.95f, 0.5f, 0.95f));
+                    DrawMarker(camera, fob.transform.GlobalPosition(), "FOB LOGISTICS", new Color(0.2f, 0.95f, 0.5f, 0.95f), large: true);
                 }
             }
         }
@@ -189,7 +188,7 @@ internal sealed class CommanderWorldMarkerRenderer
         if (CommanderCheatService.Instance?.AwaitingPlacement == true && CommanderCheatService.Instance.PendingSpawnDefinition != null)
         {
             var cheat = CommanderCheatService.Instance;
-            string label = "SPAWN: " + cheat.PendingSpawnDefinition.unitName + " (" + (cheat.SpawnAsEnemy ? "ENEMY" : "FRIENDLY") + ")\nHDG: " + Mathf.RoundToInt(cheat.PlacementHeading).ToString("000") + "°  [Scroll to Rotate]";
+            string label = "SPAWN: " + cheat.PendingSpawnDefinition.unitName + " (" + (cheat.SpawnAsEnemy ? "ENEMY" : "FRIENDLY") + ") | HDG: " + Mathf.RoundToInt(cheat.PlacementHeading).ToString("000") + "°";
             Color col = cheat.SpawnAsEnemy ? new Color(1f, 0.3f, 0.25f, 0.95f) : new Color(0.25f, 0.9f, 0.95f, 0.95f);
             DrawCursorMarker(label, col);
         }
@@ -211,18 +210,19 @@ internal sealed class CommanderWorldMarkerRenderer
 
         if (supplyHeliService.AwaitingTargetSelection)
         {
-            DrawCursorMarker("LZ", new Color(0.35f, 0.9f, 0.42f, 0.95f));
+            DrawCursorMarker("LZ DESTINATION", new Color(0.35f, 0.9f, 0.42f, 0.95f));
         }
 
         // 5. SAM Sites Analysis & Supply Routes
         samSiteAnalyzerService.CopyProposalSites(samSiteProposals);
         for (int i = 0; i < samSiteProposals.Count; i++)
         {
-            DrawLargeMarker(
+            DrawMarker(
                 camera,
                 samSiteProposals[i].Position,
                 $"SAM SITE {i + 1}",
-                new Color(0.1f, 0.82f, 1f, 0.95f));
+                new Color(0.1f, 0.82f, 1f, 0.95f),
+                large: true);
         }
 
         samSiteAnalyzerService.CopyVisibleActiveLayout(samSiteLayout);
@@ -293,6 +293,82 @@ internal sealed class CommanderWorldMarkerRenderer
         GUI.color = previousColor;
     }
 
+    internal static void DrawTacticalReticle(Vector2 center, Color color, float size = 14f)
+    {
+        lineTexture ??= Texture2D.whiteTexture;
+
+        Color prev = GUI.color;
+        GUI.color = color;
+
+        // Diamond (Rotated Square Outline)
+        Matrix4x4 matrix = GUI.matrix;
+        GUIUtility.RotateAroundPivot(45f, center);
+        float half = size * 0.5f;
+
+        GUI.DrawTexture(new Rect(center.x - half, center.y - half, size, 1.5f), lineTexture);
+        GUI.DrawTexture(new Rect(center.x - half, center.y + half - 1.5f, size, 1.5f), lineTexture);
+        GUI.DrawTexture(new Rect(center.x - half, center.y - half, 1.5f, size), lineTexture);
+        GUI.DrawTexture(new Rect(center.x + half - 1.5f, center.y - half, 1.5f, size), lineTexture);
+        // Center pip
+        GUI.DrawTexture(new Rect(center.x - 1.5f, center.y - 1.5f, 3f, 3f), lineTexture);
+
+        GUI.matrix = matrix;
+        GUI.color = prev;
+    }
+
+    private static void DrawMarker(Camera camera, GlobalPosition position, string? label, Color color, bool large = false)
+    {
+        if (!CommanderGameAccess.TryGetWorldMarkerState(position, camera, out Vector3 screenPoint, out _))
+        {
+            return;
+        }
+
+        Vector2 guiPoint = CommanderUiScale.ScreenToGui(screenPoint);
+        float reticleSize = large ? 18f : 13f;
+        DrawTacticalReticle(guiPoint, color, reticleSize);
+
+        if (!string.IsNullOrEmpty(label))
+        {
+            GUIContent content = new(label);
+            Vector2 textSize = CommanderUiTheme.MutedLabel.CalcSize(content);
+            float badgeW = textSize.x + 10f;
+            float badgeH = 17f;
+            Rect badge = new(guiPoint.x - badgeW * 0.5f, guiPoint.y - (large ? 16f : 12f) - badgeH, badgeW, badgeH);
+
+            Color prev = GUI.color;
+            GUI.color = new Color(0.04f, 0.08f, 0.10f, 0.82f);
+            GUI.DrawTexture(badge, Texture2D.whiteTexture);
+
+            GUI.color = color;
+            CommanderUiTheme.DrawFrame(badge, 1f);
+
+            GUIStyle labelStyle = large ? CommanderUiTheme.Header : CommanderUiTheme.MutedLabel;
+            GUI.Label(new Rect(badge.x + 5f, badge.y - 1f, badge.width - 10f, badge.height), label, labelStyle);
+            GUI.color = prev;
+        }
+    }
+
+    private static void DrawCursorMarker(string label, Color color)
+    {
+        Vector2 mousePos = Input.mousePosition;
+        Vector2 guiPoint = CommanderUiScale.ScreenToGui(mousePos);
+
+        GUIContent content = new(label);
+        Vector2 textSize = CommanderUiTheme.MutedLabel.CalcSize(content);
+        float width = textSize.x + 14f;
+        float height = 22f;
+        Rect marker = new(guiPoint.x + 14f, guiPoint.y - height * 0.5f, width, height);
+
+        Color prev = GUI.color;
+        GUI.color = new Color(0.04f, 0.08f, 0.10f, 0.85f);
+        GUI.DrawTexture(marker, Texture2D.whiteTexture);
+
+        GUI.color = color;
+        CommanderUiTheme.DrawFrame(marker, 1.2f);
+        GUI.Label(new Rect(marker.x + 7f, marker.y, marker.width - 14f, marker.height), label, CommanderUiTheme.MutedLabel);
+        GUI.color = prev;
+    }
+
     private static string GetSamLabel(CommanderSamSiteAnalyzerService.SiteUnitRole role)
     {
         return role switch
@@ -323,74 +399,5 @@ internal sealed class CommanderWorldMarkerRenderer
             CommanderSamSiteAnalyzerService.SiteUnitRole.FireControl => new Color(0.4f, 0.7f, 1f, 0.95f),
             _ => new Color(0.6f, 0.8f, 0.9f, 0.9f),
         };
-    }
-
-    private static void DrawCursorMarker(string label, Color color)
-    {
-        Vector2 mousePos = Input.mousePosition;
-        Vector2 guiPoint = CommanderUiScale.ScreenToGui(mousePos);
-
-        GUIStyle style = CommanderUiTheme.Panel;
-        float width = GetMarkerWidth(label, style, 48f);
-        float height = GetMarkerHeight(label, style, width, 24f);
-        Rect marker = new(guiPoint.x + 16f, guiPoint.y - height * 0.5f, width, height);
-
-        Color previous = GUI.color;
-        GUI.color = color;
-        GUI.Box(marker, label, style);
-        CommanderUiTheme.DrawFrame(marker, 1.5f);
-        GUI.color = previous;
-    }
-
-    private static void DrawMarker(Camera camera, GlobalPosition position, string label, Color color)
-    {
-        if (!CommanderGameAccess.TryGetWorldMarkerState(position, camera, out Vector3 screenPoint, out _))
-        {
-            return;
-        }
-
-        Vector2 guiPoint = CommanderUiScale.ScreenToGui(screenPoint);
-        GUIStyle style = CommanderUiTheme.Panel;
-        float width = GetMarkerWidth(label, style, 48f);
-        float height = GetMarkerHeight(label, style, width, 24f);
-        Rect marker = new(guiPoint.x - width * 0.5f, guiPoint.y - height * 0.5f, width, height);
-
-        Color previous = GUI.color;
-        GUI.color = color;
-        GUI.Box(marker, label, style);
-        CommanderUiTheme.DrawFrame(marker, 1.5f);
-        GUI.color = previous;
-    }
-
-    private static void DrawLargeMarker(Camera camera, GlobalPosition position, string label, Color color)
-    {
-        if (!CommanderGameAccess.TryGetWorldMarkerState(position, camera, out Vector3 screenPoint, out _))
-        {
-            return;
-        }
-
-        Vector2 guiPoint = CommanderUiScale.ScreenToGui(screenPoint);
-        GUIStyle style = CommanderUiTheme.Header;
-        float width = GetMarkerWidth(label, style, 90f);
-        float height = GetMarkerHeight(label, style, width, 38f);
-        Rect marker = new(guiPoint.x - width * 0.5f, guiPoint.y - height * 0.5f, width, height);
-
-        Color previous = GUI.color;
-        GUI.color = color;
-        GUI.Box(marker, label, style);
-        CommanderUiTheme.DrawFrame(marker, 2f);
-        GUI.color = previous;
-    }
-
-    private static float GetMarkerWidth(string label, GUIStyle style, float minimumWidth)
-    {
-        return Mathf.Max(minimumWidth, style.CalcSize(new GUIContent(label)).x + 18f);
-    }
-
-    private static float GetMarkerHeight(string label, GUIStyle style, float width, float minimumHeight)
-    {
-        float contentWidth = Mathf.Max(1f, width - style.padding.horizontal);
-        float calculatedHeight = style.CalcHeight(new GUIContent(label), contentWidth);
-        return Mathf.Max(minimumHeight, calculatedHeight + 4f);
     }
 }

@@ -410,6 +410,58 @@ internal sealed partial class CommanderAirCommandService
         ApplySelectedWeaponsAndSort();
     }
 
+    internal bool QuickCallInMission(AirCommandMode mode)
+    {
+        SelectMode(mode);
+        if (options.Count == 0)
+        {
+            SetStatus($"No compatible aircraft available for {GetModeLabel(mode)}.");
+            return false;
+        }
+
+        selectedOptionIndex = 0;
+        RefreshAirbases();
+        if (airbases.Count == 0)
+        {
+            SetStatus($"No friendly airbase ready for {GetModeLabel(mode)}.");
+            return false;
+        }
+
+        selectedAirbaseIndex = 0;
+        AirMissionOption? opt = SelectedOption;
+        if (opt == null) return false;
+
+        // Auto-populate hardpoints with default loadout
+        for (int i = 0; i < opt.HardpointGroups.Count; i++)
+        {
+            if (opt.HardpointGroups[i].Mounts.Count > 0)
+            {
+                opt.HardpointGroups[i].Select(0);
+            }
+        }
+
+        if (weaponOptions.Count > 0 && selectedPrimaryWeaponIndex < 0)
+        {
+            selectedPrimaryWeaponIndex = 0;
+        }
+        ApplySelectedWeaponsAndSort();
+
+        AirbaseOption? ab = SelectedAirbase;
+        if (ab == null)
+        {
+            SetStatus("No compatible airbase found.");
+            return false;
+        }
+
+        pendingMissionRelocation = null;
+        pendingAreaSelection = new PendingAreaSelection(opt, ab.Airbase);
+        tacticalMapService.SuppressMapFollow = true;
+        mapClickTracker.Reset();
+        UpdatePendingAreaPreview();
+        SetStatus($"[QUICK CALL-IN: {GetModeLabel(mode).ToUpperInvariant()}] Click target mission area on map or in 3D world.");
+        return true;
+    }
+
     internal void BeginAreaSelection()
     {
         AirMissionOption? option = SelectedOption;

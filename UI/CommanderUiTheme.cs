@@ -87,22 +87,31 @@ internal static class CommanderUiTheme
         borderMutedTexture = MakeTexture(new Color(0.18f, 0.32f, 0.35f, 0.7f));
         headerStripeTexture = MakeTexture(new Color(0.25f, 0.88f, 0.82f, 0.85f));
 
-        // Font discovery: attempt to use crisp game/monospaced fonts
-        Font? appFont = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI", "Consolas", "Arial" }, 13);
+        // Font discovery: attempt to use crisp monospaced fonts (JetBrains Mono / Consolas)
+        Font? appFont = Font.CreateDynamicFontFromOSFont(new[] { "JetBrains Mono", "Consolas", "Segoe UI", "Arial" }, 13);
 
         Label = new GUIStyle(GUI.skin.label)
         {
             font = appFont,
             fontSize = 13,
             normal = { textColor = TextBright },
-            wordWrap = true,
+            wordWrap = false,
+            clipping = TextClipping.Clip,
+            padding = new RectOffset(0, 0, 0, 0),
+            margin = new RectOffset(0, 0, 0, 0),
             alignment = TextAnchor.MiddleLeft
         };
 
         MutedLabel = new GUIStyle(Label)
         {
+            font = appFont,
             fontSize = 11,
-            normal = { textColor = MutedTeal }
+            normal = { textColor = MutedTeal },
+            wordWrap = false,
+            clipping = TextClipping.Clip,
+            padding = new RectOffset(0, 0, 0, 0),
+            margin = new RectOffset(0, 0, 0, 0),
+            alignment = TextAnchor.MiddleLeft
         };
 
         Header = new GUIStyle(Label)

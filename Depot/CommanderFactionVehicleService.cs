@@ -12,6 +12,8 @@ internal sealed class CommanderFactionVehicleService
     private readonly List<VehicleDefinition> landDefinitions = new();
     private readonly List<AircraftDefinition> airDefinitions = new();
     private readonly List<ShipDefinition> navalDefinitions = new();
+    private readonly List<string> allLandCategories = new();
+    private readonly List<VehicleDefinition> filteredLandBuffer = new();
 
     internal static CommanderFactionVehicleService? Instance { get; private set; }
     internal static FactionHQ? AutomaticDeploymentHq { get; set; }
@@ -50,11 +52,30 @@ internal sealed class CommanderFactionVehicleService
         }
     }
 
+    internal IReadOnlyList<string> AllLandCategories
+    {
+        get
+        {
+            EnsureDefinitionsLoaded();
+            return allLandCategories;
+        }
+    }
+
     private void EnsureDefinitionsLoaded()
     {
         if (landDefinitions.Count == 0)
         {
             CommanderGameAccess.TryGetLocalVehicleDefinitions(landDefinitions);
+            allLandCategories.Clear();
+            for (int i = 0; i < landDefinitions.Count; i++)
+            {
+                string cat = CommanderGameAccess.GetVehicleCategoryLabel(landDefinitions[i]);
+                if (!string.IsNullOrWhiteSpace(cat) && !allLandCategories.Contains(cat))
+                {
+                    allLandCategories.Add(cat);
+                }
+            }
+            allLandCategories.Sort(StringComparer.OrdinalIgnoreCase);
         }
 
         if (airDefinitions.Count == 0)
@@ -71,6 +92,7 @@ internal sealed class CommanderFactionVehicleService
                     }
                 }
             }
+            airDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
         }
 
         if (navalDefinitions.Count == 0)
@@ -87,7 +109,44 @@ internal sealed class CommanderFactionVehicleService
                     }
                 }
             }
+            navalDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
         }
+    }
+
+    internal IReadOnlyList<VehicleDefinition> GetFilteredLandDefinitions(string? categoryFilter)
+    {
+        EnsureDefinitionsLoaded();
+        if (string.IsNullOrEmpty(categoryFilter) || string.Equals(categoryFilter, "ALL", StringComparison.OrdinalIgnoreCase))
+        {
+            return landDefinitions;
+        }
+
+        filteredLandBuffer.Clear();
+        for (int i = 0; i < landDefinitions.Count; i++)
+        {
+            VehicleDefinition def = landDefinitions[i];
+            string cat = CommanderGameAccess.GetVehicleCategoryLabel(def);
+            if (string.Equals(cat, categoryFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                filteredLandBuffer.Add(def);
+            }
+        }
+        return filteredLandBuffer;
+    }
+
+    internal int GetCategoryReserveTotal(string category)
+    {
+        EnsureDefinitionsLoaded();
+        int total = 0;
+        for (int i = 0; i < landDefinitions.Count; i++)
+        {
+            VehicleDefinition def = landDefinitions[i];
+            if (string.Equals(CommanderGameAccess.GetVehicleCategoryLabel(def), category, StringComparison.OrdinalIgnoreCase))
+            {
+                total += GetReserveCount(def);
+            }
+        }
+        return total;
     }
 
     internal bool IsCategoryHeld(string category)
@@ -113,10 +172,10 @@ internal sealed class CommanderFactionVehicleService
         heldCategories.Clear();
         if (hold)
         {
-            for (int i = 0; i < LandDefinitions.Count; i++)
+            EnsureDefinitionsLoaded();
+            for (int i = 0; i < allLandCategories.Count; i++)
             {
-                string cat = CommanderGameAccess.GetVehicleCategoryLabel(LandDefinitions[i]);
-                heldCategories.Add(cat);
+                heldCategories.Add(allLandCategories[i]);
             }
         }
     }
@@ -137,7 +196,9 @@ internal sealed class CommanderFactionVehicleService
     internal int GetReserveCount(UnitDefinition definition)
     {
         FactionHQ? hq = CommanderGameAccess.GetLocalHq();
-        return hq != null ? hq.GetUnitSupply(definition) : 0;
+        if (hq == null) return 0;
+        int supply = hq.GetUnitSupply(definition);
+        return Mathf.Max(0, supply);
     }
 
     internal float GetPurchaseCost(UnitDefinition definition)
@@ -267,6 +328,8 @@ internal sealed class CommanderFactionVehicleService
         landDefinitions.Clear();
         airDefinitions.Clear();
         navalDefinitions.Clear();
+        allLandCategories.Clear();
+        filteredLandBuffer.Clear();
         AutomaticDeploymentHq = null;
     }
 }

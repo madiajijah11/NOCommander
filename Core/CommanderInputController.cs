@@ -174,6 +174,15 @@ internal sealed class CommanderInputController
 
     private void HandleKeyboardShortcuts()
     {
+        // Escape key: Cancel any active targeting / placement modes (RTS standard)
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (CancelAnyTargetingMode())
+            {
+                return;
+            }
+        }
+
         // Spacebar alert jump when no unit is focused
         if (Input.GetKeyDown(KeyCode.Space) && selectionService.FocusedSelection == null)
         {
@@ -377,19 +386,64 @@ internal sealed class CommanderInputController
             return;
         }
 
-        if (CommanderCheatService.Instance?.AwaitingPlacement == true)
+        // Right-click cancels any active targeting / placement mode (RTS standard)
+        if (CancelAnyTargetingMode())
         {
-            CommanderCheatService.Instance.CancelPlacement();
-            return;
-        }
-
-        if (CommanderCheatService.Instance?.AwaitingPlacement == true)
-        {
-            CommanderCheatService.Instance.CancelPlacement();
             return;
         }
 
         bool queueWaypoint = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
         moveService.TryIssueMoveOrder(mousePosition, queueWaypoint: queueWaypoint);
+    }
+
+    private bool CancelAnyTargetingMode()
+    {
+        if (airCommandService.AwaitingAreaSelection)
+        {
+            airCommandService.CancelAreaSelection();
+            return true;
+        }
+        if (supplyHeliService.AwaitingTargetSelection)
+        {
+            supplyHeliService.CancelTargetSelection();
+            return true;
+        }
+        if (moveService.AwaitingAttackMoveSelection)
+        {
+            moveService.CancelAttackMoveOrder();
+            return true;
+        }
+        if (moveService.AwaitingGuardSelection)
+        {
+            moveService.CancelGuardOrder();
+            return true;
+        }
+        if (moveService.AwaitingPatrolSelection)
+        {
+            moveService.CancelPatrolOrder();
+            return true;
+        }
+        if (moveService.AwaitingBarrageSelection)
+        {
+            moveService.CancelBarrageOrder();
+            return true;
+        }
+        if (spawnService.AwaitingRallyPointSelection)
+        {
+            spawnService.CancelRallySelection();
+            return true;
+        }
+        if (mobileEmplacementService.AwaitingDestination)
+        {
+            mobileEmplacementService.CancelDestination();
+            return true;
+        }
+        if (CommanderCheatService.Instance?.AwaitingPlacement == true)
+        {
+            CommanderCheatService.Instance.CancelPlacement();
+            return true;
+        }
+
+        return false;
     }
 }

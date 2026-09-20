@@ -546,6 +546,43 @@ internal sealed partial class CommanderSupplyHeliService
         SetStatus(pendingTargetSelection.GetTargetPrompt());
     }
 
+    internal bool QuickCallInCargoAirdrop()
+    {
+        if (aircraftOptions.Count == 0) RefreshOptions();
+        if (aircraftOptions.Count == 0)
+        {
+            SetStatus("No cargo aircraft available.");
+            return false;
+        }
+
+        RefreshAirbaseOptions();
+        if (airbaseOptions.Count == 0)
+        {
+            SetStatus("No friendly airbase ready for cargo operations.");
+            return false;
+        }
+
+        selectedAircraftIndex = 0;
+        selectedAirbase = airbaseOptions[0].Airbase;
+        airdropDelivery = true;
+
+        // Auto-select cargo container in slots
+        CargoAircraftOption? opt = SelectedAircraft;
+        if (opt != null)
+        {
+            for (int i = 0; i < opt.CargoSlots.Count; i++)
+            {
+                if (opt.CargoSlots[i].Mounts.Count > 0)
+                {
+                    opt.CargoSlots[i].Select(0);
+                }
+            }
+        }
+
+        BeginSelectedCargoRun();
+        return pendingTargetSelection != null;
+    }
+
     internal bool RequestAutomaticCargoRun(GlobalPosition target)
     {
         if (!CanHostSpawn(out FactionHQ? hq, out string error))
@@ -1365,7 +1402,7 @@ internal sealed partial class CommanderSupplyHeliService
         return count;
     }
 
-    private void CancelTargetSelection(bool showStatus)
+    internal void CancelTargetSelection(bool showStatus = true)
     {
         if (pendingTargetSelection == null)
         {

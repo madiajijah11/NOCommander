@@ -8,7 +8,7 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderTacticalMapService
 {
-    private const float TacticalMapSize = 675f;
+    private const float TacticalMapSize = 300f;
     private const float TacticalMapMargin = 12f;
     private const float HeaderHeight = 30f;
 
@@ -251,34 +251,34 @@ internal sealed class CommanderTacticalMapService
 
         Rect header = new(mapWindowRect.x, mapWindowRect.y, mapWindowRect.width, HeaderHeight);
         GUI.Box(header, string.Empty, CommanderUiTheme.Panel);
-        GUI.Label(new Rect(header.x + 10f, header.y + 3f, 42f, 24f), "MAP", CommanderUiTheme.Header);
+        GUI.Label(new Rect(header.x + 6f, header.y + 3f, 30f, 24f), "MAP", CommanderUiTheme.Header);
         bool oldEnabled = GUI.enabled;
-        Rect cameraGroup = new(header.xMax - 452f, header.y + 2f, 384f, 26f);
+        float camGroupX = header.x + 38f;
+        Rect cameraGroup = new(camGroupX, header.y + 2f, 210f, 26f);
         CommanderUiTheme.DrawFrame(cameraGroup, 1f);
-        GUI.Label(new Rect(cameraGroup.x + 4f, cameraGroup.y + 1f, 38f, 24f), "CAM", CommanderUiTheme.MutedLabel);
         GUI.enabled = oldEnabled && cameraFollowService.CanFollow;
-        if (GUI.Button(new Rect(cameraGroup.x + 42f, cameraGroup.y + 2f, 104f, 22f),
-            cameraFollowService.Enabled ? "FOLLOW POS" : "FOLLOW",
+        if (GUI.Button(new Rect(cameraGroup.x + 2f, cameraGroup.y + 2f, 68f, 22f),
+            cameraFollowService.Enabled ? "FOLLOWING" : "FOLLOW",
             cameraFollowService.Enabled ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             cameraFollowService.Toggle();
         }
-        if (GUI.Button(new Rect(cameraGroup.x + 150f, cameraGroup.y + 2f, 104f, 22f), "CENTER", CommanderUiTheme.Button))
+        if (GUI.Button(new Rect(cameraGroup.x + 74f, cameraGroup.y + 2f, 68f, 22f), "CENTER", CommanderUiTheme.Button))
         {
             cameraFollowService.CenterOnSelection();
         }
-        if (GUI.Button(new Rect(cameraGroup.x + 258f, cameraGroup.y + 2f, 104f, 22f),
+        if (GUI.Button(new Rect(cameraGroup.x + 146f, cameraGroup.y + 2f, 60f, 22f),
             cameraFollowService.PovMode ? "POV ON" : "POV",
             cameraFollowService.PovMode ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             cameraFollowService.TogglePov();
         }
         GUI.enabled = oldEnabled;
-        if (GUI.Button(new Rect(header.xMax - 60f, header.y + 3f, 26f, 24f), "?", CommanderUiTheme.HelpButton))
+        if (GUI.Button(new Rect(header.xMax - 48f, header.y + 3f, 22f, 24f), "?", CommanderUiTheme.HelpButton))
         {
             helpVisible = !helpVisible;
         }
-        if (GUI.Button(new Rect(header.xMax - 30f, header.y + 3f, 26f, 24f), "X", CommanderUiTheme.DangerButton))
+        if (GUI.Button(new Rect(header.xMax - 24f, header.y + 3f, 22f, 24f), "X", CommanderUiTheme.DangerButton))
         {
             Close();
             return;
