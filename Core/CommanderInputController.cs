@@ -75,6 +75,9 @@ internal sealed class CommanderInputController
 
     internal void Tick()
     {
+        Vector2 mousePosition = Input.mousePosition;
+        CommanderCheatService.Instance?.UpdatePlacementPreview(mousePosition);
+
         HandleKeyboardShortcuts();
 
         if (CommanderNavalPurchaseService.Instance?.AwaitingRallySelection == true)
@@ -87,7 +90,6 @@ internal sealed class CommanderInputController
             return;
         }
 
-        Vector2 mousePosition = Input.mousePosition;
         if (povCrewUi?.ContainsScreenPoint(mousePosition) == true)
         {
             CancelDrag();
@@ -335,6 +337,12 @@ internal sealed class CommanderInputController
     {
         if (overlayUi.ContainsScreenPoint(mousePosition))
         {
+            return;
+        }
+
+        if (CommanderCheatService.Instance?.AwaitingPlacement == true)
+        {
+            CommanderCheatService.Instance.CancelPlacement();
             return;
         }
 

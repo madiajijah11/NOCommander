@@ -29,10 +29,12 @@ internal sealed class CommanderCheatService
     private float statusUntil;
     private string statusText = string.Empty;
 
-    // 3D Placement Mode
+    // 3D Placement & Hologram Preview
     private bool awaitingPlacement;
     private UnitDefinition? pendingSpawnDefinition;
     private bool spawnAsEnemy;
+    private float placementHeading;
+    private GameObject? ghostPreviewObject;
 
     internal static CommanderCheatService? Instance { get; private set; }
 
@@ -44,6 +46,7 @@ internal sealed class CommanderCheatService
     internal bool AwaitingPlacement => awaitingPlacement && pendingSpawnDefinition != null;
     internal UnitDefinition? PendingSpawnDefinition => pendingSpawnDefinition;
     internal bool SpawnAsEnemy => spawnAsEnemy;
+    internal float PlacementHeading => placementHeading;
     internal string StatusText => Time.unscaledTime <= statusUntil ? statusText : string.Empty;
 
     internal CommanderCheatService(CommanderSelectionService selectionService)
@@ -151,7 +154,6 @@ internal sealed class CommanderCheatService
 
             allDefinitions.Add(def);
 
-            // Categorize accurately
             EntityCategory cat = ResolveCategory(def);
             switch (cat)
             {
@@ -218,17 +220,138 @@ internal sealed class CommanderCheatService
             return;
         }
 
+        DestroyGhostPreview();
         awaitingPlacement = true;
         pendingSpawnDefinition = definition;
         spawnAsEnemy = asEnemy;
-        SetStatus("Select position in 3D world to spawn " + definition.unitName + " (" + (asEnemy ? "ENEMY" : "FRIENDLY") + ").");
+        placementHeading = 0f;
+        SetStatus("Select position in 3D world to spawn " + definition.unitName + " [Scroll to Rotate].");
     }
 
     internal void CancelPlacement()
     {
+        DestroyGhostPreview();
         awaitingPlacement = false;
         pendingSpawnDefinition = null;
         SetStatus("Spawn placement cancelled.");
+    }
+
+    internal void UpdatePlacementPreview(Vector2 screenPosition)
+    {
+        if (!awaitingPlacement || pendingSpawnDefinition == null)
+        {
+            DestroyGhostPreview();
+            return;
+        }
+
+        // Rotate with mouse scroll wheel or [ / ] keys
+        float scroll = Input.mouseScrollDelta.y;
+        if (Mathf.Abs(scroll) > 0.01f)
+        {
+            placementHeading = (placementHeading + scroll * 15f) % 360f;
+            if (placementHeading < 0f) placementHeading += 360f;
+        }
+
+        if (Input.GetKey(KeyCode.LeftBracket))
+        {
+            placementHeading = (placementHeading - 90f * Time.unscaledDeltaTime) % 360f;
+            if (placementHeading < 0f) placementHeading += 360f;
+        }
+        if (Input.GetKey(KeyCode.RightBracket))
+        {
+            placementHeading = (placementHeading + 90f * Time.unscaledDeltaTime) % 360f;
+        }
+
+        UnitDefinition def = pendingSpawnDefinition;
+        bool isShip = ResolveCategory(def) == EntityCategory.Naval;
+
+        bool hit = isShip
+            ? CommanderGameAccess.TryRaycastWaterPosition(screenPosition, out GlobalPosition targetPos)
+            : CommanderGameAccess.TryRaycastWorldPosition(screenPosition, out targetPos);
+
+        if (!hit)
+        {
+            if (ghostPreviewObject != null)
+            {
+                ghostPreviewObject.SetActive(false);
+            }
+            return;
+        }
+
+        EnsureGhostPreviewCreated(def);
+
+        if (ghostPreviewObject != null)
+        {
+            ghostPreviewObject.SetActive(true);
+            Vector3 localPos = targetPos.ToLocalPosition() + def.spawnOffset;
+            ghostPreviewObject.transform.position = localPos;
+            ghostPreviewObject.transform.rotation = Quaternion.Euler(0f, placementHeading, 0f);
+        }
+    }
+
+    private void EnsureGhostPreviewCreated(UnitDefinition def)
+    {
+        if (ghostPreviewObject != null || def.unitPrefab == null)
+        {
+            return;
+        }
+
+        try
+        {
+            ghostPreviewObject = UnityEngine.Object.Instantiate(def.unitPrefab);
+            ghostPreviewObject.name = "NOC_GhostHologramPreview";
+
+            // Strip/disable non-visual components
+            MonoBehaviour[] scripts = ghostPreviewObject.GetComponentsInChildren<MonoBehaviour>(true);
+            for (int i = 0; i < scripts.Length; i++)
+            {
+                scripts[i].enabled = false;
+            }
+
+            Collider[] colliders = ghostPreviewObject.GetComponentsInChildren<Collider>(true);
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                colliders[i].enabled = false;
+            }
+
+            Rigidbody[] rbs = ghostPreviewObject.GetComponentsInChildren<Rigidbody>(true);
+            for (int i = 0; i < rbs.Length; i++)
+            {
+                rbs[i].isKinematic = true;
+                rbs[i].detectCollisions = false;
+            }
+
+            // Audio & scripts are disabled via MonoBehaviour stripping
+
+            Color tint = spawnAsEnemy ? new Color(1f, 0.3f, 0.25f, 0.75f) : new Color(0.25f, 0.9f, 0.95f, 0.75f);
+            Renderer[] renderers = ghostPreviewObject.GetComponentsInChildren<Renderer>(true);
+            for (int r = 0; r < renderers.Length; r++)
+            {
+                Material[] mats = renderers[r].materials;
+                for (int m = 0; m < mats.Length; m++)
+                {
+                    if (mats[m] != null && mats[m].HasProperty("_Color"))
+                    {
+                        mats[m].color = tint;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            CommanderPlugin.Log.LogWarning("Could not instantiate ghost preview: " + ex.Message);
+        }
+    }
+
+
+
+    private void DestroyGhostPreview()
+    {
+        if (ghostPreviewObject != null)
+        {
+            UnityEngine.Object.Destroy(ghostPreviewObject);
+            ghostPreviewObject = null;
+        }
     }
 
     internal bool TrySpawnAtWorldPoint(Vector2 screenPosition)
@@ -283,7 +406,7 @@ internal sealed class CommanderCheatService
         }
 
         Vector3 localPos = targetPos.ToLocalPosition() + def.spawnOffset;
-        Quaternion rotation = Quaternion.identity;
+        Quaternion rotation = Quaternion.Euler(0f, placementHeading, 0f);
 
         try
         {
@@ -296,7 +419,7 @@ internal sealed class CommanderCheatService
 
             if (spawnedUnit != null)
             {
-                SetStatus("Spawned " + def.unitName + " (" + (spawnAsEnemy ? "ENEMY" : "FRIENDLY") + ") at target location.");
+                SetStatus("Spawned " + def.unitName + " (" + (spawnAsEnemy ? "ENEMY" : "FRIENDLY") + ") at HDG " + Mathf.RoundToInt(placementHeading) + "°.");
                 selectionService.SelectUnit(spawnedUnit, additive: false);
             }
             else
@@ -310,6 +433,7 @@ internal sealed class CommanderCheatService
             SetStatus("Failed to spawn " + def.unitName + ": " + ex.Message);
         }
 
+        DestroyGhostPreview();
         awaitingPlacement = false;
         pendingSpawnDefinition = null;
         return true;
@@ -522,8 +646,10 @@ internal sealed class CommanderCheatService
 
     internal void ResetSession()
     {
+        DestroyGhostPreview();
         awaitingPlacement = false;
         pendingSpawnDefinition = null;
+        placementHeading = 0f;
         statusText = string.Empty;
         catalogInitialized = false;
     }

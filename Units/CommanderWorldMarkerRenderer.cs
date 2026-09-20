@@ -113,8 +113,9 @@ internal sealed class CommanderWorldMarkerRenderer
 
         if (CommanderCheatService.Instance?.AwaitingPlacement == true && CommanderCheatService.Instance.PendingSpawnDefinition != null)
         {
-            string label = $"SPAWN: {CommanderCheatService.Instance.PendingSpawnDefinition.unitName} ({(CommanderCheatService.Instance.SpawnAsEnemy ? "ENEMY" : "FRIENDLY")})";
-            Color col = CommanderCheatService.Instance.SpawnAsEnemy ? new Color(1f, 0.25f, 0.2f, 0.95f) : new Color(0.2f, 0.85f, 0.9f, 0.95f);
+            var cheat = CommanderCheatService.Instance;
+            string label = "SPAWN: " + cheat.PendingSpawnDefinition.unitName + " (" + (cheat.SpawnAsEnemy ? "ENEMY" : "FRIENDLY") + ")\nHDG: " + Mathf.RoundToInt(cheat.PlacementHeading).ToString("000") + "°  [Scroll to Rotate]";
+            Color col = cheat.SpawnAsEnemy ? new Color(1f, 0.3f, 0.25f, 0.95f) : new Color(0.25f, 0.9f, 0.95f, 0.95f);
             DrawCursorMarker(label, col);
         }
 
