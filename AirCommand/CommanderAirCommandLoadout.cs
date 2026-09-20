@@ -735,8 +735,21 @@ internal sealed partial class CommanderAirCommandService
     {
         if (SelectedPrimaryWeapon == null || GetPrimaryWeaponCount(option) <= 0)
         {
-            error = "Select a primary weapon supported by the selected aircraft.";
-            return false;
+            bool hasValidMountedWeapon = false;
+            for (int w = 0; w < loadout.weapons.Count; w++)
+            {
+                if (loadout.weapons[w] != null)
+                {
+                    hasValidMountedWeapon = true;
+                    break;
+                }
+            }
+
+            if (!hasValidMountedWeapon && option.Mode != AirCommandMode.AwacsJammer)
+            {
+                error = "Select a primary weapon supported by the selected aircraft.";
+                return false;
+            }
         }
 
         for (int i = 0; i < loadout.weapons.Count; i++)

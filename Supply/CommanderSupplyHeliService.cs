@@ -564,21 +564,30 @@ internal sealed partial class CommanderSupplyHeliService
 
         selectedAircraftIndex = 0;
         selectedAirbase = airbaseOptions[0].Airbase;
-        airdropDelivery = true;
 
-        // Auto-select cargo container in slots
+        // Auto-select cargo container in slots (preferring airdrop-capable mounts if available)
         CargoAircraftOption? opt = SelectedAircraft;
         if (opt != null)
         {
             for (int i = 0; i < opt.CargoSlots.Count; i++)
             {
-                if (opt.CargoSlots[i].Mounts.Count > 0)
+                CargoSlotOption slot = opt.CargoSlots[i];
+                if (slot.Mounts.Count == 0) continue;
+
+                int bestMount = -1;
+                for (int m = 0; m < slot.Mounts.Count; m++)
                 {
-                    opt.CargoSlots[i].Select(0);
+                    if (CargoMountSupportsAirdrop(slot.Mounts[m]))
+                    {
+                        bestMount = m;
+                        break;
+                    }
                 }
+                slot.Select(bestMount >= 0 ? bestMount : 0);
             }
         }
 
+        airdropDelivery = SelectedCargoSupportsAirdrop;
         BeginSelectedCargoRun();
         return pendingTargetSelection != null;
     }
@@ -1043,17 +1052,11 @@ internal sealed partial class CommanderSupplyHeliService
         return x * x + z * z;
     }
 
-    internal bool TrySpawnAtWorldPoint(Vector2 screenPosition)
+    internal bool TrySpawnAtPosition(GlobalPosition target)
     {
         if (pendingTargetSelection == null)
         {
             return false;
-        }
-
-        if (!CommanderGameAccess.TryRaycastWorldPosition(screenPosition, out GlobalPosition target))
-        {
-            SetStatus("No valid terrain point was found. Click visible terrain or a surface.");
-            return true;
         }
 
         PendingTargetSelection selection = pendingTargetSelection;
@@ -1081,6 +1084,22 @@ internal sealed partial class CommanderSupplyHeliService
             SetStatus("Supply run queued. Hold Shift and click another destination, or release Shift for the final run.");
         }
         return true;
+    }
+
+    internal bool TrySpawnAtWorldPoint(Vector2 screenPosition)
+    {
+        if (pendingTargetSelection == null)
+        {
+            return false;
+        }
+
+        if (!CommanderGameAccess.TryRaycastWorldPosition(screenPosition, out GlobalPosition target))
+        {
+            SetStatus("No valid terrain point was found. Click visible terrain or a surface.");
+            return true;
+        }
+
+        return TrySpawnAtPosition(target);
     }
 
     internal static void NotifyFactionUnitRegistered(FactionHQ hq, Unit unit)

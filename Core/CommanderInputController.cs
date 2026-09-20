@@ -4,7 +4,7 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderInputController
 {
-    private const float DragThresholdPixels = 12f;
+    private const float DragThresholdPixels = 8f;
 
     private readonly CommanderOverlayUi overlayUi;
     private readonly CommanderSelectionService selectionService;
@@ -25,7 +25,6 @@ internal sealed class CommanderInputController
     private Vector2 dragStartPos;
 
     internal static CommanderInputController? Instance { get; private set; }
-
     internal bool IsBoxDragging => isBoxDragging;
 
     internal CommanderInputController(
@@ -66,11 +65,11 @@ internal sealed class CommanderInputController
     {
         Vector2 p1 = CommanderUiScale.ScreenToGui(dragStartPos);
         Vector2 p2 = CommanderUiScale.ScreenToGui(Input.mousePosition);
-        return Rect.MinMaxRect(
+        return new Rect(
             Mathf.Min(p1.x, p2.x),
             Mathf.Min(p1.y, p2.y),
-            Mathf.Max(p1.x, p2.x),
-            Mathf.Max(p1.y, p2.y));
+            Mathf.Abs(p1.x - p2.x),
+            Mathf.Abs(p1.y - p2.y));
     }
 
     internal void Tick()
@@ -79,6 +78,16 @@ internal sealed class CommanderInputController
         CommanderCheatService.Instance?.UpdatePlacementPreview(mousePosition);
 
         HandleKeyboardShortcuts();
+
+        // 1. Right-Click / Secondary Action Global Cancellation
+        if (CommanderShortcutInput.IsDown(CommanderSettings.SecondaryAction) || Input.GetMouseButtonDown(1))
+        {
+            if (CancelAnyTargetingMode())
+            {
+                CancelDrag();
+                return;
+            }
+        }
 
         if (CommanderNavalPurchaseService.Instance?.AwaitingRallySelection == true)
         {
@@ -90,33 +99,60 @@ internal sealed class CommanderInputController
             return;
         }
 
+        // 2. Tactical Minimap Cursor & Click Routing
+        DynamicMap? dynamicMap = SceneSingleton<DynamicMap>.i;
+        bool cursorInMinimap = tacticalMapService.IsOpen && dynamicMap != null && dynamicMap.IsCursorInMapRectangle();
+
+        if (cursorInMinimap && dynamicMap != null)
+        {
+            CancelDrag();
+            if (CommanderShortcutInput.IsDown(CommanderSettings.PrimaryAction) || Input.GetMouseButtonDown(0))
+            {
+                if (dynamicMap.TryGetCursorCoordinates(out GlobalPosition mapPos))
+                {
+                    if (airCommandService.AwaitingAreaSelection)
+                    {
+                        airCommandService.CompleteAreaSelection(mapPos);
+                        return;
+                    }
+                    if (supplyHeliService.AwaitingTargetSelection)
+                    {
+                        supplyHeliService.TrySpawnAtPosition(mapPos);
+                        return;
+                    }
+                    if (moveService.AwaitingAttackMoveSelection)
+                    {
+                        moveService.IssueDirectMoveOrder(mapPos, false);
+                        moveService.CancelAttackMoveOrder();
+                        return;
+                    }
+                }
+            }
+            if (CommanderShortcutInput.IsDown(CommanderSettings.SecondaryAction) || Input.GetMouseButtonDown(1))
+            {
+                if (dynamicMap.TryGetCursorCoordinates(out GlobalPosition mapPos))
+                {
+                    bool queueWaypoint = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                    moveService.IssueDirectMoveOrder(mapPos, queueWaypoint: queueWaypoint);
+                    return;
+                }
+            }
+            return;
+        }
+
         if (povCrewUi?.ContainsScreenPoint(mousePosition) == true)
         {
             CancelDrag();
             return;
         }
+
         if (tacticalMapService.ContainsScreenPoint(mousePosition))
         {
             CancelDrag();
             return;
         }
 
-        DynamicMap? dynamicMap = SceneSingleton<DynamicMap>.i;
-        if (tacticalMapService.IsOpen && dynamicMap != null && dynamicMap.IsCursorInMapRectangle())
-        {
-            CancelDrag();
-            if (CommanderShortcutInput.IsDown(CommanderSettings.SecondaryAction))
-            {
-                if (dynamicMap.TryGetCursorCoordinates(out GlobalPosition mapPos))
-                {
-                    bool queueWaypoint = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-                    moveService.IssueDirectMoveOrder(mapPos, queueWaypoint: queueWaypoint);
-                }
-            }
-            return;
-        }
-
-        // Primary Click & Box Selection Dragging
+        // 3. Primary Click & Box Selection Dragging in 3D World
         if (CommanderShortcutInput.IsDown(CommanderSettings.PrimaryAction))
         {
             if (overlayUi.ContainsScreenPoint(mousePosition)
@@ -159,7 +195,7 @@ internal sealed class CommanderInputController
             isBoxDragging = false;
         }
 
-        // Secondary Click (Move / Attack Order)
+        // 4. Secondary Click (Move / Attack Order in 3D World)
         if (CommanderShortcutInput.IsDown(CommanderSettings.SecondaryAction))
         {
             HandleSecondaryClick(mousePosition);
@@ -174,8 +210,8 @@ internal sealed class CommanderInputController
 
     private void HandleKeyboardShortcuts()
     {
-        // Escape key: Cancel any active targeting / placement modes (RTS standard)
-        if (Input.GetKeyDown(KeyCode.Escape))
+        // Cancel targeting via Backspace, C, Delete, or Rewired Cancel
+        if (Input.GetKeyDown(KeyCode.Backspace) || Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.C) || CommanderGameInput.CancelDown)
         {
             if (CancelAnyTargetingMode())
             {
@@ -233,26 +269,7 @@ internal sealed class CommanderInputController
             }
         }
 
-        // B key: Artillery / Barrage Order Toggle
-        if (CommanderShortcutInput.IsDown(CommanderSettings.ArtilleryBarrage))
-        {
-            if (moveService.AwaitingBarrageSelection)
-            {
-                moveService.CancelBarrageOrder();
-            }
-            else
-            {
-                moveService.BeginBarrageOrder();
-            }
-        }
-
-        // V key: Cycle Formations (Ring, Line, Column, Wedge, Box, Echelon)
-        if (CommanderShortcutInput.IsDown(CommanderSettings.ToggleFormation))
-        {
-            moveService.CycleFormation();
-        }
-
-        // T / A key: Attack-Move Order Toggle
+        // T key: Attack Move Order Toggle
         if (Input.GetKeyDown(KeyCode.T))
         {
             if (moveService.AwaitingAttackMoveSelection)
@@ -265,7 +282,26 @@ internal sealed class CommanderInputController
             }
         }
 
-        // Ctrl + R: Global EMCON / Radar Silence Toggle
+        // B key: Artillery Barrage Order Toggle
+        if (CommanderShortcutInput.IsDown(CommanderSettings.ArtilleryBarrage))
+        {
+            if (moveService.AwaitingBarrageSelection)
+            {
+                moveService.CancelBarrageOrder();
+            }
+            else
+            {
+                moveService.BeginBarrageOrder();
+            }
+        }
+
+        // V key: Cycle Formations (Ring, Line, Column, Wedge, Box)
+        if (CommanderShortcutInput.IsDown(CommanderSettings.ToggleFormation))
+        {
+            moveService.CycleFormation();
+        }
+
+        // Ctrl + R: Global Radar Silence / EMCON Toggle
         if (CommanderShortcutInput.IsDown(CommanderSettings.GlobalRadarSilence))
         {
             CommanderRadarService.Instance?.ToggleGlobalEmcon();
@@ -386,64 +422,60 @@ internal sealed class CommanderInputController
             return;
         }
 
-        // Right-click cancels any active targeting / placement mode (RTS standard)
-        if (CancelAnyTargetingMode())
-        {
-            return;
-        }
-
         bool queueWaypoint = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
         moveService.TryIssueMoveOrder(mousePosition, queueWaypoint: queueWaypoint);
     }
 
-    private bool CancelAnyTargetingMode()
+    internal bool CancelAnyTargetingMode()
     {
+        bool cancelled = false;
+
         if (airCommandService.AwaitingAreaSelection)
         {
             airCommandService.CancelAreaSelection();
-            return true;
+            cancelled = true;
         }
         if (supplyHeliService.AwaitingTargetSelection)
         {
             supplyHeliService.CancelTargetSelection();
-            return true;
+            cancelled = true;
         }
         if (moveService.AwaitingAttackMoveSelection)
         {
             moveService.CancelAttackMoveOrder();
-            return true;
+            cancelled = true;
         }
         if (moveService.AwaitingGuardSelection)
         {
             moveService.CancelGuardOrder();
-            return true;
+            cancelled = true;
         }
         if (moveService.AwaitingPatrolSelection)
         {
             moveService.CancelPatrolOrder();
-            return true;
+            cancelled = true;
         }
         if (moveService.AwaitingBarrageSelection)
         {
             moveService.CancelBarrageOrder();
-            return true;
+            cancelled = true;
         }
         if (spawnService.AwaitingRallyPointSelection)
         {
             spawnService.CancelRallySelection();
-            return true;
+            cancelled = true;
         }
         if (mobileEmplacementService.AwaitingDestination)
         {
             mobileEmplacementService.CancelDestination();
-            return true;
+            cancelled = true;
         }
         if (CommanderCheatService.Instance?.AwaitingPlacement == true)
         {
             CommanderCheatService.Instance.CancelPlacement();
-            return true;
+            cancelled = true;
         }
 
-        return false;
+        return cancelled;
     }
 }

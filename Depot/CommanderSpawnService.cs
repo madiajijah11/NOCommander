@@ -356,6 +356,37 @@ internal sealed class CommanderSpawnService
         return factionVehicleService.GetReserveCount(definition);
     }
 
+    internal bool TryQueueVehicleAtAnyDepot(VehicleDefinition definition)
+    {
+        RefreshDepots();
+        if (depots.Count == 0) return false;
+
+        DepotSpawnQueue? bestQueue = null;
+        int minQueueCount = int.MaxValue;
+
+        for (int i = 0; i < depots.Count; i++)
+        {
+            VehicleDepot depot = depots[i].Depot;
+            if (depot == null || depot.disabled) continue;
+
+            DepotSpawnQueue queue = GetOrCreateQueue(depot);
+            if (queue.PendingDefinitions.Count < minQueueCount)
+            {
+                minQueueCount = queue.PendingDefinitions.Count;
+                bestQueue = queue;
+            }
+        }
+
+        if (bestQueue != null && minQueueCount < 8)
+        {
+            bestQueue.PendingDefinitions.Enqueue(definition);
+            bestQueue.PendingSummaryDirty = true;
+            return true;
+        }
+
+        return false;
+    }
+
     internal void AddVehicleToSpawnList(VehicleDefinition definition)
     {
         DepotSpawnQueue? queue = GetSelectedQueue();

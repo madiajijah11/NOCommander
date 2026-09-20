@@ -802,10 +802,10 @@ internal sealed class CommanderOverlayUi
             CommanderUiTheme.Toggle);
 
         y += 104f;
-        GUI.Box(new Rect(12f, y, settingsWindowRect.width - 24f, 280f), string.Empty, CommanderUiTheme.Panel);
-        GUI.Label(new Rect(24f, y + 10f, settingsWindowRect.width - 48f, 22f), "ALLIED AUTO-COMMANDER & SMART AI", CommanderUiTheme.Header);
+        GUI.Box(new Rect(12f, y, settingsWindowRect.width - 24f, 226f), string.Empty, CommanderUiTheme.Panel);
+        GUI.Label(new Rect(24f, y + 8f, settingsWindowRect.width - 48f, 22f), "ALLIED AUTO-COMMANDER & SMART AI", CommanderUiTheme.Header);
         CommanderSettings.AlliedAutoCommanderEnabled = GUI.Toggle(
-            new Rect(24f, y + 36f, settingsWindowRect.width - 48f, 26f),
+            new Rect(24f, y + 34f, settingsWindowRect.width - 48f, 26f),
             CommanderSettings.AlliedAutoCommanderEnabled,
             "Allied Auto-Commander (Factory Retooling, Economy Reinvestment & QRF Scrambles)",
             CommanderUiTheme.Toggle);
@@ -815,22 +815,22 @@ internal sealed class CommanderOverlayUi
             "Enable Smart AI Tactics & Counter-Scrambles",
             CommanderUiTheme.Toggle);
         CommanderSettings.AiReactiveScatter = GUI.Toggle(
-            new Rect(24f, y + 70f, settingsWindowRect.width - 48f, 26f),
+            new Rect(24f, y + 94f, settingsWindowRect.width - 48f, 26f),
             CommanderSettings.AiReactiveScatter,
             "AI Reactive Evasion (Scatter on incoming bombs/missiles)",
             CommanderUiTheme.Toggle);
         CommanderSettings.AiAdaptiveProduction = GUI.Toggle(
-            new Rect(24f, y + 100f, settingsWindowRect.width - 48f, 26f),
+            new Rect(24f, y + 124f, settingsWindowRect.width - 48f, 26f),
             CommanderSettings.AiAdaptiveProduction,
             "AI Adaptive Counter-Production (Counters air/armor spam)",
             CommanderUiTheme.Toggle);
         CommanderSettings.AiAutoDeployAir = GUI.Toggle(
-            new Rect(24f, y + 130f, settingsWindowRect.width - 48f, 26f),
+            new Rect(24f, y + 154f, settingsWindowRect.width - 48f, 26f),
             CommanderSettings.AiAutoDeployAir,
             "AI Auto-Sortie Reserve Aircraft (When un-held stock exists)",
             CommanderUiTheme.Toggle);
         CommanderSettings.AiAutoDeployNaval = GUI.Toggle(
-            new Rect(24f, y + 160f, settingsWindowRect.width - 48f, 26f),
+            new Rect(24f, y + 184f, settingsWindowRect.width - 48f, 26f),
             CommanderSettings.AiAutoDeployNaval,
             "AI Auto-Deploy Reserve Warships (When un-held stock exists)",
             CommanderUiTheme.Toggle);

@@ -420,6 +420,43 @@ internal sealed partial class CommanderAirCommandService
         }
 
         selectedOptionIndex = 0;
+        int bestWeapon = FindFirstSuitableWeaponIndex();
+        if (bestWeapon >= 0)
+        {
+            selectedPrimaryWeaponIndex = bestWeapon;
+        }
+        else if (weaponOptions.Count > 0)
+        {
+            selectedPrimaryWeaponIndex = 0;
+        }
+
+        ApplySelectedWeaponsAndSort();
+
+        AirMissionOption? opt = SelectedOption;
+        if (opt == null) return false;
+
+        // Ensure at least one weapon is equipped
+        bool hasEquippedWeapon = false;
+        for (int i = 0; i < opt.HardpointGroups.Count; i++)
+        {
+            if (opt.HardpointGroups[i].SelectedMount != null)
+            {
+                hasEquippedWeapon = true;
+                break;
+            }
+        }
+
+        if (!hasEquippedWeapon)
+        {
+            for (int i = 0; i < opt.HardpointGroups.Count; i++)
+            {
+                if (opt.HardpointGroups[i].Mounts.Count > 0)
+                {
+                    opt.HardpointGroups[i].Select(0);
+                }
+            }
+        }
+
         RefreshAirbases();
         if (airbases.Count == 0)
         {
@@ -428,24 +465,6 @@ internal sealed partial class CommanderAirCommandService
         }
 
         selectedAirbaseIndex = 0;
-        AirMissionOption? opt = SelectedOption;
-        if (opt == null) return false;
-
-        // Auto-populate hardpoints with default loadout
-        for (int i = 0; i < opt.HardpointGroups.Count; i++)
-        {
-            if (opt.HardpointGroups[i].Mounts.Count > 0)
-            {
-                opt.HardpointGroups[i].Select(0);
-            }
-        }
-
-        if (weaponOptions.Count > 0 && selectedPrimaryWeaponIndex < 0)
-        {
-            selectedPrimaryWeaponIndex = 0;
-        }
-        ApplySelectedWeaponsAndSort();
-
         AirbaseOption? ab = SelectedAirbase;
         if (ab == null)
         {
@@ -966,7 +985,7 @@ internal sealed partial class CommanderAirCommandService
         }
     }
 
-    private void CompleteAreaSelection(GlobalPosition target)
+    internal void CompleteAreaSelection(GlobalPosition target)
     {
         PendingAreaSelection? selection = pendingAreaSelection;
         Aircraft? relocationAircraft = pendingMissionRelocation;
