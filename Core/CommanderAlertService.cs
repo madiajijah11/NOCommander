@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
 
@@ -10,6 +11,23 @@ internal sealed class CommanderAlertService
 
     internal static CommanderAlertService? Instance { get; private set; }
 
+    internal readonly struct TickerEvent
+    {
+        internal readonly string Text;
+        internal readonly Color Color;
+        internal readonly float Timestamp;
+
+        internal TickerEvent(string text, Color color, float timestamp)
+        {
+            Text = text;
+            Color = color;
+            Timestamp = timestamp;
+        }
+    }
+
+    private readonly List<TickerEvent> tickerEvents = new();
+    internal IReadOnlyList<TickerEvent> TickerEvents => tickerEvents;
+
     internal Unit? LastIncidentUnit { get; private set; }
     internal Vector3 LastIncidentPosition { get; private set; }
     internal float LastIncidentTime { get; private set; }
@@ -20,6 +38,16 @@ internal sealed class CommanderAlertService
     internal CommanderAlertService()
     {
         Instance = this;
+    }
+
+    internal static void PostTickerEvent(string text, Color color)
+    {
+        if (Instance == null) return;
+        Instance.tickerEvents.Add(new TickerEvent(text, color, Time.unscaledTime));
+        if (Instance.tickerEvents.Count > 6)
+        {
+            Instance.tickerEvents.RemoveAt(0);
+        }
     }
 
     internal static void NotifyUnitDamaged(Unit unit, DamageInfo info)
@@ -71,6 +99,7 @@ internal sealed class CommanderAlertService
         LastIncidentUnit = null;
         LastIncidentPosition = Vector3.zero;
         LastIncidentTime = 0f;
+        tickerEvents.Clear();
     }
 }
 

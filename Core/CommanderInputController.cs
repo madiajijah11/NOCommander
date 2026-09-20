@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace NuclearOptionCommander;
@@ -237,10 +239,26 @@ internal sealed class CommanderInputController
             controlGroupsService?.SelectAllArmy(combatOnly: true);
         }
 
-        // X key: Scatter / Evade Order
+        // X key: Emergency Smoke Screen & Scatter Evasion
         if (Input.GetKeyDown(KeyCode.X))
         {
-            moveService.ScatterSelectedUnits(55f);
+            if (CommanderSmokeCountermeasuresService.Instance?.TryDeploySmokeForSelection(selectionService, moveService) != true)
+            {
+                moveService.ScatterSelectedUnits(55f);
+            }
+        }
+
+        // O key: Order Aviation Loiter / Holding Orbit for selected aircraft
+        if (Input.GetKeyDown(KeyCode.O))
+        {
+            IReadOnlyList<Unit> selected = selectionService.SelectedUnits;
+            for (int i = 0; i < selected.Count; i++)
+            {
+                if (selected[i] is Aircraft ac && !ac.disabled)
+                {
+                    CommanderAirLoiterService.Instance?.OrderLoiterOrbit(ac, ac.transform.position);
+                }
+            }
         }
 
         // P key: Patrol Mode Toggle

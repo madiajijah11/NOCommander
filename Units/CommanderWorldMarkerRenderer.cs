@@ -53,11 +53,14 @@ internal sealed class CommanderWorldMarkerRenderer
         drawnAttackTargets.Clear();
         int selectedCount = selectionService.SelectedUnits.Count;
 
-        // 1. Draw Paths & Vector Lines for Selected Units
+        // 1. Draw Paths, Vector Lines & Range Rings for Selected Units
         for (int i = 0; i < selectedCount; i++)
         {
             Unit unit = selectionService.SelectedUnits[i];
             if (unit == null || unit.disabled) continue;
+
+            // Draw Weapon Range Ring & SAM Umbrella for selected unit
+            DrawWeaponRangeRings(camera, unit);
 
             bool hasUnitScreen = CommanderGameAccess.TryGetWorldMarkerState(unit.transform.GlobalPosition(), camera, out Vector3 unitScreenPos, out _);
             Vector2 unitGuiPoint = hasUnitScreen ? CommanderUiScale.ScreenToGui(unitScreenPos) : Vector2.zero;
@@ -269,6 +272,30 @@ internal sealed class CommanderWorldMarkerRenderer
         {
             DrawMarker(camera, deliveryTargets[i], "LZ", new Color(0.35f, 0.9f, 0.42f, 0.9f));
         }
+
+        // 6. Active Smoke Screens
+        if (CommanderSmokeCountermeasuresService.Instance?.ActiveSmokes != null)
+        {
+            var smokes = CommanderSmokeCountermeasuresService.Instance.ActiveSmokes;
+            for (int s = 0; s < smokes.Count; s++)
+            {
+                var smoke = smokes[s];
+                DrawGroundCircle(camera, smoke.Position, smoke.Radius, new Color(0.9f, 0.9f, 0.95f, 0.35f), 16, 2.5f);
+                DrawMarker(camera, smoke.Position.ToGlobalPosition(), "SMOKE SCREEN", new Color(0.85f, 0.85f, 0.9f, 0.8f));
+            }
+        }
+
+        // 7. Counter-Battery Radar Pings
+        if (CommanderCounterBatteryRadarService.Instance?.ActivePings != null)
+        {
+            var pings = CommanderCounterBatteryRadarService.Instance.ActivePings;
+            for (int p = 0; p < pings.Count; p++)
+            {
+                var ping = pings[p];
+                DrawMarker(camera, ping.Position.ToGlobalPosition(), "COUNTER-BATTERY PINPOINT", new Color(1f, 0.2f, 0.15f, 0.95f), large: true);
+                DrawGroundCircle(camera, ping.Position, 60f, new Color(1f, 0.2f, 0.15f, 0.6f), 16, 2f);
+            }
+        }
     }
 
     internal static void DrawScreenLine(Vector2 pointA, Vector2 pointB, Color color, float width = 2f)
@@ -367,6 +394,83 @@ internal sealed class CommanderWorldMarkerRenderer
         CommanderUiTheme.DrawFrame(marker, 1.2f);
         GUI.Label(new Rect(marker.x + 7f, marker.y, marker.width - 14f, marker.height), label, CommanderUiTheme.MutedLabel);
         GUI.color = prev;
+    }
+
+    private static void DrawWeaponRangeRings(Camera camera, Unit unit)
+    {
+        if (unit == null || unit.disabled || unit.weaponStations == null || unit.weaponStations.Count == 0)
+        {
+            return;
+        }
+
+        float maxRange = 0f;
+        bool isSamOrAirDefense = false;
+        string name = unit.unitName.ToLowerInvariant();
+        if (name.Contains("sam") || name.Contains("spaag") || name.Contains("strato") || name.Contains("shard") || name.Contains("radar") || name.Contains("23mm"))
+        {
+            isSamOrAirDefense = true;
+        }
+
+        for (int s = 0; s < unit.weaponStations.Count; s++)
+        {
+            WeaponStation station = unit.weaponStations[s];
+            if (station?.WeaponInfo != null)
+            {
+                float r = station.WeaponInfo.targetRequirements.maxRange;
+                if (r > maxRange)
+                {
+                    maxRange = r;
+                }
+            }
+        }
+
+        if (maxRange <= 50f)
+        {
+            return;
+        }
+
+        Color ringColor = isSamOrAirDefense
+            ? new Color(0.15f, 0.85f, 1f, 0.45f)
+            : new Color(1f, 0.35f, 0.2f, 0.4f);
+
+        DrawGroundCircle(camera, unit.transform.position, maxRange, ringColor, 32, 1.8f);
+    }
+
+    private static void DrawGroundCircle(Camera camera, Vector3 center, float radius, Color color, int segments = 32, float thickness = 1.8f)
+    {
+        Vector2 prevGui = Vector2.zero;
+        bool hasPrev = false;
+        Vector2 firstGui = Vector2.zero;
+
+        for (int i = 0; i < segments; i++)
+        {
+            float angle = (float)i / segments * Mathf.PI * 2f;
+            Vector3 worldPoint = center + new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+
+            if (CommanderGameAccess.TryGetWorldMarkerState(worldPoint.ToGlobalPosition(), camera, out Vector3 screenPoint, out _))
+            {
+                Vector2 guiPoint = CommanderUiScale.ScreenToGui(screenPoint);
+                if (hasPrev)
+                {
+                    DrawScreenLine(prevGui, guiPoint, color, thickness);
+                }
+                else
+                {
+                    firstGui = guiPoint;
+                }
+                prevGui = guiPoint;
+                hasPrev = true;
+            }
+            else
+            {
+                hasPrev = false;
+            }
+        }
+
+        if (hasPrev && firstGui != Vector2.zero)
+        {
+            DrawScreenLine(prevGui, firstGui, color, thickness);
+        }
     }
 
     private static string GetSamLabel(CommanderSamSiteAnalyzerService.SiteUnitRole role)

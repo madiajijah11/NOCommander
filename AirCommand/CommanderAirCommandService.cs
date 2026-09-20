@@ -19,6 +19,7 @@ internal sealed partial class CommanderAirCommandService
     private readonly List<WeaponMount> weaponOptions = new();
     private readonly List<AirbaseOption> airbases = new();
     private readonly Dictionary<Aircraft, AirMission> missions = new();
+    private readonly Dictionary<Airbase, float> lastAirbaseSpawnTimes = new();
     private readonly List<Aircraft> staleAircraft = new();
 
     private PendingAreaSelection? pendingAreaSelection;
@@ -1054,6 +1055,14 @@ internal sealed partial class CommanderAirCommandService
             return;
         }
 
+        if (lastAirbaseSpawnTimes.TryGetValue(airbase, out float lastSpawn) && Time.unscaledTime - lastSpawn < 8.0f)
+        {
+            float waitSec = Mathf.Ceil(8.0f - (Time.unscaledTime - lastSpawn));
+            string abName = airbase != null ? airbase.name : "Airbase";
+            SetStatus($"Runway busy at {abName}. Staggering departure ({waitSec:0}s remaining).");
+            return;
+        }
+
         if (pendingAircraftSpawn != null)
         {
             SetStatus("Wait for the previous Air Command aircraft to finish spawning.");
@@ -1118,6 +1127,7 @@ internal sealed partial class CommanderAirCommandService
             return;
         }
 
+        lastAirbaseSpawnTimes[airbase] = Time.unscaledTime;
         SetStatus($"{GetModeLabel(option.Mode)} mission launched: {GetAircraftLabel(option.Definition)} / {option.LoadoutName}.");
     }
 
@@ -1156,9 +1166,20 @@ internal sealed partial class CommanderAirCommandService
         staleAircraft.Clear();
         foreach (KeyValuePair<Aircraft, AirMission> entry in missions)
         {
-            if (entry.Key == null || entry.Key.disabled)
+            Aircraft ac = entry.Key;
+            if (ac == null || ac.disabled)
             {
-                staleAircraft.Add(entry.Key!);
+                staleAircraft.Add(ac);
+                continue;
+            }
+
+            // Winchester Auto-RTB check (if aircraft has launched and expended all missiles/bombs)
+            if (ac.rb != null && ac.rb.velocity.sqrMagnitude > 400f && IsAircraftWinchester(ac) && !entry.Value.RtbIssued)
+            {
+                CommanderPlugin.Log.LogInfo($"[Air Command] {ac.unitName} Winchester (Zero Ammo). Triggering Auto-RTB.");
+                CommanderAlertService.PostTickerEvent($"[WINCHESTER] {ac.unitName} expended ordnance -> RTB", new Color(1f, 0.85f, 0.2f, 0.95f));
+                IssueReturnToBase(ac, entry.Value);
+                staleAircraft.Add(ac);
             }
         }
 
@@ -1166,6 +1187,30 @@ internal sealed partial class CommanderAirCommandService
         {
             RemoveMission(staleAircraft[i]);
         }
+    }
+
+    private static bool IsAircraftWinchester(Aircraft aircraft)
+    {
+        if (aircraft == null || aircraft.disabled || aircraft.weaponStations == null || aircraft.weaponStations.Count == 0)
+        {
+            return false;
+        }
+
+        float totalAmmo = 0f;
+        for (int s = 0; s < aircraft.weaponStations.Count; s++)
+        {
+            WeaponStation station = aircraft.weaponStations[s];
+            if (station?.Weapons == null) continue;
+            for (int w = 0; w < station.Weapons.Count; w++)
+            {
+                Weapon wp = station.Weapons[w];
+                if (wp != null && wp.ammo > 0)
+                {
+                    totalAmmo += wp.ammo;
+                }
+            }
+        }
+        return totalAmmo <= 0.01f;
     }
 
     private static bool TryFindBestLoadout(

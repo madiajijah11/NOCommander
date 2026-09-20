@@ -460,6 +460,41 @@ internal sealed class CommanderOverlayUi
         if (showSelectionBar) DrawSelectionBar();
         DrawSettingsWindowIfVisible();
         DrawBoxSelectionIfActive();
+        DrawTacticalKillfeedTicker();
+    }
+
+    private void DrawTacticalKillfeedTicker()
+    {
+        CommanderAlertService? alertSvc = CommanderAlertService.Instance;
+        if (alertSvc == null || alertSvc.TickerEvents.Count == 0) return;
+
+        IReadOnlyList<CommanderAlertService.TickerEvent> events = alertSvc.TickerEvents;
+        float now = Time.unscaledTime;
+        float startX = CommanderUiScale.Width - 360f;
+        float startY = 16f;
+        float rowHeight = 22f;
+        int drawn = 0;
+
+        for (int i = events.Count - 1; i >= 0 && drawn < 5; i--)
+        {
+            CommanderAlertService.TickerEvent ev = events[i];
+            float age = now - ev.Timestamp;
+            if (age > 10.0f) continue;
+
+            float alpha = Mathf.Clamp01((10.0f - age) / 2.0f);
+            Rect badge = new(startX, startY + drawn * (rowHeight + 4f), 345f, rowHeight);
+
+            Color prev = GUI.color;
+            GUI.color = new Color(0.03f, 0.06f, 0.08f, 0.85f * alpha);
+            GUI.DrawTexture(badge, Texture2D.whiteTexture);
+
+            GUI.color = new Color(ev.Color.r, ev.Color.g, ev.Color.b, ev.Color.a * alpha);
+            CommanderUiTheme.DrawFrame(badge, 1f);
+
+            GUI.Label(new Rect(badge.x + 8f, badge.y + 1f, badge.width - 16f, badge.height), ev.Text, CommanderUiTheme.MutedLabel);
+            GUI.color = prev;
+            drawn++;
+        }
     }
 
     private static void DrawBoxSelectionIfActive()

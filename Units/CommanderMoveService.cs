@@ -27,6 +27,15 @@ internal sealed class CommanderMoveService
     private readonly Dictionary<Unit, int> patrolIndices = new();
     private readonly HashSet<Unit> autoRtbUnits = new();
 
+    private sealed class StuckTracker
+    {
+        internal Vector3 LastPosition;
+        internal float StuckDuration;
+        internal float LastUnstuckTime;
+    }
+
+    private readonly Dictionary<Unit, StuckTracker> stuckTrackers = new();
+
     private bool awaitingPatrolSelection;
     private bool awaitingGuardSelection;
     private bool awaitingBarrageSelection;
@@ -504,31 +513,36 @@ internal sealed class CommanderMoveService
         }
     }
 
+    internal void AssignFocusAttackTarget(Unit unit, Unit enemyTarget)
+    {
+        if (unit == null || unit.disabled || enemyTarget == null || enemyTarget.disabled || !CommanderGameAccess.ShouldAllowCommanderMove(unit))
+        {
+            return;
+        }
+
+        stoppedUnits.Remove(unit);
+        CommanderGameAccess.SetUnitHoldPosition(unit, false);
+        focusAttackTargets[unit] = enemyTarget;
+        guardTargets.Remove(unit);
+        patrolRoutes.Remove(unit);
+        patrolIndices.Remove(unit);
+
+        if (waypointQueues.TryGetValue(unit, out Queue<GlobalPosition> queue))
+        {
+            queue.Clear();
+        }
+
+        GlobalPosition targetPos = enemyTarget.transform.GlobalPosition();
+        playerDestinations[unit] = targetPos;
+        CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(targetPos, true);
+    }
+
     private void IssueAttackOrder(Unit enemyTarget)
     {
         for (int i = 0; i < selectionService.SelectedUnits.Count; i++)
         {
             Unit unit = selectionService.SelectedUnits[i];
-            if (!CommanderGameAccess.ShouldAllowCommanderMove(unit))
-            {
-                continue;
-            }
-
-            stoppedUnits.Remove(unit);
-            CommanderGameAccess.SetUnitHoldPosition(unit, false);
-            focusAttackTargets[unit] = enemyTarget;
-            guardTargets.Remove(unit);
-            patrolRoutes.Remove(unit);
-            patrolIndices.Remove(unit);
-
-            if (waypointQueues.TryGetValue(unit, out Queue<GlobalPosition> queue))
-            {
-                queue.Clear();
-            }
-
-            GlobalPosition targetPos = enemyTarget.transform.GlobalPosition();
-            playerDestinations[unit] = targetPos;
-            CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(targetPos, true);
+            AssignFocusAttackTarget(unit, enemyTarget);
         }
     }
 
@@ -841,6 +855,23 @@ internal sealed class CommanderMoveService
 
     internal void PruneDeadReferences()
     {
+        stoppedUnits.RemoveWhere(static u => u == null || u.disabled);
+        autoRtbUnits.RemoveWhere(static u => u == null || u.disabled);
+
+        List<Unit>? deadStuck = null;
+        foreach (KeyValuePair<Unit, StuckTracker> s in stuckTrackers)
+        {
+            if (s.Key == null || s.Key.disabled)
+            {
+                deadStuck ??= new List<Unit>();
+                deadStuck.Add(s.Key);
+            }
+        }
+        if (deadStuck != null)
+        {
+            for (int i = 0; i < deadStuck.Count; i++) stuckTrackers.Remove(deadStuck[i]);
+        }
+
         List<Unit>? deadWaypointKeys = null;
         foreach (KeyValuePair<Unit, Queue<GlobalPosition>> pair in waypointQueues)
         {
