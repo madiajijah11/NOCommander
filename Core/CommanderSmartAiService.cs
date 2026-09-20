@@ -13,7 +13,7 @@ internal sealed class CommanderSmartAiService
 {
     private const float AdaptiveCheckInterval = 20f;
     private const float ScatterCooldownSeconds = 10f;
-    private const float AutoSupplyCheckInterval = 25f;
+    private const float AutoSupplyCheckInterval = 60f;
     private const float AutoScrambleCheckInterval = 15f;
 
     private static readonly MethodInfo? FactoryProductionSetter =
@@ -275,7 +275,7 @@ internal sealed class CommanderSmartAiService
     {
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
         CommanderSupplyHeliService? supplySvc = CommanderSupplyHeliService.Instance;
-        if (localHq == null || supplySvc == null)
+        if (localHq == null || supplySvc == null || supplySvc.ActiveMissionCount >= 2)
         {
             return;
         }

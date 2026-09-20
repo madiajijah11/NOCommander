@@ -14,7 +14,7 @@ internal sealed class CommanderAlliedAiService
     private const float FactoryRetoolCooldownSeconds = 25f;
     private const float BattlegroupScanIntervalSeconds = 8f;
     private const float RepairDispatchIntervalSeconds = 6f;
-    private const float FrontlineSupplyIntervalSeconds = 8f;
+    private const float FrontlineSupplyIntervalSeconds = 40f;
     private const float EmergencyRetreatIntervalSeconds = 5f;
 
     private readonly CommanderMoveService moveService;
@@ -23,6 +23,7 @@ internal sealed class CommanderAlliedAiService
     private readonly List<Unit> damagedFriendlyUnits = new();
     private readonly List<Unit> lowAmmoFriendlyUnits = new();
     private readonly List<Unit> availableRepairers = new();
+    private readonly Dictionary<Unit, float> recentlySuppliedUnits = new();
 
     private float nextThreatScanTime;
     private float nextProcurementTime;
@@ -312,18 +313,39 @@ internal sealed class CommanderAlliedAiService
         if (lowAmmoFriendlyUnits.Count == 0) return;
 
         CommanderSupplyHeliService? supplySvc = CommanderSupplyHeliService.Instance;
-        if (supplySvc == null) return;
+        if (supplySvc == null || supplySvc.ActiveMissionCount >= 2) return;
+
+        // Prune dead keys
+        List<Unit>? stale = null;
+        float now = Time.timeSinceLevelLoad;
+        foreach (KeyValuePair<Unit, float> entry in recentlySuppliedUnits)
+        {
+            if (entry.Key == null || entry.Key.disabled || now - entry.Value > 180f)
+            {
+                stale ??= new List<Unit>();
+                stale.Add(entry.Key);
+            }
+        }
+        if (stale != null)
+        {
+            for (int s = 0; s < stale.Count; s++) recentlySuppliedUnits.Remove(stale[s]);
+        }
 
         for (int i = 0; i < lowAmmoFriendlyUnits.Count; i++)
         {
             Unit lowAmmo = lowAmmoFriendlyUnits[i];
-            if (lowAmmo != null && !lowAmmo.disabled)
+            if (lowAmmo == null || lowAmmo.disabled) continue;
+
+            if (recentlySuppliedUnits.TryGetValue(lowAmmo, out float lastTime) && (now - lastTime) < 90f)
             {
-                if (supplySvc.RequestAutomaticCargoRun(lowAmmo.transform.position.ToGlobalPosition()))
-                {
-                    StatusText = $"ALLIED AI: DISPATCHED MUNITIONS SUPPLY RUN TO {lowAmmo.unitName.ToUpperInvariant()}!";
-                    return;
-                }
+                continue;
+            }
+
+            if (supplySvc.RequestAutomaticCargoRun(lowAmmo.transform.position.ToGlobalPosition()))
+            {
+                recentlySuppliedUnits[lowAmmo] = now;
+                StatusText = $"ALLIED AI: DISPATCHED MUNITIONS SUPPLY RUN TO {lowAmmo.unitName.ToUpperInvariant()}!";
+                return;
             }
         }
     }
@@ -811,6 +833,7 @@ internal sealed class CommanderAlliedAiService
         damagedFriendlyUnits.Clear();
         lowAmmoFriendlyUnits.Clear();
         availableRepairers.Clear();
+        recentlySuppliedUnits.Clear();
         nextThreatScanTime = 0f;
         nextProcurementTime = 0f;
         nextAirScrambleTime = 0f;

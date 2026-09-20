@@ -1771,18 +1771,28 @@ internal sealed partial class CommanderAirCommandService
             AircraftDefinition definition,
             AirCommandMode mode,
             HardpointSet[] hardpointSets,
-            List<AirHardpointGroup> hardpointGroups)
+            List<AirHardpointGroup> hardpointGroups,
+            List<StandardLoadout>? availablePresets = null)
         {
             Definition = definition;
             Mode = mode;
             HardpointSets = hardpointSets;
             HardpointGroups = hardpointGroups;
+            AvailablePresets = availablePresets ?? new List<StandardLoadout>();
+            SelectedPresetIndex = -1;
         }
 
         internal AircraftDefinition Definition { get; }
         internal HardpointSet[] HardpointSets { get; }
         internal List<AirHardpointGroup> HardpointGroups { get; }
-        internal string LoadoutName => "Custom hardpoints";
+        internal List<StandardLoadout> AvailablePresets { get; }
+        internal int SelectedPresetIndex { get; private set; }
+
+        internal string LoadoutName =>
+            SelectedPresetIndex >= 0 && SelectedPresetIndex < AvailablePresets.Count
+                ? AvailablePresets[SelectedPresetIndex].Name
+                : "Standard Loadout";
+
         internal float Score => ScoreLoadout(BuildLoadout(), Mode, Definition);
         internal AirCommandMode Mode { get; }
 
@@ -1803,6 +1813,64 @@ internal sealed partial class CommanderAirCommandService
                 }
             }
             return loadout;
+        }
+
+        internal void ApplyPreset(int index)
+        {
+            if (index < 0 || index >= AvailablePresets.Count) return;
+            SelectedPresetIndex = index;
+            StandardLoadout preset = AvailablePresets[index];
+            if (preset?.loadout?.weapons == null) return;
+
+            for (int g = 0; g < HardpointGroups.Count; g++)
+            {
+                AirHardpointGroup group = HardpointGroups[g];
+                int firstIdx = group.HardpointIndices[0];
+                if (firstIdx < preset.loadout.weapons.Count)
+                {
+                    WeaponMount targetMount = preset.loadout.weapons[firstIdx];
+                    if (targetMount == null)
+                    {
+                        group.Clear();
+                    }
+                    else
+                    {
+                        int mountIdx = FindEquivalentMountIndex(group, targetMount);
+                        if (mountIdx >= 0) group.Select(mountIdx);
+                        else group.Clear();
+                    }
+                }
+            }
+        }
+
+        internal void CyclePreset()
+        {
+            if (AvailablePresets.Count == 0) return;
+            int next = (SelectedPresetIndex + 1) % AvailablePresets.Count;
+            ApplyPreset(next);
+        }
+
+        internal string GetLoadoutWeaponSummary()
+        {
+            Dictionary<string, int> weaponCounts = new(StringComparer.OrdinalIgnoreCase);
+            Loadout loadout = BuildLoadout();
+            for (int i = 0; i < loadout.weapons.Count; i++)
+            {
+                WeaponMount? m = loadout.weapons[i];
+                if (m == null) continue;
+                string name = GetMountName(m);
+                int count = Mathf.Max(m.ammo, 1);
+                if (m.info?.gun == true) count = 1;
+                if (!weaponCounts.ContainsKey(name)) weaponCounts[name] = 0;
+                weaponCounts[name] += count;
+            }
+            if (weaponCounts.Count == 0) return "Clean / Unarmed";
+            List<string> parts = new();
+            foreach (KeyValuePair<string, int> kvp in weaponCounts)
+            {
+                parts.Add($"{kvp.Value}x {kvp.Key}");
+            }
+            return string.Join(", ", parts);
         }
     }
 

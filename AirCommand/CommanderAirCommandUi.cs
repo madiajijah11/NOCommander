@@ -161,7 +161,7 @@ internal sealed class CommanderAirCommandUi
 
         float listViewHeight = windowRect.height - y - 68f;
         Rect viewRect = new(12f, y, windowRect.width - 24f, listViewHeight);
-        float cardHeight = 84f;
+        float cardHeight = 98f;
         float innerHeight = Mathf.Max(viewRect.height, service.Options.Count * (cardHeight + 6f) + 6f);
         aircraftScroll = GUI.BeginScrollView(viewRect, aircraftScroll, new Rect(0f, 0f, viewRect.width - 18f, innerHeight));
 
@@ -173,25 +173,36 @@ internal sealed class CommanderAirCommandUi
 
             GUI.Box(card, string.Empty, isSelected ? CommanderUiTheme.Panel : CommanderUiTheme.Panel);
 
-            // Plane Icon & Name
-            GUI.Label(new Rect(card.x + 10f, card.y + 6f, card.width - 130f, 22f), $"✈️ {option.Definition.unitName}", CommanderUiTheme.Header);
-
-            // Loadout Summary
-            string loadoutSummary = string.IsNullOrEmpty(option.LoadoutName) ? "Default Combat Loadout" : option.LoadoutName;
-            GUI.Label(new Rect(card.x + 10f, card.y + 30f, card.width - 130f, 20f), loadoutSummary, CommanderUiTheme.MutedLabel);
-
-            // Price / Reserve Status
+            // Plane Icon & Name + Cost / Reserve Status
             FactionHQ? hq = CommanderGameAccess.GetLocalHq();
             int reserve = hq?.GetUnitSupply(option.Definition) ?? 0;
-            string costText = reserve > 0 ? $"Reserve: {reserve} Ready" : $"Cost: {UnitConverter.ValueReading(option.Definition.value)}";
-            GUI.Label(new Rect(card.x + 10f, card.y + 54f, card.width - 130f, 20f), costText, CommanderUiTheme.Label);
+            string costText = reserve > 0 ? $"[{reserve} IN RESERVE]" : $"[{UnitConverter.ValueReading(option.Definition.value)}]";
+            GUI.Label(new Rect(card.x + 10f, card.y + 6f, card.width - 130f, 22f), $"✈️ {option.Definition.unitName}  {costText}", CommanderUiTheme.Header);
+
+            // Loadout Preset with Cycle Button
+            string presetName = string.IsNullOrEmpty(option.LoadoutName) ? "Combat Preset" : option.LoadoutName;
+            if (option.AvailablePresets.Count > 1)
+            {
+                if (GUI.Button(new Rect(card.x + 10f, card.y + 30f, card.width - 135f, 22f), $"⚙️ PRESET: {presetName.ToUpperInvariant()} ↺", CommanderUiTheme.Button))
+                {
+                    option.CyclePreset();
+                }
+            }
+            else
+            {
+                GUI.Label(new Rect(card.x + 10f, card.y + 30f, card.width - 135f, 20f), $"PRESET: {presetName}", CommanderUiTheme.MutedLabel);
+            }
+
+            // Real Armament Breakdown (Weapons & Count)
+            string weaponSummary = option.GetLoadoutWeaponSummary();
+            GUI.Label(new Rect(card.x + 10f, card.y + 54f, card.width - 135f, 38f), weaponSummary, CommanderUiTheme.MutedLabel);
 
             // Quick Deploy Button
             bool canAfford = reserve > 0 || (hq != null && hq.factionFunds >= option.Definition.value);
             bool old = GUI.enabled;
             GUI.enabled = old && canAfford && !service.AwaitingAreaSelection;
 
-            Rect deployBtnRect = new(card.xMax - 115f, card.y + 14f, 105f, 56f);
+            Rect deployBtnRect = new(card.xMax - 115f, card.y + 20f, 105f, 58f);
             if (GUI.Button(deployBtnRect, "DEPLOY ➔", isSelected ? CommanderUiTheme.PrimaryButton : CommanderUiTheme.SelectedButton))
             {
                 service.SelectOption(i);

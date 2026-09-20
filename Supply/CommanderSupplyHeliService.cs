@@ -89,6 +89,7 @@ internal sealed partial class CommanderSupplyHeliService
     internal IReadOnlyList<AirbaseOption> AirbaseOptions => airbaseOptions;
     internal bool AwaitingTargetSelection => pendingTargetSelection != null;
     internal int QueuedSpawnCount => queuedCargoSpawns.Count;
+    internal int ActiveMissionCount => assignedMissions.Count;
 
     internal void CopyActiveDeliveryTargets(List<GlobalPosition> targets)
     {
@@ -598,6 +599,21 @@ internal sealed partial class CommanderSupplyHeliService
         {
             SetStatus(error);
             return false;
+        }
+
+        // Cap automatic concurrent supply flights to max 2 to prevent spam
+        if (assignedMissions.Count >= 2 || queuedCargoSpawns.Count > 0)
+        {
+            return false;
+        }
+
+        // Prevent duplicate supply flights to the same location
+        foreach (KeyValuePair<Aircraft, CargoMission> entry in assignedMissions)
+        {
+            if (entry.Key != null && !entry.Key.disabled && FastMath.InRange(entry.Value.Target, target, 1500f))
+            {
+                return false;
+            }
         }
 
         if (aircraftOptions.Count == 0)

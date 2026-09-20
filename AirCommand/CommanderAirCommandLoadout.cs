@@ -47,7 +47,40 @@ internal sealed partial class CommanderAirCommandService
             groups.Add(new AirHardpointGroup(label, indices, mounts, physicalMounts));
         }
 
-        AirMissionOption option = new(definition, mode, sets, groups);
+        List<StandardLoadout> validPresets = new();
+        StandardLoadout[]? stdLoadouts = definition.aircraftParameters?.StandardLoadouts;
+        if (stdLoadouts != null)
+        {
+            for (int p = 0; p < stdLoadouts.Length; p++)
+            {
+                StandardLoadout s = stdLoadouts[p];
+                if (s != null && !s.disabled && s.loadout?.weapons != null)
+                {
+                    validPresets.Add(s);
+                }
+            }
+        }
+
+        AirMissionOption option = new(definition, mode, sets, groups, validPresets);
+
+        // Auto-apply the highest-scoring official preset for this mission mode
+        int bestPreset = -1;
+        float bestScore = 0f;
+        for (int p = 0; p < validPresets.Count; p++)
+        {
+            float score = ScoreLoadout(validPresets[p].loadout, mode, definition);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestPreset = p;
+            }
+        }
+
+        if (bestPreset >= 0)
+        {
+            option.ApplyPreset(bestPreset);
+        }
+
         return option;
     }
 
