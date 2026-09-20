@@ -45,6 +45,10 @@ Mainly intended for **Escalation** and **Terminal Control** game modes.
   - Left-click and drag across the screen to marquee-select multiple units simultaneously (additive with `Shift`).
 - **Attack Orders & Focus Fire (`RMB` on Enemy):**
   - Right-click directly on enemy units to issue focus fire orders with a red 3D **`[ATTACK]`** target marker.
+- **3D Vector Path Lines (Active for Selected Units):**
+  - Real-time glowing 3D vector lines connecting selected units to destinations (Cyan), sequential waypoints (Amber), guard targets (Green), patrol routes (Sky Blue), and attack targets (Crimson Red).
+- **Attack-Move Order (`A-MOVE` / `T`):**
+  - Advance toward target coordinates while autonomously engaging any hostiles encountered en route.
 - **Shift-Queued Waypoints (`Shift + RMB`):**
   - Chain sequential waypoints with 3D **`[WAYPOINT 1..N]`** path visualizers.
 - **Scatter / Evade Order (`X` / UI Button):**

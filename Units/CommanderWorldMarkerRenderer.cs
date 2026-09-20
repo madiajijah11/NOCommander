@@ -5,6 +5,8 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderWorldMarkerRenderer
 {
+    private static Texture2D? lineTexture;
+
     private readonly CommanderSelectionService selectionService;
     private readonly CommanderMoveService moveService;
     private readonly CommanderSpawnService spawnService;
@@ -50,47 +52,128 @@ internal sealed class CommanderWorldMarkerRenderer
 
         drawnAttackTargets.Clear();
         int selectedCount = selectionService.SelectedUnits.Count;
+
+        // 1. Draw Paths & Vector Lines for Selected Units
         for (int i = 0; i < selectedCount; i++)
         {
             Unit unit = selectionService.SelectedUnits[i];
+            if (unit == null || unit.disabled) continue;
 
+            Vector3 unitWorldPos = unit.transform.position;
+            bool hasUnitScreen = CommanderGameAccess.TryGetWorldMarkerState(unit.transform.GlobalPosition(), camera, out Vector3 unitScreenPos, out _);
+            Vector2 unitGuiPoint = hasUnitScreen ? CommanderUiScale.ScreenToGui(unitScreenPos) : Vector2.zero;
+
+            // Attack Line
             if (moveService.TryGetFocusAttackTarget(unit, out Unit target) && target != null && !target.disabled)
             {
                 if (drawnAttackTargets.Add(target))
                 {
                     DrawLargeMarker(camera, target.transform.GlobalPosition(), "ATTACK", new Color(1f, 0.25f, 0.2f, 0.95f));
                 }
+
+                if (hasUnitScreen && CommanderGameAccess.TryGetWorldMarkerState(target.transform.GlobalPosition(), camera, out Vector3 tgtScreen, out _))
+                {
+                    Vector2 tgtGuiPoint = CommanderUiScale.ScreenToGui(tgtScreen);
+                    DrawScreenLine(unitGuiPoint, tgtGuiPoint, new Color(1f, 0.2f, 0.15f, 0.75f), 2.5f);
+                }
             }
+            // Guard / Escort Line
             else if (moveService.TryGetGuardTarget(unit, out Unit guardTarget) && guardTarget != null && !guardTarget.disabled)
             {
                 DrawMarker(camera, guardTarget.transform.GlobalPosition(), "GUARD", new Color(0.25f, 0.95f, 0.5f, 0.9f));
-            }
-            else if (moveService.TryGetPatrolRoute(unit, patrolRouteScratch))
-            {
-                for (int p = 0; p < patrolRouteScratch.Count; p++)
+
+                if (hasUnitScreen && CommanderGameAccess.TryGetWorldMarkerState(guardTarget.transform.GlobalPosition(), camera, out Vector3 guardScreen, out _))
                 {
-                    DrawMarker(camera, patrolRouteScratch[p], $"PATROL {p + 1}", new Color(0.35f, 0.88f, 0.95f, 0.9f));
+                    Vector2 guardGuiPoint = CommanderUiScale.ScreenToGui(guardScreen);
+                    DrawScreenLine(unitGuiPoint, guardGuiPoint, new Color(0.25f, 0.95f, 0.5f, 0.7f), 2f);
                 }
             }
+            // Patrol Loop Lines
+            else if (moveService.TryGetPatrolRoute(unit, patrolRouteScratch) && patrolRouteScratch.Count >= 2)
+            {
+                Vector2 prevPoint = Vector2.zero;
+                bool hasPrev = false;
+
+                for (int p = 0; p < patrolRouteScratch.Count; p++)
+                {
+                    GlobalPosition pt = patrolRouteScratch[p];
+                    DrawMarker(camera, pt, $"PATROL {p + 1}", new Color(0.35f, 0.88f, 0.95f, 0.9f));
+
+                    if (CommanderGameAccess.TryGetWorldMarkerState(pt, camera, out Vector3 ptScreen, out _))
+                    {
+                        Vector2 ptGui = CommanderUiScale.ScreenToGui(ptScreen);
+                        if (hasPrev)
+                        {
+                            DrawScreenLine(prevPoint, ptGui, new Color(0.35f, 0.88f, 0.95f, 0.75f), 2f);
+                        }
+                        else if (hasUnitScreen)
+                        {
+                            DrawScreenLine(unitGuiPoint, ptGui, new Color(0.35f, 0.88f, 0.95f, 0.5f), 1.5f);
+                        }
+                        prevPoint = ptGui;
+                        hasPrev = true;
+                    }
+                }
+            }
+            // Move Destination & Sequential Waypoints Lines
             else if (moveService.TryGetPlayerDestination(unit, out GlobalPosition destination))
             {
                 DrawMarker(camera, destination, "MOVE", new Color(0.2f, 0.85f, 0.82f, 0.9f));
-            }
 
-            if (moveService.TryGetQueuedWaypoints(unit, queuedWaypointsScratch))
-            {
-                for (int wp = 0; wp < queuedWaypointsScratch.Count; wp++)
+                Vector2 prevWpGui = Vector2.zero;
+                bool hasPrevWp = false;
+
+                if (CommanderGameAccess.TryGetWorldMarkerState(destination, camera, out Vector3 destScreen, out _))
                 {
-                    DrawMarker(camera, queuedWaypointsScratch[wp], $"WAYPOINT {wp + 1}", new Color(0.95f, 0.85f, 0.3f, 0.85f));
+                    Vector2 destGuiPoint = CommanderUiScale.ScreenToGui(destScreen);
+                    if (hasUnitScreen)
+                    {
+                        DrawScreenLine(unitGuiPoint, destGuiPoint, new Color(0.2f, 0.85f, 0.82f, 0.75f), 2.5f);
+                    }
+                    prevWpGui = destGuiPoint;
+                    hasPrevWp = true;
+                }
+
+                // Chained Waypoints
+                if (moveService.TryGetQueuedWaypoints(unit, queuedWaypointsScratch))
+                {
+                    for (int wp = 0; wp < queuedWaypointsScratch.Count; wp++)
+                    {
+                        GlobalPosition wpPos = queuedWaypointsScratch[wp];
+                        DrawMarker(camera, wpPos, $"WAYPOINT {wp + 1}", new Color(0.95f, 0.85f, 0.3f, 0.85f));
+
+                        if (CommanderGameAccess.TryGetWorldMarkerState(wpPos, camera, out Vector3 wpScreen, out _))
+                        {
+                            Vector2 wpGuiPoint = CommanderUiScale.ScreenToGui(wpScreen);
+                            if (hasPrevWp)
+                            {
+                                DrawScreenLine(prevWpGui, wpGuiPoint, new Color(0.95f, 0.85f, 0.3f, 0.75f), 2f);
+                            }
+                            prevWpGui = wpGuiPoint;
+                            hasPrevWp = true;
+                        }
+                    }
                 }
             }
         }
 
+        // 2. Depot Rally Points
         if (spawnService.SelectedDepot != null && spawnService.TryGetSelectedRallyPoint(out GlobalPosition rallyPoint))
         {
             DrawMarker(camera, rallyPoint, "RALLY", new Color(0.95f, 0.78f, 0.22f, 0.9f));
+
+            if (CommanderGameAccess.TryGetWorldMarkerState(spawnService.SelectedDepot.transform.GlobalPosition(), camera, out Vector3 depotScreen, out _)
+                && CommanderGameAccess.TryGetWorldMarkerState(rallyPoint, camera, out Vector3 rallyScreen, out _))
+            {
+                DrawScreenLine(
+                    CommanderUiScale.ScreenToGui(depotScreen),
+                    CommanderUiScale.ScreenToGui(rallyScreen),
+                    new Color(0.95f, 0.78f, 0.22f, 0.6f),
+                    2f);
+            }
         }
 
+        // 3. Deployed FOB Logistics Markers
         if (CommanderForwardOutpostService.Instance?.DeployedFobs != null)
         {
             foreach (Unit fob in CommanderForwardOutpostService.Instance.DeployedFobs)
@@ -102,6 +185,7 @@ internal sealed class CommanderWorldMarkerRenderer
             }
         }
 
+        // 4. Cursor Previews & Interaction Cues
         if (CommanderCheatService.Instance?.AwaitingPlacement == true && CommanderCheatService.Instance.PendingSpawnDefinition != null)
         {
             var cheat = CommanderCheatService.Instance;
@@ -120,11 +204,17 @@ internal sealed class CommanderWorldMarkerRenderer
             DrawCursorMarker("BARRAGE TARGET AREA", new Color(1f, 0.45f, 0.15f, 0.95f));
         }
 
+        if (moveService.AwaitingAttackMoveSelection)
+        {
+            DrawCursorMarker("ATTACK MOVE TARGET", new Color(1f, 0.35f, 0.2f, 0.95f));
+        }
+
         if (supplyHeliService.AwaitingTargetSelection)
         {
             DrawCursorMarker("LZ", new Color(0.35f, 0.9f, 0.42f, 0.95f));
         }
 
+        // 5. SAM Sites Analysis & Supply Routes
         samSiteAnalyzerService.CopyProposalSites(samSiteProposals);
         for (int i = 0; i < samSiteProposals.Count; i++)
         {
@@ -147,12 +237,26 @@ internal sealed class CommanderWorldMarkerRenderer
         }
 
         samSiteService.CopyVisibleSupplyRoute(supplyRoute);
+        Vector2 prevSupplyGui = Vector2.zero;
+        bool hasPrevSupply = false;
+
         for (int i = 0; i < supplyRoute.Count; i++)
         {
             string label = i == 0
                 ? "AIRBASE"
                 : i == supplyRoute.Count - 1 ? "SAM SITE" : $"ROUTE {i}";
             DrawMarker(camera, supplyRoute[i], label, new Color(0.2f, 0.78f, 1f, 0.92f));
+
+            if (CommanderGameAccess.TryGetWorldMarkerState(supplyRoute[i], camera, out Vector3 supScreen, out _))
+            {
+                Vector2 supGui = CommanderUiScale.ScreenToGui(supScreen);
+                if (hasPrevSupply)
+                {
+                    DrawScreenLine(prevSupplyGui, supGui, new Color(0.2f, 0.78f, 1f, 0.6f), 1.5f);
+                }
+                prevSupplyGui = supGui;
+                hasPrevSupply = true;
+            }
         }
 
         if (!supplyWindowVisible)
@@ -165,6 +269,28 @@ internal sealed class CommanderWorldMarkerRenderer
         {
             DrawMarker(camera, deliveryTargets[i], "LZ", new Color(0.35f, 0.9f, 0.42f, 0.9f));
         }
+    }
+
+    internal static void DrawScreenLine(Vector2 pointA, Vector2 pointB, Color color, float width = 2f)
+    {
+        Vector2 diff = pointB - pointA;
+        float length = diff.magnitude;
+        if (length < 1f)
+        {
+            return;
+        }
+
+        lineTexture ??= Texture2D.whiteTexture;
+
+        float angle = Mathf.Atan2(diff.y, diff.x) * Mathf.Rad2Deg;
+        Matrix4x4 matrix = GUI.matrix;
+        Color previousColor = GUI.color;
+
+        GUI.color = color;
+        GUIUtility.RotateAroundPivot(angle, pointA);
+        GUI.DrawTexture(new Rect(pointA.x, pointA.y - width * 0.5f, length, width), lineTexture);
+        GUI.matrix = matrix;
+        GUI.color = previousColor;
     }
 
     private static string GetSamLabel(CommanderSamSiteAnalyzerService.SiteUnitRole role)

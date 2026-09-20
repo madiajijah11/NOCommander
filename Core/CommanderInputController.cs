@@ -243,6 +243,19 @@ internal sealed class CommanderInputController
             moveService.CycleFormation();
         }
 
+        // T / A key: Attack-Move Order Toggle
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            if (moveService.AwaitingAttackMoveSelection)
+            {
+                moveService.CancelAttackMoveOrder();
+            }
+            else
+            {
+                moveService.BeginAttackMoveOrder();
+            }
+        }
+
         // Ctrl + R: Global EMCON / Radar Silence Toggle
         if (CommanderShortcutInput.IsDown(CommanderSettings.GlobalRadarSilence))
         {
@@ -308,6 +321,30 @@ internal sealed class CommanderInputController
         if (spawnService.AwaitingRallyPointSelection)
         {
             spawnService.TrySetRallyPointFromWorld(mousePosition);
+            return;
+        }
+
+        if (moveService.AwaitingAttackMoveSelection)
+        {
+            moveService.TrySetAttackMoveDestination(mousePosition);
+            return;
+        }
+
+        if (moveService.AwaitingGuardSelection)
+        {
+            moveService.TrySetGuardTarget(mousePosition);
+            return;
+        }
+
+        if (moveService.AwaitingPatrolSelection)
+        {
+            moveService.TrySetPatrolDestination(mousePosition);
+            return;
+        }
+
+        if (moveService.AwaitingBarrageSelection)
+        {
+            moveService.TrySetBarrageTarget(mousePosition);
             return;
         }
 

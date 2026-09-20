@@ -308,11 +308,14 @@ internal sealed class CommanderOverlayUi
             samSiteFocused ? 734f : 450f,
             CommanderUiScale.Height - 24f);
         radarWindowRect = CommanderUiTheme.ClampWindow(radarWindowRect);
+
+        int selectedCount = selectionService.SelectedUnits.Count;
+        float barH = selectedCount == 1 ? 142f : 84f;
         selectionBarRect = new Rect(
-            Mathf.Max(12f, (CommanderUiScale.Width - 1040f) * 0.5f),
-            CommanderUiScale.Height - 158f,
-            Mathf.Min(1040f, CommanderUiScale.Width - 24f),
-            74f);
+            Mathf.Max(12f, (CommanderUiScale.Width - 1080f) * 0.5f),
+            CommanderUiScale.Height - barH - 14f,
+            Mathf.Min(1080f, CommanderUiScale.Width - 24f),
+            barH);
         selectionHelpRect = new Rect(selectionBarRect.x, selectionBarRect.y - 92f, selectionBarRect.width, 84f);
         if (CommanderFeatureGate.AdvancedFeaturesEnabled)
         {
@@ -1479,91 +1482,6 @@ internal sealed class CommanderOverlayUi
         return ghostCommandStyle;
     }
 
-    private void DrawFocusedUnitTelemetry(Rect rect, Unit unit)
-    {
-        if (unit == null || unit.disabled) return;
-
-        GUI.Box(rect, string.Empty, CommanderUiTheme.Panel);
-        CommanderUiTheme.DrawMutedFrame(rect);
-
-        // 1. Header: Sub-role & Unit Name
-        string catLabel = unit.definition != null
-            ? CommanderCheatService.GetCategoryLabel(unit.definition)
-            : (unit is Aircraft ? "AIR | AIRCRAFT" : (unit is Ship ? "NAVAL | WARSHIP" : "LAND | COMBAT UNIT"));
-
-        float hpPct = 1f;
-        IRepairable[] rep = unit.GetComponentsInChildren<IRepairable>(true);
-        if (rep.Length > 0)
-        {
-            int damaged = 0;
-            for (int r = 0; r < rep.Length; r++)
-            {
-                if (rep[r] != null && rep[r].NeedsRepair()) damaged++;
-            }
-            hpPct = Mathf.Clamp01(1f - ((float)damaged / rep.Length));
-        }
-
-        string statusTag = hpPct <= 0.35f
-            ? "CRITICAL DAMAGE"
-            : (hpPct < 0.85f ? "DAMAGED" : "COMBAT READY");
-        Color statusCol = hpPct <= 0.35f
-            ? new Color(1f, 0.25f, 0.2f, 0.95f)
-            : (hpPct < 0.85f ? new Color(0.95f, 0.78f, 0.15f, 0.95f) : new Color(0.2f, 0.85f, 0.35f, 0.95f));
-
-        GUI.Label(new Rect(rect.x + 12f, rect.y + 4f, rect.width - 200f, 20f),
-            "[" + catLabel + "]  " + unit.unitName.ToUpperInvariant(), CommanderUiTheme.Header);
-
-        Color prev = GUI.color;
-        GUI.color = statusCol;
-        GUI.Label(new Rect(rect.xMax - 180f, rect.y + 4f, 168f, 20f), "[" + statusTag + "]", CommanderUiTheme.Header);
-        GUI.color = prev;
-
-        // 2. Telemetry Row: Speed, Heading, Altitude, Fuel, Stance
-        float speedKmh = unit.rb != null ? unit.rb.velocity.magnitude * 3.6f : 0f;
-        int heading = Mathf.RoundToInt(unit.transform.eulerAngles.y) % 360;
-        float altM = unit.transform.position.y;
-        if (unit is Aircraft air) altM = air.radarAlt;
-
-        int fuelPct = unit is Aircraft ac ? Mathf.RoundToInt(ac.GetFuelLevel() * 100f) : 100;
-        bool isHold = CommanderStanceService.Instance?.IsHoldFire(unit) == true;
-
-        string compassDir = heading >= 337 || heading < 23 ? "N"
-            : (heading < 68 ? "NE"
-            : (heading < 113 ? "E"
-            : (heading < 158 ? "SE"
-            : (heading < 203 ? "S"
-            : (heading < 248 ? "SW"
-            : (heading < 293 ? "W" : "NW"))))));
-
-        string telemText = "SPEED: " + Mathf.RoundToInt(speedKmh) + " km/h   |   HDG: " + heading.ToString("000") + "° (" + compassDir + ")   |   ALT: " + Mathf.RoundToInt(altM) + "m   |   FUEL: " + fuelPct + "%   |   STANCE: " + (isHold ? "HOLD FIRE" : "FREE FIRE");
-        GUI.Label(new Rect(rect.x + 12f, rect.y + 24f, rect.width - 24f, 18f), telemText, CommanderUiTheme.MutedLabel);
-
-        // 3. Armament Breakdown Row
-        List<string> weaponSummaries = new();
-        if (unit.weaponStations != null)
-        {
-            for (int s = 0; s < unit.weaponStations.Count; s++)
-            {
-                WeaponStation st = unit.weaponStations[s];
-                if (st?.Weapons == null) continue;
-                for (int w = 0; w < st.Weapons.Count; w++)
-                {
-                    Weapon wp = st.Weapons[w];
-                    if (wp != null && !string.IsNullOrWhiteSpace(wp.name))
-                    {
-                        weaponSummaries.Add(wp.name + " [" + wp.ammo + "/" + wp.GetFullAmmo() + "]");
-                    }
-                }
-            }
-        }
-
-        string wpText = weaponSummaries.Count > 0
-            ? "ARMAMENT:  " + string.Join("   •   ", weaponSummaries)
-            : "ARMAMENT:  UNARMED LOGISTICS / SUPPORT PLATFORM";
-
-        GUI.Label(new Rect(rect.x + 12f, rect.y + 42f, rect.width - 24f, 18f), wpText, CommanderUiTheme.Label);
-    }
-
     private void DrawSelectionBar()
     {
         int count = selectionService.SelectedUnits.Count;
@@ -1572,94 +1490,199 @@ internal sealed class CommanderOverlayUi
             return;
         }
 
+        GUI.Box(selectionBarRect, string.Empty, CommanderUiTheme.Panel);
+        CommanderUiTheme.DrawHeaderStripe(selectionBarRect);
+        CommanderUiTheme.DrawMutedFrame(selectionBarRect);
+
         Unit? focused = selectionService.FocusedSelection;
-        if (count == 1 && focused != null)
+        bool advanced = CommanderFeatureGate.AdvancedFeaturesEnabled;
+        bool oldEnabled = GUI.enabled;
+
+        float buttonY = selectionBarRect.y + (count == 1 ? 96f : 40f);
+
+        if (count == 1 && focused != null && !focused.disabled)
         {
-            Rect telemRect = new(selectionBarRect.x, selectionBarRect.y - 68f, selectionBarRect.width, 64f);
-            DrawFocusedUnitTelemetry(telemRect, focused);
+            // 1. Single Unit Header
+            string catLabel = focused.definition != null
+                ? CommanderCheatService.GetCategoryLabel(focused.definition)
+                : (focused is Aircraft ? "AIR | AIRCRAFT" : (focused is Ship ? "NAVAL | WARSHIP" : "LAND | COMBAT UNIT"));
+
+            float hpPct = 1f;
+            IRepairable[] rep = focused.GetComponentsInChildren<IRepairable>(true);
+            if (rep.Length > 0)
+            {
+                int damaged = 0;
+                for (int r = 0; r < rep.Length; r++)
+                {
+                    if (rep[r] != null && rep[r].NeedsRepair()) damaged++;
+                }
+                hpPct = Mathf.Clamp01(1f - ((float)damaged / rep.Length));
+            }
+
+            string statusTag = hpPct <= 0.35f
+                ? "CRITICAL DAMAGE"
+                : (hpPct < 0.85f ? "DAMAGED" : "COMBAT READY");
+            Color statusCol = hpPct <= 0.35f
+                ? new Color(1f, 0.25f, 0.2f, 0.95f)
+                : (hpPct < 0.85f ? new Color(0.95f, 0.78f, 0.15f, 0.95f) : new Color(0.2f, 0.85f, 0.35f, 0.95f));
+
+            GUI.Label(new Rect(selectionBarRect.x + 14f, selectionBarRect.y + 6f, selectionBarRect.width - 240f, 22f),
+                "[" + catLabel + "]  " + focused.unitName.ToUpperInvariant(), CommanderUiTheme.Header);
+
+            Color prev = GUI.color;
+            GUI.color = statusCol;
+            GUI.Label(new Rect(selectionBarRect.xMax - 220f, selectionBarRect.y + 6f, 180f, 22f), "[" + statusTag + "]", CommanderUiTheme.Header);
+            GUI.color = prev;
+
+            // 2. Live Telemetry Row
+            float speedKmh = focused.rb != null ? focused.rb.velocity.magnitude * 3.6f : 0f;
+            int heading = Mathf.RoundToInt(focused.transform.eulerAngles.y) % 360;
+            float altM = focused.transform.position.y;
+            if (focused is Aircraft air) altM = air.radarAlt;
+            int fuelPct = focused is Aircraft ac ? Mathf.RoundToInt(ac.GetFuelLevel() * 100f) : 100;
+            bool isHold = CommanderStanceService.Instance?.IsHoldFire(focused) == true;
+
+            string compassDir = heading >= 337 || heading < 23 ? "N"
+                : (heading < 68 ? "NE"
+                : (heading < 113 ? "E"
+                : (heading < 158 ? "SE"
+                : (heading < 203 ? "S"
+                : (heading < 248 ? "SW"
+                : (heading < 293 ? "W" : "NW"))))));
+
+            string telemText = "SPEED: " + Mathf.RoundToInt(speedKmh) + " km/h   |   HDG: " + heading.ToString("000") + "° (" + compassDir + ")   |   ALT: " + Mathf.RoundToInt(altM) + "m   |   FUEL: " + fuelPct + "%   |   STANCE: " + (isHold ? "HOLD FIRE" : "FREE FIRE");
+            GUI.Label(new Rect(selectionBarRect.x + 14f, selectionBarRect.y + 30f, selectionBarRect.width - 28f, 18f), telemText, CommanderUiTheme.MutedLabel);
+
+            // 3. Armament Breakdown Row
+            List<string> weaponSummaries = new();
+            if (focused.weaponStations != null)
+            {
+                for (int s = 0; s < focused.weaponStations.Count; s++)
+                {
+                    WeaponStation st = focused.weaponStations[s];
+                    if (st?.Weapons == null) continue;
+                    for (int w = 0; w < st.Weapons.Count; w++)
+                    {
+                        Weapon wp = st.Weapons[w];
+                        if (wp != null && !string.IsNullOrWhiteSpace(wp.name))
+                        {
+                            weaponSummaries.Add(wp.name + " [" + wp.ammo + "/" + wp.GetFullAmmo() + "]");
+                        }
+                    }
+                }
+            }
+
+            string wpText = weaponSummaries.Count > 0
+                ? "ARMAMENT:  " + string.Join("   •   ", weaponSummaries)
+                : "ARMAMENT:  UNARMED LOGISTICS / SUPPORT PLATFORM";
+
+            GUI.Label(new Rect(selectionBarRect.x + 14f, selectionBarRect.y + 50f, selectionBarRect.width - 28f, 18f), wpText, CommanderUiTheme.Label);
+        }
+        else
+        {
+            // Multi-Unit Header
+            string formName = moveService.CurrentFormation.ToString().ToUpperInvariant();
+            GUI.Label(new Rect(selectionBarRect.x + 14f, selectionBarRect.y + 8f, selectionBarRect.width - 240f, 22f),
+                $"{count} UNITS SELECTED (TACTICAL BATTLE GROUP)", CommanderUiTheme.Header);
+
+            GUI.Label(new Rect(selectionBarRect.xMax - 220f, selectionBarRect.y + 8f, 180f, 22f),
+                $"[FORM: {formName}]", CommanderUiTheme.SubHeader);
         }
 
-        GUI.Box(selectionBarRect, string.Empty, CommanderUiTheme.Panel);
-        GUI.Label(new Rect(selectionBarRect.x + 12f, selectionBarRect.y + 3f, 190f, 24f), "UNIT SELECTION", CommanderUiTheme.MutedLabel);
-        if (GUI.Button(new Rect(selectionBarRect.xMax - 34f, selectionBarRect.y + 3f, 26f, 22f), "?", CommanderUiTheme.HelpButton))
+        if (GUI.Button(new Rect(selectionBarRect.xMax - 32f, selectionBarRect.y + 4f, 26f, 22f), "?", CommanderUiTheme.HelpButton))
         {
             selectionHelpVisible = !selectionHelpVisible;
         }
-        string label = count == 1 && focused != null
-            ? CommanderGameAccess.GetUnitLabel(focused)
-            : $"{count} UNITS SELECTED";
-        GUI.Label(new Rect(selectionBarRect.x + 14f, selectionBarRect.y + 37f, selectionBarRect.width - 408f, 24f), label, CommanderUiTheme.Header);
 
-        float buttonX = selectionBarRect.xMax - 780f;
         if (selectionHelpVisible)
         {
             CommanderUiTheme.DrawHelpOverlay(selectionHelpRect,
-                "STOP holds units. AI returns to basegame. PATROL ('P') loops waypoints. GUARD ('G') escorts target. SCATTER ('X') evades area damage. FORM ('V') cycles military formations. RTB auto-returns for repair/rearm. STANCE ('F') toggles Hold Fire. PIN stores selection.");
+                "STOP holds units. AI returns to basegame. A-MOVE ('T') moves & engages targets. PATROL ('P') loops waypoints. GUARD ('G') escorts target. SCATTER ('X') evades area damage. FORM ('V') cycles military formations. RTB auto-returns for repair/rearm. STANCE ('F') toggles Hold Fire. PIN stores selection.");
         }
-        bool oldEnabled = GUI.enabled;
-        bool advanced = CommanderFeatureGate.AdvancedFeaturesEnabled;
+
+        // 4. Command Button Grid (Row of 11 Aligned Tactical Buttons)
+        float totalWidth = selectionBarRect.width - 24f;
+        float btnWidth = (totalWidth - 10f * 6f) / 11f;
+        float bx = selectionBarRect.x + 12f;
 
         // 1. STOP
         GUI.enabled = oldEnabled && moveService.HasCommandableSelection;
-        if (GUI.Button(new Rect(buttonX, selectionBarRect.y + 32f, 52f, 34f), "STOP", CommanderUiTheme.DangerButton))
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f), "STOP", CommanderUiTheme.DangerButton))
         {
             moveService.StopSelectedUnits();
         }
+        bx += btnWidth + 6f;
 
         // 2. AI
         GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
-        if (GUI.Button(new Rect(buttonX + 56f, selectionBarRect.y + 32f, 44f, 34f), "AI", CommanderUiTheme.PrimaryButton))
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f), "AI", CommanderUiTheme.PrimaryButton))
         {
             moveService.ResumeAiForSelectedUnits();
         }
+        bx += btnWidth + 6f;
 
-        // 3. PATROL
+        // 3. A-MOVE
         GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
+        bool isAttackMoving = moveService.AwaitingAttackMoveSelection;
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f), "A-MOVE",
+            isAttackMoving ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        {
+            if (isAttackMoving) moveService.CancelAttackMoveOrder();
+            else moveService.BeginAttackMoveOrder();
+        }
+        bx += btnWidth + 6f;
+
+        // 4. PATROL
         bool isPatrolling = moveService.AwaitingPatrolSelection;
-        if (GUI.Button(new Rect(buttonX + 104f, selectionBarRect.y + 32f, 62f, 34f), "PATROL",
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f), "PATROL",
             isPatrolling ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             if (isPatrolling) moveService.CancelPatrolOrder();
             else moveService.BeginPatrolOrder();
         }
+        bx += btnWidth + 6f;
 
-        // 4. GUARD / ESCORT
+        // 5. GUARD / ESCORT
         bool isGuarding = moveService.AwaitingGuardSelection;
-        if (GUI.Button(new Rect(buttonX + 170f, selectionBarRect.y + 32f, 60f, 34f), "GUARD",
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f), "GUARD",
             isGuarding ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             if (isGuarding) moveService.CancelGuardOrder();
             else moveService.BeginGuardOrder();
         }
+        bx += btnWidth + 6f;
 
-        // 5. SCATTER
-        if (GUI.Button(new Rect(buttonX + 234f, selectionBarRect.y + 32f, 66f, 34f), "SCATTER", CommanderUiTheme.Button))
+        // 6. SCATTER
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f), "SCATTER", CommanderUiTheme.Button))
         {
             moveService.ScatterSelectedUnits(55f);
         }
+        bx += btnWidth + 6f;
 
-        // 6. FORMATION CYCLE
-        string formName = moveService.CurrentFormation.ToString().ToUpper();
-        if (GUI.Button(new Rect(buttonX + 304f, selectionBarRect.y + 32f, 86f, 34f), "FORM: " + formName, CommanderUiTheme.Button))
+        // 7. FORMATION CYCLE
+        string formShort = moveService.CurrentFormation.ToString().ToUpperInvariant();
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f), "FORM: " + formShort, CommanderUiTheme.Button))
         {
             moveService.CycleFormation();
         }
+        bx += btnWidth + 6f;
 
-        // 7. AUTO-RTB
+        // 8. AUTO-RTB
         bool isRtb = moveService.IsAutoRtb(focused);
-        if (GUI.Button(new Rect(buttonX + 394f, selectionBarRect.y + 32f, 54f, 34f), isRtb ? "RTB ON" : "RTB",
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f), isRtb ? "RTB ON" : "RTB",
             isRtb ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             moveService.ToggleAutoRtbForSelection();
         }
+        bx += btnWidth + 6f;
 
-        // 8. FOB DEPLOY or ROAD ON/OFF
+        // 9. FOB DEPLOY or ROAD ON/OFF
         GUI.enabled = oldEnabled;
         bool canFob = advanced && count == 1 && focused != null && CommanderForwardOutpostService.Instance?.CanDeployFob(focused) == true;
         if (canFob)
         {
             bool isFob = CommanderForwardOutpostService.Instance?.IsFobDeployed(focused) == true;
-            if (GUI.Button(new Rect(buttonX + 452f, selectionBarRect.y + 32f, 76f, 34f),
+            if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f),
                 isFob ? "PACK FOB" : "DEPLOY FOB",
                 isFob ? CommanderUiTheme.SelectedButton : CommanderUiTheme.PrimaryButton))
             {
@@ -1676,33 +1699,34 @@ internal sealed class CommanderOverlayUi
                 && !CommanderSamSiteService.IsReservedConstructionJacknife(focused);
             bool roadEnabled = !directPathService.IsEnabled(focused);
             GUI.enabled = oldEnabled && canToggleRoad;
-            if (GUI.Button(new Rect(buttonX + 452f, selectionBarRect.y + 32f, 76f, 34f),
+            if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f),
                 roadEnabled ? "ROAD ON" : "ROAD OFF",
                 roadEnabled ? CommanderUiTheme.Button : CommanderUiTheme.DangerButton))
             {
                 directPathService.ToggleFocusedUnit();
             }
         }
-        GUI.enabled = oldEnabled;
+        bx += btnWidth + 6f;
 
-        // 9. STANCE (HOLD / FREE FIRE)
+        // 10. STANCE (HOLD / FREE FIRE)
         GUI.enabled = oldEnabled;
         bool isHoldFire = CommanderStanceService.Instance?.IsHoldFire(focused) == true;
-        if (GUI.Button(new Rect(buttonX + 532f, selectionBarRect.y + 32f, 88f, 34f),
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f),
             isHoldFire ? "HOLD FIRE" : "FREE FIRE",
             isHoldFire ? CommanderUiTheme.DangerButton : CommanderUiTheme.Button))
         {
             CommanderStanceService.Instance?.ToggleHoldFireForSelection();
         }
+        bx += btnWidth + 6f;
 
-        // 10. PIN / DEL
+        // 11. PIN / DEL
         GUI.enabled = oldEnabled;
         bool deleteMode = CommanderSettings.DeleteUnitModifier.IsPressed();
         string pinLabel = deleteMode ? "DEL" : (selectionService.IsCurrentSelectionPinned ? "UNPIN" : "PIN");
         GUI.enabled = oldEnabled
             && advanced
             && (!deleteMode || selectionService.CanDeleteSelection);
-        if (GUI.Button(new Rect(buttonX + 624f, selectionBarRect.y + 32f, 68f, 34f), pinLabel,
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 34f), pinLabel,
             deleteMode ? CommanderUiTheme.DangerButton : CommanderUiTheme.Button))
         {
             if (deleteMode)

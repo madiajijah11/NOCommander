@@ -30,6 +30,7 @@ internal sealed class CommanderMoveService
     private bool awaitingPatrolSelection;
     private bool awaitingGuardSelection;
     private bool awaitingBarrageSelection;
+    private bool awaitingAttackMoveSelection;
     private FormationShape currentFormation = FormationShape.Ring;
     private float nextRtbCheckTime;
 
@@ -38,6 +39,7 @@ internal sealed class CommanderMoveService
     internal bool AwaitingPatrolSelection => awaitingPatrolSelection;
     internal bool AwaitingGuardSelection => awaitingGuardSelection;
     internal bool AwaitingBarrageSelection => awaitingBarrageSelection;
+    internal bool AwaitingAttackMoveSelection => awaitingAttackMoveSelection;
     internal FormationShape CurrentFormation => currentFormation;
 
     internal bool HasCommandableSelection
@@ -77,6 +79,7 @@ internal sealed class CommanderMoveService
         awaitingPatrolSelection = true;
         awaitingGuardSelection = false;
         awaitingBarrageSelection = false;
+        awaitingAttackMoveSelection = false;
     }
 
     internal void CancelPatrolOrder()
@@ -90,6 +93,7 @@ internal sealed class CommanderMoveService
         awaitingGuardSelection = true;
         awaitingPatrolSelection = false;
         awaitingBarrageSelection = false;
+        awaitingAttackMoveSelection = false;
     }
 
     internal void CancelGuardOrder()
@@ -103,11 +107,54 @@ internal sealed class CommanderMoveService
         awaitingBarrageSelection = true;
         awaitingPatrolSelection = false;
         awaitingGuardSelection = false;
+        awaitingAttackMoveSelection = false;
     }
 
     internal void CancelBarrageOrder()
     {
         awaitingBarrageSelection = false;
+    }
+
+    internal void BeginAttackMoveOrder()
+    {
+        if (!HasCommandableSelection) return;
+        awaitingAttackMoveSelection = true;
+        awaitingPatrolSelection = false;
+        awaitingGuardSelection = false;
+        awaitingBarrageSelection = false;
+    }
+
+    internal void CancelAttackMoveOrder()
+    {
+        awaitingAttackMoveSelection = false;
+    }
+
+    internal bool TrySetAttackMoveDestination(Vector2 screenPosition)
+    {
+        if (!awaitingAttackMoveSelection || selectionService.SelectedUnits.Count == 0)
+        {
+            return false;
+        }
+
+        bool hasGroundPos = CommanderGameAccess.TryRaycastWorldPosition(screenPosition, out GlobalPosition groundPos);
+        bool hasWaterPos = CommanderGameAccess.TryRaycastWaterPosition(screenPosition, out GlobalPosition waterPos);
+        if (!hasGroundPos && !hasWaterPos)
+        {
+            awaitingAttackMoveSelection = false;
+            return false;
+        }
+
+        GlobalPosition targetPos = hasGroundPos ? groundPos : waterPos;
+        IssueDirectMoveOrder(targetPos, queueWaypoint: false);
+
+        // Set Stance to Free Fire automatically on attack move
+        for (int i = 0; i < selectionService.SelectedUnits.Count; i++)
+        {
+            CommanderStanceService.Instance?.ApplyHoldFire(selectionService.SelectedUnits[i], false);
+        }
+
+        awaitingAttackMoveSelection = false;
+        return true;
     }
 
     internal bool TrySetGuardTarget(Vector2 screenPosition)

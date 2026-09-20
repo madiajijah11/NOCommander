@@ -9,6 +9,10 @@ All notable changes to the NOCommander mod are documented in this file.
 ### 🌟 New Features
 - **Live Unit Telemetry & Combat Inspector HUD:**
   - Displays real-time speed (km/h), compass heading, radar altitude (m), fuel percentage, combat readiness badge, and armament breakdown for focused units.
+- **3D Vector Path & Trajectory Lines:**
+  - Real-time glowing 3D trajectory lines rendered for selected units connecting unit origins to destinations (Cyan), waypoints (Amber), guard escorts (Green), patrol loops (Sky Blue), and attack targets (Red).
+- **Attack-Move Order (`A-MOVE` / `T`):**
+  - Added combat advance command with automatic target engagement and stance integration.
 - **Rich Depot Spawner & Reserve Cards:**
   - Upgraded vehicle selection entries in Depots and Reserve with sub-category badges, unit valuation, and one-click queueing.
 - **Control Groups & Quick Recall:**
