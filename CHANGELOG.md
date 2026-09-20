@@ -6,7 +6,7 @@ All notable changes to the NOCommander mod are documented in this file.
 
 ## [0.2.0.0] - 2026-09-19
 
-### 🌟 New Features (Fitur Baru)
+### 🌟 New Features
 - **Control Groups & Quick Recall:**
   - `Ctrl + 0..9` to assign selected units to control groups.
   - `0..9` to recall control groups (hold `Shift` for additive multi-group selection).
@@ -45,7 +45,7 @@ All notable changes to the NOCommander mod are documented in this file.
 
 ---
 
-### 🔧 Bug Fixes & Engine Optimizations (Perbaikan & Stabilitas)
+### 🔧 Bug Fixes & Engine Optimizations
 - **Aircraft Carrier & Runway Safety Overhaul:**
   - **Carrier Bow-Drop Prevention:** Automatically applies positive vertical climb assist when aircraft launch from carrier bows, preventing nose dips and ocean impacts.
   - **Helicopter Island Clearance:** Helicopters launching from naval ships climb vertically past superstructure height before forward translation.
