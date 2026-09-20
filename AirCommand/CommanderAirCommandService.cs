@@ -475,6 +475,7 @@ internal sealed partial class CommanderAirCommandService
 
         pendingMissionRelocation = null;
         pendingAreaSelection = new PendingAreaSelection(opt, ab.Airbase);
+        tacticalMapService.Open();
         tacticalMapService.SuppressMapFollow = true;
         mapClickTracker.Reset();
         UpdatePendingAreaPreview();
@@ -845,12 +846,12 @@ internal sealed partial class CommanderAirCommandService
         return new CombatAI.TargetSearchResults(bestTarget!, bestStation!, bestOpportunity, outOfAmmo);
     }
 
-    private void RefreshOptions()
+    internal void RefreshOptions()
     {
         options.Clear();
         airbases.Clear();
         FactionHQ? hq = CommanderGameAccess.GetLocalHq();
-        if (!uiVisible || hq == null)
+        if (hq == null)
         {
             return;
         }

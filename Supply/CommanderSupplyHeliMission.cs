@@ -457,21 +457,7 @@ internal sealed partial class CommanderSupplyHeliService
         AirdropField?.SetValue(state, mission.Airdrop);
         if (intermediateRouteTarget)
         {
-            if (aircraft.autopilot is not AutopilotTiltwing)
-            {
-                assignedTarget = GetTurnAnticipationTarget(aircraft, mission, assignedTarget);
-                GlobalPosition aircraftPosition = aircraft.GlobalPosition();
-                Vector3 routeDirection = assignedTarget - aircraftPosition;
-                routeDirection.y = 0f;
-                if (routeDirection.sqrMagnitude > 1f)
-                {
-                    routeDirection.Normalize();
-                    assignedTarget = new GlobalPosition(
-                        aircraftPosition.x + routeDirection.x * 10000f,
-                        assignedTarget.y,
-                        aircraftPosition.z + routeDirection.z * 10000f);
-                }
-            }
+            assignedTarget = GetTurnAnticipationTarget(aircraft, mission, assignedTarget);
         }
         else
         {
@@ -612,14 +598,7 @@ internal sealed partial class CommanderSupplyHeliService
             return false;
         }
 
-        if (pilot.aircraft != null
-            && assignedMissions.ContainsKey(pilot.aircraft)
-            && pilot.currentState == pilot.AIHeloTakeoffState
-            && requestedState != pilot.currentState
-            && pilot.aircraft.radarAlt < 30f)
-        {
-            return true;
-        }
+        // Allow base game takeoff state to transition naturally without blocking
 
         if (requestedState == pilot.currentState
             || pilot.currentState != pilot.AIHeloTransportState

@@ -1255,7 +1255,7 @@ internal sealed partial class CommanderSupplyHeliService
 
         if (followTerrain)
         {
-            altitudeHold = Mathf.Max(altitudeHold, clearance);
+            altitudeHold = Mathf.Max(altitudeHold, clearance > 0f ? clearance : 120f);
         }
 
         if (!Instance.assignedAutopilotAircraft.TryGetValue(autopilot, out Aircraft ac)
@@ -1265,7 +1265,7 @@ internal sealed partial class CommanderSupplyHeliService
         {
             return;
         }
-        altitudeHold = Mathf.Max(altitudeHold, m.SteepLanding ? 100f : 60f);
+        altitudeHold = Mathf.Max(altitudeHold, m.SteepLanding ? 100f : 80f);
     }
 
     internal static void ForceAssignedVerticalTakeoff(SwivelDuctSystem swivelDuct)
@@ -1281,10 +1281,7 @@ internal sealed partial class CommanderSupplyHeliService
         if (aircraft.radarAlt >= 35f)
         {
             mission.VerticalDepartureActive = false;
-            return;
         }
-
-        aircraft.GetInputs().customAxis1 = 0f;
     }
 
     private static bool CanHostSpawn(out FactionHQ? hq, out string error)

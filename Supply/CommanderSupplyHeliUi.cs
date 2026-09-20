@@ -56,6 +56,17 @@ internal sealed class CommanderSupplyHeliUi
         openCargoSlot = -1;
     }
 
+    internal void Show()
+    {
+        Visible = true;
+        service.SetUiVisible(true);
+        step = 0;
+        helpVisible = false;
+        openCargoSlot = -1;
+        terrainClearanceDropdownOpen = false;
+        service.RefreshOptions();
+    }
+
     internal void Tick()
     {
         float width = Mathf.Min(800f, CommanderUiScale.Width - 32f);

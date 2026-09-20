@@ -1,5 +1,6 @@
-using UnityEngine;
+using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace NuclearOptionCommander;
 
@@ -9,20 +10,13 @@ internal sealed class CommanderAirCommandUi
     private const int MissionWindowId = 0x434F414D;
 
     private readonly CommanderAirCommandService service;
-    private Rect windowRect = new(0f, 0f, 820f, 760f);
+    private Rect windowRect = new(16f, 16f, 480f, 640f);
     private Vector2 aircraftScroll;
-    private Vector2 hardpointScroll;
-    private Vector2 loadoutDropdownScroll;
-    private Vector2 airbaseScroll;
-    private int openHardpointGroup = -1;
-    private bool altitudeDropdownOpen;
-    private bool positionInitialized;
-    private bool helpVisible;
-    private readonly List<Aircraft> missionAircraft = new();
-    private Rect missionWindowRect;
     private Vector2 missionScroll;
-    private bool missionPositionInitialized;
-    private string hoverTooltip = string.Empty;
+    private bool positionInitialized;
+    private bool missionWindowVisible;
+    private Rect missionWindowRect;
+    private readonly List<Aircraft> missionAircraft = new();
 
     internal static CommanderAirCommandUi? Instance { get; private set; }
 
@@ -45,12 +39,8 @@ internal sealed class CommanderAirCommandUi
         if (Visible) return;
         Visible = true;
         service.SetUiVisible(true);
-        helpVisible = false;
+        service.RefreshOptions();
         aircraftScroll = Vector2.zero;
-        hardpointScroll = Vector2.zero;
-        airbaseScroll = Vector2.zero;
-        openHardpointGroup = -1;
-        altitudeDropdownOpen = false;
         CommanderTacticalMapService.Instance?.OpenFullscreen();
     }
 
@@ -81,7 +71,6 @@ internal sealed class CommanderAirCommandUi
     internal void ResetPosition()
     {
         positionInitialized = false;
-        missionPositionInitialized = false;
     }
 
     internal void Tick()
@@ -90,15 +79,14 @@ internal sealed class CommanderAirCommandUi
         {
             CommanderTacticalMapService.Instance?.OpenFullscreen();
         }
-        float width = Mathf.Min(760f, CommanderUiScale.Width - 390f);
-        float height = Mathf.Min(900f, CommanderUiScale.Height - 32f);
+
+        float width = Mathf.Min(480f, CommanderUiScale.Width - 60f);
+        float height = Mathf.Min(700f, CommanderUiScale.Height - 32f);
+
         if (!positionInitialized)
         {
-            windowRect = new Rect(
-                74f,
-                Mathf.Max(12f, (CommanderUiScale.Height - height) * 0.5f),
-                width,
-                height);
+            windowRect = new Rect(24f, Mathf.Max(16f, (CommanderUiScale.Height - height) * 0.5f), width, height);
+            missionWindowRect = new Rect(windowRect.xMax + 12f, windowRect.y, 320f, Mathf.Min(440f, height));
             positionInitialized = true;
         }
         else
@@ -106,48 +94,34 @@ internal sealed class CommanderAirCommandUi
             windowRect.width = width;
             windowRect.height = height;
             windowRect = CommanderUiTheme.ClampWindow(windowRect);
+            missionWindowRect.x = Mathf.Min(windowRect.xMax + 12f, CommanderUiScale.Width - 330f);
+            missionWindowRect.y = windowRect.y;
+            missionWindowRect.height = Mathf.Min(440f, windowRect.height);
         }
-        if (!missionPositionInitialized)
-        {
-            missionWindowRect = new Rect(
-                Mathf.Max(12f, CommanderUiScale.Width - 342f),
-                16f,
-                326f,
-                Mathf.Min(520f, CommanderUiScale.Height - 32f));
-            missionPositionInitialized = true;
-        }
-        else
-        {
-            missionWindowRect.width = 326f;
-            missionWindowRect.height = Mathf.Min(520f, CommanderUiScale.Height - 32f);
-            missionWindowRect = CommanderUiTheme.ClampWindow(missionWindowRect);
-        }
+
         service.CollectMissionAircraft(missionAircraft);
     }
 
     internal bool ContainsScreenPoint(Vector2 screenPoint)
     {
         Vector2 guiPoint = CommanderUiScale.ScreenToGui(screenPoint);
-        return Visible && (windowRect.Contains(guiPoint) || missionWindowRect.Contains(guiPoint));
+        return Visible && (windowRect.Contains(guiPoint) || (missionWindowVisible && missionWindowRect.Contains(guiPoint)));
     }
 
     internal void Draw()
     {
-        if (!Visible)
-        {
-            return;
-        }
+        if (!Visible) return;
 
-        service.SetAreaSelectionBlockingRects(windowRect, missionWindowRect);
-        windowRect = GUI.Window(WindowId, windowRect, DrawWindow, "AIR COMMAND", CommanderUiTheme.Window);
-        missionWindowRect = GUI.Window(MissionWindowId, missionWindowRect, DrawMissionWindow, "AIR MISSIONS", CommanderUiTheme.Window);
-        service.SetAreaSelectionBlockingRects(windowRect, missionWindowRect);
+        service.SetAreaSelectionBlockingRects(windowRect, missionWindowVisible ? missionWindowRect : Rect.zero);
+        windowRect = GUI.Window(WindowId, windowRect, DrawWindow, "AIR COMMAND DECK", CommanderUiTheme.Window);
+        if (missionWindowVisible && missionAircraft.Count > 0)
+        {
+            missionWindowRect = GUI.Window(MissionWindowId, missionWindowRect, DrawMissionWindow, "ACTIVE MISSIONS", CommanderUiTheme.Window);
+        }
     }
 
     private void DrawWindow(int windowId)
     {
-        hoverTooltip = string.Empty;
-        CommanderUiTheme.DrawHelpButton(windowRect.width, ref helpVisible);
         if (GUI.Button(new Rect(windowRect.width - 34f, 3f, 26f, 22f), "X", CommanderUiTheme.DangerButton))
         {
             if (service.AwaitingAreaSelection) service.CancelAreaSelection();
@@ -155,430 +129,149 @@ internal sealed class CommanderAirCommandUi
             return;
         }
 
-        float y = 36f;
-        if (helpVisible)
-        {
-            CommanderUiTheme.DrawHelpOverlay(
-                new Rect(12f, y, windowRect.width - 24f, 86f),
-                "Select a mission and loadout, then choose a departure airbase from the list or directly on the map. Only airbases that can currently spawn the aircraft are shown. Place the mission area on the fullscreen map. Active aircraft and RTB are listed on the right.");
-            y += 94f;
-        }
+        float y = 34f;
 
-        bool dropdownOpen = openHardpointGroup >= 0 || altitudeDropdownOpen;
-        float modeWidth = (windowRect.width - 34f) * 0.2f;
-        bool oldEnabled = GUI.enabled;
-        GUI.enabled = oldEnabled && !dropdownOpen && !service.AwaitingAreaSelection;
-        DrawModeButton(
-            CommanderAirCommandService.AirCommandMode.AwacsJammer,
-            "AWACS / JAM",
-            12f,
-            y,
-            modeWidth,
-            "STATION AREA (BLUE) | Stays inside the circle while using radar and jammer systems. Jammers may affect visible emitters outside the circle within pod range.");
-        DrawModeButton(
-            CommanderAirCommandService.AirCommandMode.Cas,
-            "CAS",
-            14f + modeWidth,
-            y,
-            modeWidth,
-            "TARGET AREA (ORANGE) | Attacks tracked hostile ground vehicles, ships and buildings inside the circle with conventional anti-surface weapons.");
-        DrawModeButton(
-            CommanderAirCommandService.AirCommandMode.AirGuard,
-            "AIR SUPERIORITY",
-            16f + modeWidth * 2f,
-            y,
-            modeWidth,
-            "STATION AREA (BLUE) | Returns to and remains inside the circle, but may engage valid hostile aircraft outside it whenever they are within weapon range. TARGET ORDNANCE additionally permits attacks on hostile missiles.");
-        DrawModeButton(
-            CommanderAirCommandService.AirCommandMode.Arad,
-            "ARAD",
-            18f + modeWidth * 3f,
-            y,
-            modeWidth,
-            "TARGET AREA (ORANGE) | Uses anti-radiation weapons against emitting ground, ship and building targets inside the circle. SATURATION empties the missile station in one salvo.");
-        DrawModeButton(
-            CommanderAirCommandService.AirCommandMode.StrategicStrike,
-            "STRIKE [EXP]",
-            20f + modeWidth * 4f,
-            y,
-            modeWidth,
-            "EXPERIMENTAL / UNFINISHED | Uses weapons marked Strategic against tracked ground, ship and building targets inside the orange circle. Target priority and strike sequencing are not final.");
+        // 1. Mission Mode Selector Tabs
+        float tabW = (windowRect.width - 32f) / 4f;
+        DrawModeTab(CommanderAirCommandService.AirCommandMode.AirGuard, "CAP / AA", 12f, y, tabW);
+        DrawModeTab(CommanderAirCommandService.AirCommandMode.Cas, "STRIKE / CAS", 16f + tabW, y, tabW);
+        DrawModeTab(CommanderAirCommandService.AirCommandMode.Arad, "SEAD / ARAD", 20f + tabW * 2f, y, tabW);
+        DrawModeTab(CommanderAirCommandService.AirCommandMode.AwacsJammer, "AWACS", 24f + tabW * 3f, y, tabW);
+        y += 42f;
+
+        // 2. Mission Settings Row (Radius Stepper & Active Missions Toggle)
+        Rect settingsRow = new(12f, y, windowRect.width - 24f, 36f);
+        GUI.Box(settingsRow, string.Empty, CommanderUiTheme.Panel);
+        GUI.Label(new Rect(settingsRow.x + 8f, settingsRow.y + 7f, 90f, 22f), "RADIUS:", CommanderUiTheme.MutedLabel);
+        if (GUI.Button(new Rect(settingsRow.x + 80f, settingsRow.y + 4f, 26f, 26f), "-", CommanderUiTheme.Button)) service.StepMissionRadius(-5f);
+        GUI.Label(new Rect(settingsRow.x + 112f, settingsRow.y + 7f, 60f, 22f), $"{service.SelectedMissionRadiusKm:0} km", CommanderUiTheme.Header);
+        if (GUI.Button(new Rect(settingsRow.x + 172f, settingsRow.y + 4f, 26f, 26f), "+", CommanderUiTheme.Button)) service.StepMissionRadius(5f);
+
+        string missionBtnLabel = $"MISSIONS ({missionAircraft.Count})";
+        if (GUI.Button(new Rect(settingsRow.xMax - 140f, settingsRow.y + 4f, 132f, 26f), missionBtnLabel,
+            missionWindowVisible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        {
+            missionWindowVisible = !missionWindowVisible;
+        }
         y += 44f;
 
-        GUI.enabled = oldEnabled;
-        Rect altitudePanel = default;
-        if (service.SupportsTargetAltitude())
-        {
-            altitudePanel = new Rect(12f, y, windowRect.width - 24f, 38f);
-            GUI.Box(altitudePanel, string.Empty, CommanderUiTheme.Panel);
-            GUI.Label(new Rect(altitudePanel.x + 12f, altitudePanel.y + 8f, 180f, 24f), "TARGET ALTITUDE", CommanderUiTheme.Header);
-        GUI.enabled = oldEnabled && openHardpointGroup < 0 && !service.AwaitingAreaSelection;
-            string altitude = service.SelectedTargetAltitude <= 0f ? "STANDARD" : $"{service.SelectedTargetAltitude:0} m";
-            if (GUI.Button(new Rect(altitudePanel.x + 200f, altitudePanel.y + 5f, 180f, 28f), altitude + "   v",
-                altitudeDropdownOpen ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
-            {
-                altitudeDropdownOpen = !altitudeDropdownOpen;
-            }
-            GUI.enabled = oldEnabled;
-            y += 46f;
-        }
+        // 3. Ready Aircraft Cards List (Quick 1-Click Deploy)
+        GUI.Label(new Rect(12f, y, windowRect.width - 24f, 20f), "SELECT AIRCRAFT & DEPLOY", CommanderUiTheme.MutedLabel);
+        y += 22f;
 
-        Rect radiusPanel = new(12f, y, windowRect.width - 24f, 38f);
-        GUI.Box(radiusPanel, string.Empty, CommanderUiTheme.Panel);
-        GUI.Label(new Rect(radiusPanel.x + 12f, radiusPanel.y + 8f, 180f, 24f), "MISSION RADIUS", CommanderUiTheme.Header);
-        GUI.enabled = oldEnabled && !dropdownOpen && !service.AwaitingAreaSelection;
-        if (GUI.Button(new Rect(radiusPanel.x + 200f, radiusPanel.y + 5f, 34f, 28f), "-", CommanderUiTheme.Button)) service.StepMissionRadius(-5f);
-        GUI.Label(new Rect(radiusPanel.x + 242f, radiusPanel.y + 8f, 100f, 24f), $"{service.SelectedMissionRadiusKm:0} km", CommanderUiTheme.Header);
-        if (GUI.Button(new Rect(radiusPanel.x + 344f, radiusPanel.y + 5f, 34f, 28f), "+", CommanderUiTheme.Button)) service.StepMissionRadius(5f);
-        GUI.enabled = oldEnabled;
-        y += 46f;
+        float listViewHeight = windowRect.height - y - 68f;
+        Rect viewRect = new(12f, y, windowRect.width - 24f, listViewHeight);
+        float cardHeight = 84f;
+        float innerHeight = Mathf.Max(viewRect.height, service.Options.Count * (cardHeight + 6f) + 6f);
+        aircraftScroll = GUI.BeginScrollView(viewRect, aircraftScroll, new Rect(0f, 0f, viewRect.width - 18f, innerHeight));
 
-        if (service.SelectedMode == CommanderAirCommandService.AirCommandMode.AirGuard)
-        {
-            bool oldOrdnance = GUI.enabled;
-            GUI.enabled = oldOrdnance && !dropdownOpen && !service.AwaitingAreaSelection;
-            service.TargetOrdnance = GUI.Toggle(
-                new Rect(12f, y, windowRect.width - 24f, 32f),
-                service.TargetOrdnance,
-                "TARGET ORDNANCE  |  include hostile missiles",
-                CommanderUiTheme.Toggle);
-            GUI.enabled = oldOrdnance;
-            y += 38f;
-        }
-
-        if (service.SelectedMode == CommanderAirCommandService.AirCommandMode.Arad)
-        {
-            bool oldSaturation = GUI.enabled;
-            GUI.enabled = oldSaturation && !dropdownOpen && !service.AwaitingAreaSelection;
-            service.SaturationAttack = GUI.Toggle(
-                new Rect(12f, y, windowRect.width - 24f, 32f),
-                service.SaturationAttack,
-                "SATURATION ATTACK  |  launch all ARAD missiles",
-                CommanderUiTheme.Toggle);
-            GUI.enabled = oldSaturation;
-            y += 38f;
-        }
-
-        if (service.SelectedMode == CommanderAirCommandService.AirCommandMode.StrategicStrike)
-        {
-            GUI.Box(new Rect(12f, y, windowRect.width - 24f, 34f), string.Empty, CommanderUiTheme.Panel);
-            GUI.Label(new Rect(22f, y + 5f, windowRect.width - 44f, 24f),
-                "EXPERIMENTAL  |  strike behavior and target priority are unfinished",
-                CommanderUiTheme.MutedLabel);
-            y += 40f;
-        }
-
-        GUI.Label(new Rect(12f, y, windowRect.width - 24f, 24f), "MISSION LOADOUT", CommanderUiTheme.MutedLabel);
-        y += 24f;
-        float loadoutHeight = 208f;
-        Rect loadoutPanel = new(12f, y, windowRect.width - 24f, loadoutHeight);
-        GUI.Box(loadoutPanel, string.Empty, CommanderUiTheme.Panel);
-        GUI.enabled = oldEnabled && !dropdownOpen && !service.AwaitingAreaSelection;
-        DrawLoadoutEditor(loadoutPanel);
-        GUI.enabled = oldEnabled;
-        y += loadoutHeight + 8f;
-
-        GUI.enabled = oldEnabled && !dropdownOpen && !service.AwaitingAreaSelection;
-        GUI.Label(new Rect(12f, y, windowRect.width - 24f, 24f), "AIRCRAFT", CommanderUiTheme.MutedLabel);
-        y += 24f;
-        float aircraftHeight = 150f;
-        Rect aircraftView = new(12f, y, windowRect.width - 24f, aircraftHeight);
-        float aircraftInnerHeight = Mathf.Max(aircraftView.height, service.Options.Count * 58f + 4f);
-        aircraftScroll = GUI.BeginScrollView(aircraftView, aircraftScroll, new Rect(0f, 0f, aircraftView.width - 18f, aircraftInnerHeight));
         for (int i = 0; i < service.Options.Count; i++)
         {
             CommanderAirCommandService.AirMissionOption option = service.Options[i];
-            if (GUI.Button(new Rect(2f, 2f + i * 58f, aircraftView.width - 24f, 52f),
-                service.GetOptionLabel(option),
-                i == service.SelectedOptionIndex ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+            Rect card = new(2f, 2f + i * (cardHeight + 6f), viewRect.width - 22f, cardHeight);
+            bool isSelected = (i == service.SelectedOptionIndex);
+
+            GUI.Box(card, string.Empty, isSelected ? CommanderUiTheme.Panel : CommanderUiTheme.Panel);
+
+            // Plane Icon & Name
+            GUI.Label(new Rect(card.x + 10f, card.y + 6f, card.width - 130f, 22f), $"✈️ {option.Definition.unitName}", CommanderUiTheme.Header);
+
+            // Loadout Summary
+            string loadoutSummary = string.IsNullOrEmpty(option.LoadoutName) ? "Default Combat Loadout" : option.LoadoutName;
+            GUI.Label(new Rect(card.x + 10f, card.y + 30f, card.width - 130f, 20f), loadoutSummary, CommanderUiTheme.MutedLabel);
+
+            // Price / Reserve Status
+            FactionHQ? hq = CommanderGameAccess.GetLocalHq();
+            int reserve = hq?.GetUnitSupply(option.Definition) ?? 0;
+            string costText = reserve > 0 ? $"Reserve: {reserve} Ready" : $"Cost: {UnitConverter.ValueReading(option.Definition.value)}";
+            GUI.Label(new Rect(card.x + 10f, card.y + 54f, card.width - 130f, 20f), costText, CommanderUiTheme.Label);
+
+            // Quick Deploy Button
+            bool canAfford = reserve > 0 || (hq != null && hq.factionFunds >= option.Definition.value);
+            bool old = GUI.enabled;
+            GUI.enabled = old && canAfford && !service.AwaitingAreaSelection;
+
+            Rect deployBtnRect = new(card.xMax - 115f, card.y + 14f, 105f, 56f);
+            if (GUI.Button(deployBtnRect, "DEPLOY ➔", isSelected ? CommanderUiTheme.PrimaryButton : CommanderUiTheme.SelectedButton))
             {
                 service.SelectOption(i);
-                airbaseScroll = Vector2.zero;
-                hardpointScroll = Vector2.zero;
-                openHardpointGroup = -1;
+                service.BeginAreaSelection();
             }
+            GUI.enabled = old;
         }
-        GUI.EndScrollView();
-        y += aircraftHeight + 8f;
 
-        GUI.enabled = oldEnabled && !dropdownOpen && !service.AwaitingAreaSelection;
-        GUI.Label(new Rect(12f, y, windowRect.width - 24f, 24f), "DEPARTURE AIRBASE", CommanderUiTheme.MutedLabel);
-        y += 24f;
-        float footerHeight = 112f;
-        float airbaseHeight = Mathf.Max(72f, windowRect.height - y - footerHeight);
-        Rect airbaseView = new(12f, y, windowRect.width - 24f, airbaseHeight);
-        float airbaseInnerHeight = Mathf.Max(airbaseView.height, service.Airbases.Count * 40f + 4f);
-        airbaseScroll = GUI.BeginScrollView(airbaseView, airbaseScroll, new Rect(0f, 0f, airbaseView.width - 18f, airbaseInnerHeight));
-        for (int i = 0; i < service.Airbases.Count; i++)
+        if (service.Options.Count == 0)
         {
-            CommanderAirCommandService.AirbaseOption airbase = service.Airbases[i];
-            if (GUI.Button(new Rect(2f, 2f + i * 40f, airbaseView.width - 24f, 34f),
-                service.GetAirbaseLabel(airbase),
-                i == service.SelectedAirbaseIndex ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+            GUI.Label(new Rect(20f, 30f, viewRect.width - 40f, 40f), "No compatible combat aircraft available for this mission mode.", CommanderUiTheme.MutedLabel);
+        }
+
+        GUI.EndScrollView();
+        y += listViewHeight + 8f;
+
+        // 4. Status Bar & Cancel Button
+        if (service.AwaitingAreaSelection)
+        {
+            if (GUI.Button(new Rect(12f, y, windowRect.width - 24f, 38f), "CANCEL TARGET SELECTION", CommanderUiTheme.DangerButton))
             {
-                service.SelectAirbase(i);
+                service.CancelAreaSelection();
             }
         }
-        GUI.EndScrollView();
-        y += airbaseHeight + 6f;
-
-        GUI.enabled = oldEnabled && (service.AwaitingAreaSelection || (!dropdownOpen && service.CanLaunchSelected));
-        if (GUI.Button(new Rect(12f, y, windowRect.width - 24f, 38f),
-            service.AwaitingAreaSelection ? "CANCEL AREA SELECTION" : "REQUEST MISSION",
-            service.AwaitingAreaSelection ? CommanderUiTheme.DangerButton : CommanderUiTheme.PrimaryButton))
+        else
         {
-            if (service.AwaitingAreaSelection) service.CancelAreaSelection();
-            else service.BeginAreaSelection();
+            string status = string.IsNullOrEmpty(service.StatusText) ? "Ready for tasking. Click DEPLOY on any aircraft above." : service.StatusText;
+            GUI.Label(new Rect(12f, y, windowRect.width - 24f, 36f), status, CommanderUiTheme.MutedLabel);
         }
-        GUI.enabled = oldEnabled;
-        y += 42f;
 
-        string status = service.AwaitingAreaSelection
-            ? "Click the tactical map or 3D terrain. The game's Cancel binding cancels."
-            : service.StatusText;
-        GUI.Label(new Rect(12f, y, windowRect.width - 24f, 42f),
-            $"ACTIVE {service.ActiveMissionCount}  |  {status}", CommanderUiTheme.MutedLabel);
-        DrawLoadoutDropdown(loadoutPanel);
-        DrawAltitudeDropdown(altitudePanel);
-        if (!string.IsNullOrEmpty(hoverTooltip))
-        {
-            Vector2 mouse = Event.current.mousePosition;
-            float tooltipWidth = Mathf.Min(460f, windowRect.width - 24f);
-            const float tooltipHeight = 76f;
-            Rect tooltipRect = new(
-                Mathf.Clamp(mouse.x + 12f, 8f, windowRect.width - tooltipWidth - 8f),
-                Mathf.Clamp(mouse.y + 12f, 30f, windowRect.height - tooltipHeight - 8f),
-                tooltipWidth,
-                tooltipHeight);
-            GUI.Box(tooltipRect, string.Empty, CommanderUiTheme.Panel);
-            GUI.Label(new Rect(tooltipRect.x + 10f, tooltipRect.y + 8f, tooltipRect.width - 20f, tooltipRect.height - 16f),
-                hoverTooltip, CommanderUiTheme.Label);
-        }
         GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 44f, 28f));
     }
 
-    private void DrawLoadoutEditor(Rect panel)
+    private void DrawModeTab(CommanderAirCommandService.AirCommandMode mode, string label, float x, float y, float width)
     {
-        float half = (panel.width - 36f) * 0.5f;
-        float balanceWidth = (panel.width - 28f) * 0.5f;
-        DrawBalanceButton(CommanderAirCommandService.LoadoutBalance.Primary, "PRIMARY FIRST", panel.x + 12f, panel.y + 8f, balanceWidth);
-        DrawBalanceButton(CommanderAirCommandService.LoadoutBalance.Mixed, "MIX 75 / 25", panel.x + 16f + balanceWidth, panel.y + 8f, balanceWidth);
-        GUI.Label(new Rect(panel.x + 12f, panel.y + 44f, half, 22f), "PRIMARY WEAPON  [REQUIRED]", CommanderUiTheme.Header);
-        GUI.Label(new Rect(panel.x + 24f + half, panel.y + 44f, half, 22f), "SECONDARY WEAPON  [OPTIONAL]", CommanderUiTheme.Header);
-        bool popupOpen = openHardpointGroup >= 0 || altitudeDropdownOpen;
-        bool oldEnabled = GUI.enabled;
-        GUI.enabled = oldEnabled && !popupOpen;
-        string primary = service.SelectedPrimaryWeapon == null
-            ? "SELECT PRIMARY   v"
-            : service.GetMissionWeaponLabel(service.SelectedPrimaryWeapon) + "   v";
-        if (GUI.Button(new Rect(panel.x + 12f, panel.y + 70f, half, 58f), primary,
-            service.SelectedPrimaryWeapon == null ? CommanderUiTheme.DangerButton : CommanderUiTheme.SelectedButton))
-        {
-            openHardpointGroup = 0;
-            loadoutDropdownScroll = Vector2.zero;
-        }
-        string secondary = service.SelectedSecondaryWeapon == null
-            ? "NONE   v"
-            : service.GetMissionWeaponLabel(service.SelectedSecondaryWeapon) + "   v";
-        if (GUI.Button(new Rect(panel.x + 24f + half, panel.y + 70f, half, 58f), secondary,
-            service.SelectedSecondaryWeapon == null ? CommanderUiTheme.Button : CommanderUiTheme.SelectedButton))
-        {
-            openHardpointGroup = 1;
-            loadoutDropdownScroll = Vector2.zero;
-        }
-        GUI.enabled = oldEnabled;
-        GUI.Label(new Rect(panel.x + 12f, panel.y + 136f, panel.width - 24f, 28f),
-            "Balance controls automatic station allocation. Mirrored hardpoints and bay conflicts are applied automatically.", CommanderUiTheme.MutedLabel);
-        Rect cannonToggle = new(panel.x + 12f, panel.y + 168f, panel.width - 24f, 30f);
-        service.IncludeInternalCannons = GUI.Toggle(
-            cannonToggle,
-            service.IncludeInternalCannons,
-            "INTERNAL CANNONS",
-            CommanderUiTheme.Toggle);
-        if (cannonToggle.Contains(Event.current.mousePosition))
-        {
-            hoverTooltip = "Equips built-in cannons when available. Aircraft may not automatically RTB after missiles and bombs are depleted while cannon ammunition remains.";
-        }
-    }
-
-    private void DrawBalanceButton(CommanderAirCommandService.LoadoutBalance balance, string label, float x, float y, float width)
-    {
-        bool oldEnabled = GUI.enabled;
-        GUI.enabled = oldEnabled && openHardpointGroup < 0 && !altitudeDropdownOpen;
-        if (GUI.Button(new Rect(x, y, width - 4f, 28f), label,
-            service.SelectedLoadoutBalance == balance ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
-        {
-            service.SelectLoadoutBalance(balance);
-        }
-        GUI.enabled = oldEnabled;
-    }
-
-    private void DrawAltitudeDropdown(Rect altitudePanel)
-    {
-        if (!altitudeDropdownOpen || altitudePanel.width <= 0f)
-        {
-            return;
-        }
-
-        float[] altitudes = { 0f, 250f, 500f, 1000f, 1500f, 2000f };
-        Rect popup = new(altitudePanel.x + 200f, altitudePanel.y + 36f, 180f, altitudes.Length * 34f + 8f);
-        GUI.Box(popup, string.Empty, CommanderUiTheme.Window);
-        for (int i = 0; i < altitudes.Length; i++)
-        {
-            string label = altitudes[i] <= 0f ? "STANDARD" : $"{altitudes[i]:0} m";
-            if (GUI.Button(new Rect(popup.x + 4f, popup.y + 4f + i * 34f, popup.width - 8f, 30f), label,
-                Mathf.Approximately(service.SelectedTargetAltitude, altitudes[i]) ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
-            {
-                service.SetTargetAltitude(altitudes[i]);
-                altitudeDropdownOpen = false;
-            }
-        }
-    }
-
-    private void DrawLoadoutDropdown(Rect loadoutPanel)
-    {
-        if (openHardpointGroup < 0 || openHardpointGroup > 1)
-        {
-            return;
-        }
-
-        bool secondary = openHardpointGroup == 1;
-        Rect popup = new(loadoutPanel.x + 50f, loadoutPanel.y + 12f, loadoutPanel.width - 100f, 360f);
-        GUI.Box(popup, string.Empty, CommanderUiTheme.Window);
-        GUI.Label(new Rect(popup.x + 12f, popup.y + 8f, popup.width - 52f, 24f),
-            secondary ? "SELECT SECONDARY WEAPON" : "SELECT PRIMARY WEAPON", CommanderUiTheme.Header);
-        if (GUI.Button(new Rect(popup.xMax - 34f, popup.y + 7f, 24f, 24f), "X", CommanderUiTheme.DangerButton))
-        {
-            openHardpointGroup = -1;
-            return;
-        }
-
-        Rect view = new(popup.x + 10f, popup.y + 38f, popup.width - 20f, popup.height - 48f);
-        int extraRows = secondary ? 1 : 0;
-        Rect inner = new(0f, 0f, view.width - 20f,
-            Mathf.Max(view.height, (service.WeaponOptions.Count + extraRows + 2) * 38f + 4f));
-        loadoutDropdownScroll = GUI.BeginScrollView(view, loadoutDropdownScroll, inner);
-        float y = 2f;
-        if (secondary && GUI.Button(new Rect(4f, y, inner.width - 8f, 34f), "NONE", CommanderUiTheme.DangerButton))
-        {
-            service.SelectSecondaryWeapon(-1);
-            openHardpointGroup = -1;
-            altitudeDropdownOpen = false;
-        }
-        if (secondary) y += 38f;
-        bool separatorDrawn = false;
-        for (int i = 0; i < service.WeaponOptions.Count; i++)
-        {
-            WeaponMount mount = service.WeaponOptions[i];
-            if (!separatorDrawn && !service.IsWeaponSuitable(mount))
-            {
-                GUI.Label(new Rect(4f, y, inner.width - 8f, 30f), "-- OTHER --", CommanderUiTheme.MutedLabel);
-                y += 32f;
-                separatorDrawn = true;
-            }
-            if (GUI.Button(new Rect(4f, y, inner.width - 8f, 34f),
-                service.GetMissionWeaponLabel(mount), CommanderUiTheme.Button))
-            {
-                if (secondary) service.SelectSecondaryWeapon(i);
-                else service.SelectPrimaryWeapon(i);
-                openHardpointGroup = -1;
-            }
-            y += 38f;
-        }
-        GUI.EndScrollView();
-    }
-
-    private void DrawModeButton(
-        CommanderAirCommandService.AirCommandMode mode,
-        string label,
-        float x,
-        float y,
-        float width,
-        string description)
-    {
-        Rect rect = new(x, y, width - 4f, 36f);
-        if (GUI.Button(rect, label,
-            service.SelectedMode == mode ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        bool isSelected = service.SelectedMode == mode;
+        if (GUI.Button(new Rect(x, y, width - 4f, 34f), label, isSelected ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             service.SelectMode(mode);
             aircraftScroll = Vector2.zero;
-            hardpointScroll = Vector2.zero;
-            airbaseScroll = Vector2.zero;
-            openHardpointGroup = -1;
-            altitudeDropdownOpen = false;
-        }
-        if (rect.Contains(Event.current.mousePosition))
-        {
-            hoverTooltip = description;
         }
     }
 
     private void DrawMissionWindow(int windowId)
     {
-        float y = 36f;
-        Aircraft? selectedAircraft = null;
-        for (int i = 0; i < missionAircraft.Count; i++)
+        if (GUI.Button(new Rect(missionWindowRect.width - 34f, 3f, 26f, 22f), "X", CommanderUiTheme.Button))
         {
-            if (service.IsMissionAircraftSelected(missionAircraft[i]))
-            {
-                selectedAircraft = missionAircraft[i];
-                break;
-            }
+            missionWindowVisible = false;
+            return;
         }
-        float footerHeight = selectedAircraft != null ? 88f : 0f;
-        Rect view = new(10f, y, missionWindowRect.width - 20f, missionWindowRect.height - y - 12f - footerHeight);
-        Rect inner = new(0f, 0f, view.width - 18f, Mathf.Max(view.height, missionAircraft.Count * 58f + 4f));
-        missionScroll = GUI.BeginScrollView(view, missionScroll, inner);
-        bool oldEnabled = GUI.enabled;
-        for (int i = 0; i < missionAircraft.Count; i++)
-        {
-            Aircraft aircraft = missionAircraft[i];
-            float rowY = 2f + i * 58f;
-            if (GUI.Button(new Rect(2f, rowY, inner.width - 120f, 52f),
-                service.GetMissionAircraftLabel(aircraft),
-                service.IsMissionAircraftSelected(aircraft) ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
-            {
-                service.ToggleMissionAircraft(aircraft);
-            }
-            GUI.enabled = oldEnabled && !service.AwaitingAreaSelection;
-            if (GUI.Button(new Rect(inner.width - 114f, rowY, 54f, 52f), "AREA", CommanderUiTheme.Button))
-            {
-                service.BeginMissionAreaEdit(aircraft);
-            }
-            if (GUI.Button(new Rect(inner.width - 56f, rowY, 54f, 52f), "RTB", CommanderUiTheme.DangerButton))
-            {
-                service.RequestReturnToBase(aircraft);
-            }
-            GUI.enabled = oldEnabled;
-        }
-        GUI.EndScrollView();
 
-        if (selectedAircraft != null)
+        if (missionAircraft.Count == 0)
         {
-            float footerY = view.yMax + 6f;
-            GUI.Box(new Rect(10f, footerY, missionWindowRect.width - 20f, 78f), string.Empty, CommanderUiTheme.Panel);
-            GUI.Label(new Rect(20f, footerY + 7f, 104f, 24f), "AREA RADIUS", CommanderUiTheme.MutedLabel);
-            GUI.enabled = oldEnabled && !service.AwaitingAreaSelection;
-            if (GUI.Button(new Rect(126f, footerY + 5f, 32f, 28f), "-", CommanderUiTheme.Button))
-            {
-                service.StepMissionRadius(selectedAircraft, -5f);
-            }
-            GUI.Label(new Rect(164f, footerY + 8f, 74f, 24f),
-                $"{service.GetMissionRadiusKm(selectedAircraft):0} km",
-                CommanderUiTheme.Header);
-            if (GUI.Button(new Rect(240f, footerY + 5f, 32f, 28f), "+", CommanderUiTheme.Button))
-            {
-                service.StepMissionRadius(selectedAircraft, 5f);
-            }
-            if (GUI.Button(
-                new Rect(20f, footerY + 39f, missionWindowRect.width - 40f, 32f),
-                "MOVE AREA CENTER",
-                CommanderUiTheme.PrimaryButton))
-            {
-                service.BeginMissionAreaEdit(selectedAircraft);
-            }
-            GUI.enabled = oldEnabled;
+            GUI.Label(new Rect(16f, 40f, missionWindowRect.width - 32f, 30f), "No active air missions.", CommanderUiTheme.MutedLabel);
+            GUI.DragWindow(new Rect(0f, 0f, missionWindowRect.width - 44f, 28f));
+            return;
         }
-        GUI.DragWindow(new Rect(0f, 0f, missionWindowRect.width, 28f));
+
+        Rect view = new(10f, 36f, missionWindowRect.width - 20f, missionWindowRect.height - 48f);
+        float innerH = Mathf.Max(view.height, missionAircraft.Count * 62f + 6f);
+        missionScroll = GUI.BeginScrollView(view, missionScroll, new Rect(0f, 0f, view.width - 18f, innerH));
+
+        for (int i = 0; i < missionAircraft.Count; i++)
+        {
+            Aircraft ac = missionAircraft[i];
+            if (ac == null || ac.disabled) continue;
+
+            Rect item = new(2f, 2f + i * 62f, view.width - 22f, 56f);
+            GUI.Box(item, string.Empty, CommanderUiTheme.Panel);
+
+            GUI.Label(new Rect(item.x + 8f, item.y + 6f, item.width - 80f, 20f), ac.unitName, CommanderUiTheme.Header);
+            GUI.Label(new Rect(item.x + 8f, item.y + 28f, item.width - 80f, 18f), $"Speed: {ac.speed:F0} m/s | Alt: {ac.radarAlt:F0} m", CommanderUiTheme.MutedLabel);
+
+            if (GUI.Button(new Rect(item.xMax - 68f, item.y + 10f, 60f, 36f), "RTB", CommanderUiTheme.DangerButton))
+            {
+                service.RequestReturnToBase(ac);
+            }
+        }
+
+        GUI.EndScrollView();
+        GUI.DragWindow(new Rect(0f, 0f, missionWindowRect.width - 44f, 28f));
     }
 }

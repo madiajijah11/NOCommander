@@ -664,20 +664,35 @@ internal sealed class CommanderOverlayUi
         float halfBtn = (panelRect.width - 30f) * 0.5f;
         if (GUI.Button(new Rect(12f, y, halfBtn, 32f), "✈️ AIR CAP", CommanderUiTheme.PrimaryButton))
         {
-            airCommandService.QuickCallInMission(CommanderAirCommandService.AirCommandMode.AirGuard);
+            if (!airCommandService.QuickCallInMission(CommanderAirCommandService.AirCommandMode.AirGuard))
+            {
+                panelVisible = false;
+                airCommandUi.Show();
+            }
         }
         if (GUI.Button(new Rect(18f + halfBtn, y, halfBtn, 32f), "💣 STRIKE / CAS", CommanderUiTheme.PrimaryButton))
         {
-            airCommandService.QuickCallInMission(CommanderAirCommandService.AirCommandMode.Cas);
+            if (!airCommandService.QuickCallInMission(CommanderAirCommandService.AirCommandMode.Cas))
+            {
+                panelVisible = false;
+                airCommandUi.Show();
+            }
         }
         y += 36f;
         if (GUI.Button(new Rect(12f, y, halfBtn, 32f), "📡 SEAD ARAD", CommanderUiTheme.PrimaryButton))
         {
-            airCommandService.QuickCallInMission(CommanderAirCommandService.AirCommandMode.Arad);
+            if (!airCommandService.QuickCallInMission(CommanderAirCommandService.AirCommandMode.Arad))
+            {
+                panelVisible = false;
+                airCommandUi.Show();
+            }
         }
         if (GUI.Button(new Rect(18f + halfBtn, y, halfBtn, 32f), "🚁 CARGO DROP", CommanderUiTheme.PrimaryButton))
         {
-            supplyHeliService.QuickCallInCargoAirdrop();
+            if (!supplyHeliService.QuickCallInCargoAirdrop())
+            {
+                supplyHeliUi.Show();
+            }
         }
         y += 36f;
         if (GUI.Button(new Rect(12f, y, halfBtn, 30f), "⚓ NAVAL FLEET", navalPurchaseUi.Visible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
