@@ -1,34 +1,34 @@
-# 03. Senjata, Sensor Radar, & Peperangan Elektronik
+# 03. Weapons, Radar Sensors, & Electronic Warfare
 
-Dokumentasi sistem sensor, turet tempur, dan rudal di *Nuclear Option*.
-
----
-
-## 1. Sistem Sensor Radar (`Radar`)
-
-### Properti & Method Utama:
-* `bool activated`: Status emisi radar aktif/nonaktif.
-* `float range`: Jangkauan pancaran gelombang radar dalam meter.
-* `List<Unit> detectedTargets`: Daftar kontak target yang sedang terkunci dalam kerucut radar.
-* `bool IsOperational()`: Memeriksa apakah antena/sistem radar tidak rusak.
-* `void ResetRotators()`: Mengembalikan antena putar radar ke posisi netral saat dimatikan.
+Technical documentation covering weapon mounts, radar emission sensors, fire control, and electronic countermeasures in *Nuclear Option*.
 
 ---
 
-## 2. Sistem Kontrol Turet (`Turret` & `FireControl`)
+## 1. Radar Sensor Systems (`Radar`)
 
-### Mode Akuisisi Target (`targetAcquisitionMode`):
-* `"searchForRadar"`: Mode pelacak radar pasif (khusus baterai SAM dan rudal ARAD).
-* `"automatic"`: Menyerang semua target musuh yang masuk jangkauan tembak.
-* `"manual"`: Turet menunggu instruksi tembak langsung.
-
-### Penanganan Stance / Hold Fire di NOCommander:
-* `CommanderStanceService` mematikan `turret.enabled = false` dan `fireControl.enabled = false` pada unit yang diatur dalam status **HOLD FIRE** agar tidak membocorkan posisi ke musuh sebelum waktunya.
+### Key Properties & Methods:
+* `bool activated`: Active radio frequency emission state.
+* `float range`: Sensor detection range in meters.
+* `List<Unit> detectedTargets`: List of targets currently tracked within the radar scan volume.
+* `bool IsOperational()`: Verifies the radar antenna and transceiver are undamaged.
+* `void ResetRotators()`: Resets rotating radar dishes to zero orientation when powered down.
 
 ---
 
-## 3. Model Kerusakan (`DamageInfo`)
+## 2. Turret & Fire Control Systems (`Turret` & `FireControl`)
 
-* `float hitpoints`: Kerusakan langsung pada komponen / modul fungsional.
-* `float structuralHitpoints`: Kerusakan pada integritas rangka fisik utama.
-* `float armorDamage`: Tingkat penetrasi peluru terhadap lempeng baja/ERA.
+### Target Acquisition Modes (`targetAcquisitionMode`):
+* `"searchForRadar"`: Passive radar seeker mode (used by SAM batteries and ARAD seekers).
+* `"automatic"`: Automatically engages any hostile target entering weapon range.
+* `"manual"`: Turret awaits direct firing solutions from player/external controller.
+
+### Rules of Engagement & Stance in NOCommander:
+* `CommanderStanceService` disables weapon firing by toggling `turret.enabled = false` and `fireControl.enabled = false` when set to **HOLD FIRE**, preventing premature position exposure to hostile sensors.
+
+---
+
+## 3. Damage Modeling (`DamageInfo`)
+
+* `float hitpoints`: Direct damage dealt to component modules and subsystems.
+* `float structuralHitpoints`: Structural chassis integrity damage.
+* `float armorDamage`: Kinetic/explosive penetration applied against armored plating.

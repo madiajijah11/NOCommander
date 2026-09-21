@@ -1,10 +1,10 @@
-# 01. Entitas & Hirarki Unit Base Game
+# 01. Base Game Entities & Unit Class Hierarchy
 
-Dokumentasi kelas dasar entitas tempur di *Nuclear Option* (`Assembly-CSharp.dll`).
+Technical documentation for combat entities and data structures in *Nuclear Option* (`Assembly-CSharp.dll`).
 
 ---
 
-## 1. Hirarki Pewarisan Kelas Unit
+## 1. Unit Class Inheritance Hierarchy
 
 ```
 UnityEngine.MonoBehaviour
@@ -19,43 +19,43 @@ UnityEngine.MonoBehaviour
 
 ---
 
-## 2. Kelas Inti `Unit`
+## 2. Core `Unit` Class
 
-### Properti & Variabel Utama:
-* `string unitName`: Nama unit / panggilan taktis (misal: "Revoker", "T-98 Brawler").
-* `UnitDefinition definition`: Definisi asset unit (prefab, ikon, harga, deskripsi).
-* `FactionHQ NetworkHQ` / `CurrentHQ`: Faction pemilik unit (Mirage SyncVar).
-* `PersistentID persistentID`: ID unik lintas jaringan & database tracking HQ.
-* `bool disabled`: `true` jika unit telah hancur / lumpuh permanen.
-* `Rigidbody rb`: Komponen fisika utama unit.
-* `List<WeaponStation> weaponStations`: Daftar stasiun senjata aktif pada unit.
-* `UnitCommand UnitCommand`: Handler perintah tujuan (`SetDestination(GlobalPosition, bool fromPlayer)`).
+### Key Properties & Fields:
+* `string unitName`: Tactical unit display name (e.g. "Revoker", "T-98 Brawler").
+* `UnitDefinition definition`: Base asset definition (prefab, icon, cost, descriptions).
+* `FactionHQ NetworkHQ` / `CurrentHQ`: Controlling faction headquarters (Mirage SyncVar).
+* `PersistentID persistentID`: Unique identifier across network state and HQ tracking databases.
+* `bool disabled`: `true` when the unit is destroyed, derelict, or non-functional.
+* `Rigidbody rb`: Primary physics component.
+* `List<WeaponStation> weaponStations`: List of active weapon stations on the chassis.
+* `UnitCommand UnitCommand`: Command interface for waypoints (`SetDestination(GlobalPosition, bool fromPlayer)`).
 
-### Method Penting:
-* `Damage(int partIndex, DamageInfo damageInfo)`: Menerapkan kerusakan fisika/komponen.
-* `SetHoldPosition(bool hold)`: Memerintahkan AI unit untuk mengerem & menahan posisi.
-* `GlobalPosition GlobalPosition()`: Mengembalikan koordinat presisi global dunia game.
+### Key Methods:
+* `Damage(int partIndex, DamageInfo damageInfo)`: Applies structural/component damage.
+* `SetHoldPosition(bool hold)`: Signals unit AI to halt, apply brakes, and hold current position.
+* `GlobalPosition GlobalPosition()`: Returns double-precision world position coordinates.
 
 ---
 
-## 3. Spesialisasi Kelas Tempur
+## 3. Combat Class Specializations
 
 ### A. `Aircraft`
-* `AutopilotPlane autopilot`: Sistem kendali terbang otomatis sayap tetap.
-* `Radar radar`: Sensor radar hidung / kubah pencari target udara.
-* `PilotBaseState pilotState`: Mesin status AI pilot (`AIPilotCombatModes`).
-* `bool IsOperational()`: Status kelaikan terbang mesin & kontrol aerodinamika.
+* `AutopilotPlane autopilot`: Fixed-wing flight control and stability system.
+* `Radar radar`: Nose/rotodome radar sensor for aerial target acquisition.
+* `PilotBaseState pilotState`: Pilot state machine (`AIPilotCombatModes`).
+* `bool IsOperational()`: Returns true if engine, control surfaces, and cockpit remain functional.
 
 ### B. `GroundVehicle`
-* `PathfindingAgent pathfinder`: Agen pencari jalur di atas peta dan jalan raya.
-* `void SetHoldPosition(bool hold)`: Mengaktifkan handbrake & menghentikan input gas.
-* `ParachuteSystem parachuteSystem`: Sistem parasut saat diturunkan dari udara (*airdrop*).
+* `PathfindingAgent pathfinder`: Real-time pathfinding over terrain and road networks.
+* `void SetHoldPosition(bool hold)`: Engages vehicle handbrake and suppresses throttle input.
+* `ParachuteSystem parachuteSystem`: Parachute deployment system for aerial cargo drops.
 
 ### C. `Ship`
-* `UnitCommand UnitCommand`: Mengendalikan navigasi di jalur laut (*sea lanes*).
-* Memiliki turet otomatis berat (`Turret`) dan sistem pertahanan rudal (`CIWS`).
+* `UnitCommand UnitCommand`: Navigates along sea lanes (`RoadNetwork seaLanes`).
+* Equipped with heavy autocannon turrets (`Turret`) and Point Defense (`CIWS`).
 
 ### D. `Building` & `Factory`
-* `Factory`: Bangunan industri yang memproduksi unit darat/udara secara berkala (`NetworkproductionUnit`).
-* `Airbase`: Mengelola hangar, landasan pacu, dan antrean peluncuran pesawat (`CanSpawnAircraft`).
-* `VehicleDepot`: Tempat pengadaan & deployment kendaraan darat (`TrySpawnVehicle`).
+* `Factory`: Industrial production facility producing ground/air units periodically (`NetworkproductionUnit`).
+* `Airbase`: Manages runway slots, hangars, and takeoff queues (`CanSpawnAircraft`).
+* `VehicleDepot`: Ground unit deployment and purchase depot (`TrySpawnVehicle`).

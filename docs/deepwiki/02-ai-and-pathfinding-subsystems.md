@@ -1,10 +1,10 @@
 # 02. AI, Autopilot, & Pathfinding Subsystems
 
-Dokumentasi perilaku kecerdasan buatan (*Artificial Intelligence*), navigasi, dan logistik lapangan di *Nuclear Option*.
+Technical documentation covering Artificial Intelligence, navigation agents, and logistics state machines in *Nuclear Option*.
 
 ---
 
-## 1. Arsitektur AI Pilot Pesawat
+## 1. Aircraft AI State Machine
 
 ```
 PilotBaseState (Base State Machine)
@@ -18,26 +18,26 @@ PilotBaseState (Base State Machine)
          └── Airdrop Parachute Drop Conditions
 ```
 
-### Parameter Penting `AIPilotCombatModes`:
-* `FieldInfo destination`: Koordinat target jelajah atau area patroli.
-* `FieldInfo targetHeight`: Ketinggian target penerbangan jelajah (ASL).
-* `FieldInfo timeWithoutTarget`: Timer sebelum pesawat memutuskan *Return to Base (RTB)*.
+### Critical Fields in `AIPilotCombatModes`:
+* `FieldInfo destination`: Target patrol center or waypoint coordinates.
+* `FieldInfo targetHeight`: Assigned cruise altitude above sea level (ASL).
+* `FieldInfo timeWithoutTarget`: Timer elapsed before deciding to Return to Base (RTB).
 
 ---
 
-## 2. Navigasi Darat (`PathfindingAgent` & `RoadNetwork`)
+## 2. Ground Navigation (`PathfindingAgent` & `RoadNetwork`)
 
-### Cara Kerja Pathfinding:
-1. Unit darat menggunakan `PathfindingAgent` untuk menavigasi topografi 3D.
-2. Secara default, unit darat mengutamakan `LevelInfo.i.roadNetwork` untuk menghemat konsumsi energi dan menghindari medan terjal.
-3. Mod NOCommander menginjeksi `CommanderDirectPathService.TryApplyShortcut` pada `PathfindingAgent.Pathfind` untuk memotong jalur langsung (*off-road shortcut*) saat diperintahkan pemain.
+### Pathfinding Mechanics:
+1. Ground units utilize `PathfindingAgent` to calculate routes over 3D terrain.
+2. By default, units prefer paved roads via `LevelInfo.i.roadNetwork` to maximize speed and avoid steep inclines.
+3. NOCommander intercepts via Harmony prefix `CommanderDirectPathService.TryApplyShortcut` on `PathfindingAgent.Pathfind` to allow direct cross-country (off-road) routes on player demand.
 
 ---
 
-## 3. Sistem Logistik & Reparasi Darat (`RearmVehicleAI`)
+## 3. Logistics & Resupply Subsystems (`RearmVehicleAI`)
 
-* `RearmVehicleAI`: AI khusus kendaraan logistik amunisi (*Munitions Truck*).
-* `RearmMissionController`: Mengelola antrean misi pengisian ulang amunisi unit garis depan.
-* Saat unit logistik dikembalikan ke kontrol AI:
-  * Panggil `RearmVehicleAI.DriveToRestock()` jika amunisi truk $< 50%$.
-  * Panggil `RearmVehicleAI.Wait()` jika truk sudah siap beroperasi.
+* `RearmVehicleAI`: AI logic controlling ammunition supply trucks.
+* `RearmMissionController`: Manages queue of field resupply missions for frontline combat units.
+* When returning a logistics unit to base AI:
+  * Invoke `RearmVehicleAI.DriveToRestock()` if ammo capacity $< 50%$.
+  * Invoke `RearmVehicleAI.Wait()` if the vehicle is fully restocked and idle.

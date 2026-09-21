@@ -1,25 +1,25 @@
-# 04. Logistik, Ekonomi, & Rantai Pasokan
+# 04. Logistics, Economy, & Supply Chains
 
-Dokumentasi siklus logistik, pangkalan produksi, dan perputaran dana di *Nuclear Option*.
-
----
-
-## 1. Pabrik & Pangkalan Produksi (`Factory`)
-
-* Pabrik terhubung ke `FactionHQ` dan memproduksi unit secara periodik.
-* Properti `NetworkproductionUnit`: Unit yang sedang dirakit di jalur produksi.
-* Mod NOCommander mencegat deployment otomatis via `CommanderFactionVehicleService` agar pemain/AI komandan bisa menahan unit hasil produksi ke dalam cadangan strategis (*Reserve Pool*).
+Technical documentation covering resource flows, industrial factories, depot spawning, and air logistics in *Nuclear Option*.
 
 ---
 
-## 2. Depot Kendaraan (`VehicleDepot`)
+## 1. Production Factories (`Factory`)
 
-* `bool TrySpawnVehicle(VehicleDefinition def)`: Method resmi game untuk menginstansiasi unit darat dari depot.
-* Diatur oleh sistem antrean `CommanderSpawnService` yang mendukung titik kumpul otomatis (*Rally Points*) dan formasi penempatan.
+* Connected directly to `FactionHQ`, assembling units incrementally over time.
+* Property `NetworkproductionUnit`: The unit blueprint currently in the factory build queue.
+* NOCommander intercepts automatic deployment via `CommanderFactionVehicleService` to hold units in the tactical reserve pool.
 
 ---
 
-## 3. Angkut Kargo Helikopter & Airdrop (`MountedCargo`)
+## 2. Vehicle Depots (`VehicleDepot`)
 
-* Helikopter angkut (`VL-49 Tarantula`, `UH-90 Ibis`) membawa kontainer suplai amunisi (`Container`) pada hardpoint kargo.
-* `MountedCargo.RemoveFromHardpoint()`: Melepaskan sling-load atau kontainer di zona pendaratan (*Landing Zone*) atau penerjunan udara (*Airdrop Parachute*).
+* `bool TrySpawnVehicle(VehicleDefinition def)`: Official base game method to instantiate ground vehicles from depots.
+* Governed by `CommanderSpawnService` with spawn queue management, rally points, and formation placement.
+
+---
+
+## 3. Helicopter Logistics & Airdrops (`MountedCargo`)
+
+* Heavy transport helicopters (`VL-49 Tarantula`, `UH-90 Ibis`) carry ammunition containers (`Container`) via cargo mounts.
+* `MountedCargo.RemoveFromHardpoint()`: Releases cargo at Landing Zones (LZ) or initiates parachute airdrops.

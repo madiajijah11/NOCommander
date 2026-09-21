@@ -1,30 +1,30 @@
-# 05. Harmony Patching, Refleksi, & Jaringan Mirage
+# 05. Harmony Patching, Reflection, & Mirage Networking
 
-Panduan teknis mengenai seluruh titik injeksi (*Hook Points*) dan integritas jaringan multiplayer di NOCommander.
+Technical reference covering Harmony hook points, private reflection targets, and Mirage networking rules in NOCommander.
 
 ---
 
-## 1. Daftar Patch Harmony Utama
+## 1. Active Harmony Patch Registry
 
-| Target Kelas | Target Method | Jenis Patch | Fungsi di NOCommander |
+| Target Class | Target Method | Patch Type | Purpose in NOCommander |
 | :--- | :--- | :--- | :--- |
-| `Unit` | `Damage` | Postfix | Mendeteksi unit friendly yang terkena serangan (*Alert / Incident Jump*) |
-| `PathfindingAgent` | `Pathfind` | Prefix | Menerapkan jalan pintas langsung (*Direct Off-road Routing*) |
-| `VehicleDepot` | `TrySpawnVehicle` | Prefix | Filter deployment cadangan faksi (*Faction Reserve System*) |
-| `FactionHQ` | `DeployVehicles` | Prefix/Postfix | Sinkronisasi status deployment kendaraan otomatis |
-| `Repairer` | `SearchForRepair` | Prefix | Mengarahkan Jackknife ke unit terdekat (*Nearest Damaged Triage*) |
+| `Unit` | `Damage` | Postfix | Detects friendly unit damage for incident alerts (`Space` jump) |
+| `PathfindingAgent` | `Pathfind` | Prefix | Enables direct off-road navigation shortcuts |
+| `VehicleDepot` | `TrySpawnVehicle` | Prefix | Intercepts deployment for Faction Reserve management |
+| `FactionHQ` | `DeployVehicles` | Prefix/Postfix | Synchronizes automated deployment state |
+| `Repairer` | `SearchForRepair` | Prefix | Directs Jackknife engineers to nearest damaged friendly units |
 
 ---
 
-## 2. Akses Refleksi Private (`AccessTools`)
+## 2. Private Reflection Patterns (`AccessTools`)
 
-Untuk menjaga stabilitas saat game update, semua refleksi dibungkus dengan pengecekan `null`:
+All private field/method accesses must include null-checks to prevent runtime exceptions across game updates:
 
 ```csharp
-// Contoh standar pemanggilan refleksi aman:
+// Standard safe reflection pattern:
 private static readonly FieldInfo? FireControlModeField = AccessTools.Field(typeof(FireControl), "targetAcquisitionMode");
 
-// Penggunaan aman:
+// Safe usage:
 if (FireControlModeField != null)
 {
     FireControlModeField.SetValue(instance, "searchForRadar");
@@ -33,14 +33,14 @@ if (FireControlModeField != null)
 
 ---
 
-## 3. Otoritas Mirage Networking (Host vs Client)
+## 3. Mirage Networking Authority (Host vs Client)
 
-Pada sesi Multiplayer, pemanggilan `Spawner` atau modifikasi entitas jaringan hanya diizinkan di sisi server:
+In multiplayer sessions, spawning vehicles, ships, or modifying network-synchronized entities requires server authority:
 
 ```csharp
 if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active)
 {
-    SetStatus("Perintah ini hanya dapat dijalankan oleh Host di mode Multiplayer.");
+    SetStatus("This action is only available to the host in multiplayer.");
     return;
 }
 ```
