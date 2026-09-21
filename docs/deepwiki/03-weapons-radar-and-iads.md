@@ -29,6 +29,20 @@ Technical documentation covering weapon mounts, radar emission sensors, fire con
 
 ## 3. Damage Modeling (`DamageInfo`)
 
-* `float hitpoints`: Direct damage dealt to component modules and subsystems.
-* `float structuralHitpoints`: Structural chassis integrity damage.
-* `float armorDamage`: Kinetic/explosive penetration applied against armored plating.
+**Constructor:** `new DamageInfo(float pierce, float blast, float structural, float fire)`
+
+* `DamageValue pierceDamage`: Kinetic penetration damage (armor piercing, railgun slugs).
+* `DamageValue blastDamage`: Explosive blast damage (bombs, HE warheads).
+* `DamageValue structuralDamage`: Structural integrity damage (hull / chassis).
+* `DamageValue fireDamage`: Incendiary / burn damage.
+* `DamageValue impactDamage`: Physical impact force damage.
+* Each `DamageValue` exposes a `.Value` float property.
+
+**Zero-damage guard pattern:**
+```csharp
+if (info.pierceDamage.Value == 0 && info.blastDamage.Value == 0
+    && info.fireDamage.Value == 0 && info.impactDamage.Value == 0)
+{
+    return; // cosmetic / zero-damage hit, skip
+}
+```

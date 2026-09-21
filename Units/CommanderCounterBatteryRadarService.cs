@@ -73,9 +73,16 @@ internal sealed class CommanderCounterBatteryRadarService
         float now = Time.unscaledTime;
         for (int i = activePings.Count - 1; i >= 0; i--)
         {
-            if (now >= activePings[i].ExpiryTime)
+            CounterBatteryPing ping = activePings[i];
+            if (now >= ping.ExpiryTime || ping.SourceUnit == null)
             {
                 activePings.RemoveAt(i);
+                continue;
+            }
+            // Clear stale ref if unit was destroyed between pings
+            if (ping.SourceUnit.disabled)
+            {
+                ping.SourceUnit = null;
             }
         }
     }

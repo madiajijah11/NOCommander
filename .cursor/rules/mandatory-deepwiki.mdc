@@ -101,7 +101,7 @@ NOCommander/
 | `Shift + Mouse0` | Additive unit selection | `CommanderSelectionService` |
 | `Ctrl + 0..9` | Assign selection to Control Group | `CommanderControlGroupsService` |
 | `0..9` | Select Control Group (double-tap to focus) | `CommanderControlGroupsService` |
-| `F2` | Select all friendly combat army | `CommanderControlGroupsService` |
+| `` ` `` (BackQuote) | Select all friendly combat army | `CommanderControlGroupsService` |
 | `F` | Toggle Hold Fire / Free Fire (Stance) | `CommanderStanceService` |
 | `Space` | Center selection / Jump to under-attack alert | `CommanderCameraFollowService` / `CommanderAlertService` |
 | `H` | Cycle UI visibility (Full / Minimal / Hidden) | `CommanderOverlayUi` |
