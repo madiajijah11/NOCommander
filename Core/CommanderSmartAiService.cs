@@ -156,7 +156,21 @@ internal sealed class CommanderSmartAiService
                         ? def.aircraftParameters.GetRandomLiveryForFaction(localHq.faction)
                         : 0;
 
+                    // Equip the official standard combat loadout instead of spawning empty
                     Loadout loadout = new();
+                    if (def.aircraftParameters?.StandardLoadouts != null && def.aircraftParameters.StandardLoadouts.Length > 0)
+                    {
+                        for (int p = 0; p < def.aircraftParameters.StandardLoadouts.Length; p++)
+                        {
+                            StandardLoadout std = def.aircraftParameters.StandardLoadouts[p];
+                            if (std != null && !std.disabled && std.loadout != null && std.loadout.weapons != null && std.loadout.weapons.Count > 0)
+                            {
+                                loadout = std.loadout;
+                                break;
+                            }
+                        }
+                    }
+
                     float fuel = def.aircraftParameters != null ? def.aircraftParameters.DefaultFuelLevel : 1f;
 
                     Airbase.TrySpawnResult result = airbase.TrySpawnAircraft(
@@ -169,7 +183,7 @@ internal sealed class CommanderSmartAiService
                     if (result.Allowed)
                     {
                         localHq.ModifyUnitSupply(def, -1);
-                        CommanderPlugin.Log.LogInfo($"[Autonomous Commander] Auto-deployed reserve aircraft: {def.unitName} from airbase.");
+                        CommanderPlugin.Log.LogInfo($"[Autonomous Commander] Auto-deployed armed reserve aircraft: {def.unitName} with combat loadout.");
                         break;
                     }
                 }
@@ -441,7 +455,7 @@ internal sealed class CommanderSmartAiService
                     else if (unit is GroundVehicle gv && gv.definition is VehicleDefinition def)
                     {
                         string cat = CommanderGameAccess.GetVehicleCategoryLabel(def);
-                        if (string.Equals(cat, "Tank", StringComparison.OrdinalIgnoreCase) || string.Equals(cat, "Armor", StringComparison.OrdinalIgnoreCase))
+                        if (cat.IndexOf("MBT", StringComparison.OrdinalIgnoreCase) >= 0 || cat.IndexOf("Tank", StringComparison.OrdinalIgnoreCase) >= 0 || cat.IndexOf("AFV", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
                             friendlyArmorCount++;
                         }
@@ -450,7 +464,7 @@ internal sealed class CommanderSmartAiService
             }
         }
 
-        string targetCategory = friendlyAircraftCount >= 3 ? "AAA" : "Tank";
+        bool needAirDefense = friendlyAircraftCount >= 2;
         IReadOnlyList<VehicleDefinition> allDefs = factionSvc.LandDefinitions;
         VehicleDefinition? bestCounterDef = null;
 
@@ -458,11 +472,27 @@ internal sealed class CommanderSmartAiService
         {
             VehicleDefinition def = allDefs[i];
             string cat = CommanderGameAccess.GetVehicleCategoryLabel(def);
-            if (string.Equals(cat, targetCategory, StringComparison.OrdinalIgnoreCase))
+            if (needAirDefense)
             {
-                bestCounterDef = def;
-                break;
+                if (cat.IndexOf("AAA", StringComparison.OrdinalIgnoreCase) >= 0 || cat.IndexOf("SAM", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    bestCounterDef = def;
+                    break;
+                }
             }
+            else
+            {
+                if (cat.IndexOf("MBT", StringComparison.OrdinalIgnoreCase) >= 0 || cat.IndexOf("Tank", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    bestCounterDef = def;
+                    break;
+                }
+            }
+        }
+
+        if (bestCounterDef == null && allDefs.Count > 0)
+        {
+            bestCounterDef = allDefs[0];
         }
 
         if (bestCounterDef == null)
@@ -473,7 +503,7 @@ internal sealed class CommanderSmartAiService
         for (int i = 0; i < enemyFactories.Count; i++)
         {
             Factory factory = enemyFactories[i];
-            if (factory != null && !factory.attachedUnit.disabled && factory.ProductionUnit != bestCounterDef)
+            if (factory != null && factory.attachedUnit != null && !factory.attachedUnit.disabled && factory.ProductionUnit != bestCounterDef)
             {
                 try
                 {
@@ -515,6 +545,11 @@ internal sealed class CommanderSmartAiService
         escapeDir.Normalize();
 
         Vector3 escapePos = unitPos + escapeDir * UnityEngine.Random.Range(40f, 75f);
+        if (escapePos.y < Datum.LocalSeaY + 1f)
+        {
+            escapePos.y = Datum.LocalSeaY + 1f;
+        }
+
         GlobalPosition targetGlobal = escapePos.ToGlobalPosition();
 
         UnitCommand? command = CommanderGameAccess.GetUnitCommand(targetUnit);

@@ -73,8 +73,16 @@ internal sealed class CommanderCheatService
         {
             return EntityCategory.Naval;
         }
+        if (def is MissileDefinition)
+        {
+            return EntityCategory.Ordnance;
+        }
 
         // 2. Check components on prefab (both root & children)
+        if (def.unitPrefab.GetComponentInChildren<Missile>(true) != null)
+        {
+            return EntityCategory.Ordnance;
+        }
         if (def.unitPrefab.GetComponentInChildren<Aircraft>(true) != null)
         {
             return EntityCategory.Air;
@@ -88,13 +96,17 @@ internal sealed class CommanderCheatService
             return EntityCategory.Land;
         }
 
-        // 3. Name-based heuristics for edge cases
-        string name = !string.IsNullOrEmpty(def.unitName) ? def.unitName.ToLowerInvariant() : string.Empty;
+        // 3. Name & Prefab based heuristics
+        string name = (!string.IsNullOrEmpty(def.unitName) ? def.unitName : def.name).ToLowerInvariant();
         string prefabName = def.unitPrefab.name != null ? def.unitPrefab.name.ToLowerInvariant() : string.Empty;
 
-        // Check for Artillery Shells & Guided Munitions first
-        if (name.Contains("shell") || name.Contains("munition") || name.Contains("projectile")
-            || prefabName.Contains("shell") || prefabName.Contains("munition") || prefabName.Contains("projectile"))
+        // Check for All Missiles, Rockets, Bombs, Shells & Munitions
+        if (name.StartsWith("agm-") || name.StartsWith("aam-") || name.StartsWith("agr-") || name.StartsWith("aim-") || name.StartsWith("gbu-") || name.StartsWith("cbu-") || name.StartsWith("sa-")
+            || prefabName.StartsWith("agm-") || prefabName.StartsWith("aam-") || prefabName.StartsWith("agr-") || prefabName.StartsWith("aim-") || prefabName.StartsWith("gbu-") || prefabName.StartsWith("cbu-")
+            || name.Contains("missile") || name.Contains("rocket") || name.Contains("bomb") || name.Contains("torpedo") || name.Contains("shell") || name.Contains("munition") || name.Contains("projectile") || name.Contains("warhead") || name.Contains("submunition") || name.Contains("glidebomb")
+            || name.Contains("lynchpin") || name.Contains("kingpin") || name.Contains("slagr") || name.Contains("tenpin") || name.Contains("atlatl") || name.Contains("arad") || name.Contains("hydra")
+            || prefabName.Contains("missile") || prefabName.Contains("rocket") || prefabName.Contains("bomb") || prefabName.Contains("torpedo") || prefabName.Contains("shell") || prefabName.Contains("munition") || prefabName.Contains("projectile") || prefabName.Contains("warhead") || prefabName.Contains("submunition")
+            || prefabName.Contains("lynchpin") || prefabName.Contains("kingpin") || prefabName.Contains("slagr") || prefabName.Contains("tenpin") || prefabName.Contains("atlatl") || prefabName.Contains("arad") || prefabName.Contains("hydra"))
         {
             return EntityCategory.Ordnance;
         }
@@ -129,41 +141,66 @@ internal sealed class CommanderCheatService
         switch (cat)
         {
             case EntityCategory.Air:
-                if (name.Contains("heli") || name.Contains("cricket") || name.Contains("tarantula")) return "AIR | HELICOPTER";
-                if (name.Contains("medusa") || name.Contains("vtol") || name.Contains("cargo")) return "AIR | CARGO & VTOL";
-                if (name.Contains("darkreach") || name.Contains("bomber") || name.Contains("strike")) return "AIR | HEAVY BOMBER";
-                if (name.Contains("compass") || name.Contains("cas") || name.Contains("ground attack")) return "AIR | CLOSE AIR SUPPORT";
-                if (name.Contains("revoker") || name.Contains("ifrit") || name.Contains("fighter") || name.Contains("intercept")) return "AIR | AIR SUPERIORITY";
-                return "AIR | MULTIROLE AIRCRAFT";
+                if (name.Contains("alkyon")) return "AIR | HYPERSONIC INTERCEPTOR";
+                if (name.Contains("vortex")) return "AIR | STEALTH VTOL FIGHTER";
+                if (name.Contains("vagrant")) return "AIR | LIGHT VTOL STRIKE";
+                if (name.Contains("brawler") && (name.Contains("a-19") || name.Contains("plane") || name.Contains("jet"))) return "AIR | ARMORED GROUND ATTACK (A-10)";
+                if (name.Contains("darkreach") || name.Contains("bomber") || name.Contains("strike")) return "AIR | STRATEGIC STEALTH BOMBER";
+                if (name.Contains("compass") || name.Contains("cas") || name.Contains("ground attack")) return "AIR | CLOSE AIR SUPPORT (CAS)";
+                if (name.Contains("cricket")) return "AIR | LIGHT ATTACK / TRAINER (STOL)";
+                if (name.Contains("revoker") || name.Contains("ifrit") || name.Contains("fighter") || name.Contains("intercept")) return "AIR | AIR SUPERIORITY INTERCEPTOR";
+                if (name.Contains("medusa")) return "AIR | ELECTRONIC WARFARE & SEAD";
+                if (name.Contains("chicane")) return "AIR | STEALTH ATTACK HELICOPTER";
+                if (name.Contains("ibis") || name.Contains("uh-90")) return "AIR | UTILITY TRANSPORT HELICOPTER";
+                if (name.Contains("tarantula")) return "AIR | HEAVY TILT-WING (CARGO/GUNSHIP)";
+                if (name.Contains("cargoplane") || name.Contains("mc-260")) return "AIR | STRATEGIC TRANSPORT / AWACS";
+                return "AIR | COMBAT AIRCRAFT";
 
             case EntityCategory.Naval:
-                if (name.Contains("carrier") || name.Contains("flagship")) return "NAVAL | AIRCRAFT CARRIER";
-                if (name.Contains("destroyer") || name.Contains("frigate")) return "NAVAL | GUIDED MISSILE WARSHIP";
-                if (name.Contains("corvette") || name.Contains("patrol") || name.Contains("boat")) return "NAVAL | CORVETTE / PATROL";
-                if (name.Contains("barge") || name.Contains("cargo") || name.Contains("supply")) return "NAVAL | SUPPLY & LOGISTICS";
+                if (name.Contains("hyperion") || name.Contains("annex") || name.Contains("carrier")) return "NAVAL | AIRCRAFT CARRIER";
+                if (name.Contains("cursor") || name.Contains("lfd")) return "NAVAL | LIGHT FLIGHT DECK (LFD)";
+                if (name.Contains("dynamo") || name.Contains("destroyer")) return "NAVAL | RAILGUN GUIDED DESTROYER";
+                if (name.Contains("argus") || name.Contains("frigate")) return "NAVAL | MULTI-MISSION FRIGATE";
+                if (name.Contains("shard") || name.Contains("corvette")) return "NAVAL | FAST ESCORT CORVETTE";
+                if (name.Contains("otb-31") || name.Contains("landing")) return "NAVAL | AMPHIBIOUS LANDING CRAFT";
+                if (name.Contains("surf") || name.Contains("patrol") || name.Contains("boat")) return "NAVAL | FAST PATROL BOAT";
+                if (name.Contains("barge") || name.Contains("cargo") || name.Contains("supply")) return "NAVAL | SUPPLY & LOGISTICS VESSEL";
                 return "NAVAL | SURFACE WARSHIP";
 
             case EntityCategory.Land:
-                if (name.Contains("tank") || name.Contains("mbt") || name.Contains("heavy")) return "LAND | MAIN BATTLE TANK";
-                if (name.Contains("spaag") || name.Contains("aaa") || name.Contains("sam") || name.Contains("air defense")) return "LAND | AIR DEFENSE (AAA/SAM)";
-                if (name.Contains("mrls") || name.Contains("artillery") || name.Contains("mortar") || name.Contains("howitzer")) return "LAND | ROCKET ARTILLERY";
-                if (name.Contains("ifv") || name.Contains("apc") || name.Contains("scout") || name.Contains("light")) return "LAND | ARMORED FIGHTING VEHICLE";
-                if (name.Contains("truck") || name.Contains("tractor") || name.Contains("rearm") || name.Contains("repair") || name.Contains("jacknife") || name.Contains("logistics") || name.Contains("trailer")) return "LAND | LOGISTICS & SUPPORT";
-                return "LAND | COMBAT VEHICLE";
+                if (name.Contains("brawler") || name.Contains("t-98") || name.Contains("mbt") || name.Contains("tank")) return "LAND | MAIN BATTLE TANK (MBT)";
+                if (name.Contains("stratolance") || name.Contains("shard") || name.Contains("sam") || name.Contains("air defense")) return "LAND | HEAVY RADAR SAM";
+                if (name.Contains("spaag") || name.Contains("aaa") || name.Contains("20mm") || name.Contains("23mm") || name.Contains("lcv25 aa") || name.Contains("afv6 aa")) return "LAND | MOBILE AIR DEFENSE (SPAAG/AAA)";
+                if (name.Contains("scythe") || name.Contains("mrls") || name.Contains("artillery") || name.Contains("howitzer") || name.Contains("mortar")) return "LAND | ROCKET ARTILLERY (MLRS)";
+                if (name.Contains("afv6") || name.Contains("ifv") || name.Contains("apc") || name.Contains("bolide") || name.Contains("lynx") || name.Contains("jackal")) return "LAND | ARMORED FIGHTING VEHICLE (IFV/APC)";
+                if (name.Contains("hexhound") || name.Contains("ugv")) return "LAND | UNCREWED GROUND VEHICLE (UGV)";
+                if (name.Contains("mrap") || name.Contains("lcv45") || name.Contains("lcv25") || name.Contains("scout") || name.Contains("light")) return "LAND | LIGHT COMBAT VEHICLE (MRAP/LCV)";
+                if (name.Contains("jackknife") || name.Contains("jacknife")) return "LAND | COMBAT ENGINEERING & REPAIR";
+                if (name.Contains("truck") || name.Contains("tractor") || name.Contains("rearm") || name.Contains("fuel") || name.Contains("tanker") || name.Contains("flatbed") || name.Contains("trailer")) return "LAND | FIELD LOGISTICS & SUPPLY";
+                return "LAND | COMBAT GROUND VEHICLE";
 
             case EntityCategory.Ordnance:
+                if (name.StartsWith("agm-") || name.Contains("air-to-ground") || name.Contains("atlatl")) return "ORDNANCE | AIR-TO-GROUND MISSILE (AGM)";
+                if (name.StartsWith("aam-") || name.StartsWith("aim-") || name.Contains("air-to-air") || name.Contains("fox")) return "ORDNANCE | AIR-TO-AIR MISSILE (AAM)";
+                if (name.StartsWith("ashm") || name.Contains("anti-ship")) return "ORDNANCE | ANTI-SHIP MISSILE (AShM)";
+                if (name.StartsWith("agr-") || name.Contains("lynchpin") || name.Contains("kingpin") || name.Contains("slagr") || name.Contains("tenpin") || name.Contains("hydra") || name.Contains("rocket")) return "ORDNANCE | GUIDED / UNGUIDED ROCKET";
+                if (name.Contains("arad") || name.Contains("anti-radiation")) return "ORDNANCE | ANTI-RADIATION MISSILE (ARAD)";
+                if (name.StartsWith("gbu-") || name.StartsWith("cbu-") || name.Contains("bomb") || name.Contains("glide")) return "ORDNANCE | GUIDED / FREEFALL BOMB";
+                if (name.Contains("torpedo")) return "ORDNANCE | AIR / SEA TORPEDO";
                 if (name.Contains("recon")) return "ORDNANCE | RECON SHELL";
-                if (name.Contains("guided") || name.Contains("arh")) return "ORDNANCE | GUIDED ARTILLERY SHELL";
-                if (name.Contains("1.5kt") || name.Contains("kt") || name.Contains("nuclear")) return "ORDNANCE | NUCLEAR SHELL";
-                return "ORDNANCE | ARTILLERY MUNITION";
+                if (name.Contains("guided") || name.Contains("shell") || name.Contains("406mm") || name.Contains("155mm") || name.Contains("127mm") || name.Contains("105mm") || name.Contains("railgun")) return "ORDNANCE | ARTILLERY & RAILGUN SHELL";
+                if (name.Contains("nuclear") || name.Contains("1.5kt") || name.Contains("250kt") || name.Contains("warhead")) return "ORDNANCE | NUCLEAR WARHEAD (TACTICAL/STRATEGIC)";
+                return "ORDNANCE | MUNITION & MISSILE";
 
             case EntityCategory.Building:
             default:
-                if (name.Contains("emplacement") || name.Contains("aaa") || name.Contains("mg") || name.Contains("turret")) return "DEFENSE | STATIC EMPLACEMENT";
-                if (name.Contains("factory") || name.Contains("plant") || name.Contains("refinery") || name.Contains("industrial") || name.Contains("power")) return "BUILDING | INDUSTRY & REVENUE";
-                if (name.Contains("hangar") || name.Contains("depot") || name.Contains("dock") || name.Contains("shipyard") || name.Contains("runway")) return "BUILDING | MILITARY SPAWNER";
-                if (name.Contains("radar") || name.Contains("sam") || name.Contains("tower") || name.Contains("strato") || name.Contains("bunker") || name.Contains("gun")) return "BUILDING | AIR DEFENSE & RADAR";
-                if (name.Contains("fob") || name.Contains("storage") || name.Contains("warehouse") || name.Contains("fuel") || name.Contains("ammo")) return "BUILDING | FIELD LOGISTICS";
+                if (name.Contains("emplacement") || name.Contains("aaa") || name.Contains("mg") || name.Contains("turret") || name.Contains("23mm") || name.Contains("30mm") || name.Contains("ciws")) return "DEFENSE | STATIC TURRET EMPLACEMENT";
+                if (name.Contains("factory") || name.Contains("plant") || name.Contains("industrial") || name.Contains("production")) return "BUILDING | VEHICLE & AIRFRAME FACTORY";
+                if (name.Contains("enrichment") || name.Contains("nuclear")) return "BUILDING | NUCLEAR ENRICHMENT PLANT";
+                if (name.Contains("refinery") || name.Contains("power") || name.Contains("grid") || name.Contains("revenue")) return "BUILDING | REFINERY & POWER INFRASTRUCTURE";
+                if (name.Contains("hangar") || name.Contains("depot") || name.Contains("dock") || name.Contains("shipyard") || name.Contains("runway") || name.Contains("airbase")) return "BUILDING | MILITARY SPAWNER & DEPLOYMENT";
+                if (name.Contains("radar") || name.Contains("sam") || name.Contains("tower") || name.Contains("strato") || name.Contains("bunker") || name.Contains("silo")) return "BUILDING | AIR DEFENSE & RADAR TOWER";
+                if (name.Contains("fob") || name.Contains("storage") || name.Contains("warehouse") || name.Contains("fuel") || name.Contains("ammo") || name.Contains("munitions")) return "BUILDING | FIELD MUNITIONS & LOGISTICS";
                 return "BUILDING | MILITARY STRUCTURE";
         }
     }

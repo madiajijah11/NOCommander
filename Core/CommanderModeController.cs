@@ -32,6 +32,8 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderFactoryProductionService? factoryProductionService;
     private CommanderForwardOutpostService? forwardOutpostService;
     private CommanderBuildingEconomyService? buildingEconomyService;
+    private CommanderBattlegroupService? battlegroupService;
+    private CommanderTheaterSectorService? theaterSectorService;
     private CommanderAlliedAiService? alliedAiService;
     private CommanderTargetDeconflictionService? targetDeconflictionService;
     private CommanderAirLoiterService? airLoiterService;
@@ -86,6 +88,8 @@ internal sealed class CommanderModeController : MonoBehaviour
         factoryProductionService = new CommanderFactoryProductionService();
         forwardOutpostService = new CommanderForwardOutpostService(selectionService);
         buildingEconomyService = new CommanderBuildingEconomyService();
+        battlegroupService = new CommanderBattlegroupService();
+        theaterSectorService = new CommanderTheaterSectorService();
         overlayUi = new CommanderOverlayUi(
             selectionService,
             moveService,
@@ -160,6 +164,8 @@ internal sealed class CommanderModeController : MonoBehaviour
             factoryProductionService?.Tick();
             forwardOutpostService?.Tick();
             buildingEconomyService?.Tick();
+            battlegroupService?.Tick();
+            theaterSectorService?.Tick();
             airLoiterService?.Tick();
             smokeService?.Tick();
             counterBatteryService?.Tick();
@@ -390,6 +396,8 @@ internal sealed class CommanderModeController : MonoBehaviour
         factoryProductionService?.ResetSession();
         forwardOutpostService?.ResetSession();
         buildingEconomyService?.ResetSession();
+        battlegroupService?.ResetSession();
+        theaterSectorService?.ResetSession();
         alliedAiService?.ResetSession();
         airLoiterService?.ResetSession();
         smokeService?.ResetSession();

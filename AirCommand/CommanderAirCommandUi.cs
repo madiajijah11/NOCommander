@@ -125,12 +125,12 @@ internal sealed class CommanderAirCommandUi
 
         float y = 34f;
 
-        // 1. Mission Mode Selector Tabs
+        // 1. Mission Mode Selector Tabs (Military Doctrine Roles)
         float tabW = (windowRect.width - 32f) / 4f;
-        DrawModeTab(CommanderAirCommandService.AirCommandMode.AirGuard, "CAP / AA", 12f, y, tabW);
-        DrawModeTab(CommanderAirCommandService.AirCommandMode.Cas, "STRIKE / CAS", 16f + tabW, y, tabW);
-        DrawModeTab(CommanderAirCommandService.AirCommandMode.Arad, "SEAD / ARAD", 20f + tabW * 2f, y, tabW);
-        DrawModeTab(CommanderAirCommandService.AirCommandMode.AwacsJammer, "AWACS", 24f + tabW * 3f, y, tabW);
+        DrawModeTab(CommanderAirCommandService.AirCommandMode.AirGuard, "🛡️ DEFENDER", 12f, y, tabW);
+        DrawModeTab(CommanderAirCommandService.AirCommandMode.Cas, "⚔️ ATTACKER", 16f + tabW, y, tabW);
+        DrawModeTab(CommanderAirCommandService.AirCommandMode.Arad, "📡 RECON / EW", 20f + tabW * 2f, y, tabW);
+        DrawModeTab(CommanderAirCommandService.AirCommandMode.StrategicStrike, "📦 SUPPORT", 24f + tabW * 3f, y, tabW);
         y += 42f;
 
         // 2. Mission Settings Row (Radius Stepper & Active Missions Toggle)

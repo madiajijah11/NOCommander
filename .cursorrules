@@ -4,6 +4,21 @@ This document specifies the architecture, engineering standards, memory manageme
 
 ---
 
+## 0. Mandatory Knowledge Base (DeepWiki)
+
+Before modifying, refactoring, or adding any game-related features, AI agents **MUST** consult the comprehensive reverse-engineered game engine documentation in `docs/deepwiki/`:
+
+- **`docs/deepwiki/INDEX.md`** → Overview, navigation, and core rules.
+- **`docs/deepwiki/01-basegame-entities-and-units.md`** → `Unit`, `Aircraft`, `GroundVehicle`, `Ship`, `Building`, `DamageInfo`, and properties.
+- **`docs/deepwiki/02-ai-and-pathfinding-subsystems.md`** → `AutopilotPlane`, `AIPilotCombatModes`, `RearmVehicleAI`, and `PathfindingAgent`.
+- **`docs/deepwiki/03-weapons-radar-and-iads.md`** → `Radar`, `Turret`, `FireControl`, target modes, and ECM.
+- **`docs/deepwiki/04-logistics-economy-and-production.md`** → `Factory`, `VehicleDepot`, `Airbase`, and cargo logistics.
+- **`docs/deepwiki/05-harmony-patches-and-networking.md`** → Harmony hook points, reflection fields, and Mirage networking authority.
+
+Do not guess method names, field names, or game types. Reference the DeepWiki first.
+
+---
+
 ## 1. Project Overview & Tech Stack
 - **Target Game:** *Nuclear Option* (Unity Mono Engine)
 - **Mod Loader:** BepInEx 5.x + HarmonyLib (`0Harmony.dll`)

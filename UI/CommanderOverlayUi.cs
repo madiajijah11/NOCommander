@@ -36,6 +36,7 @@ internal sealed class CommanderOverlayUi
     private readonly CommanderAirCommandUi airCommandUi;
     private readonly CommanderNavalPurchaseUi navalPurchaseUi;
     private readonly CommanderSamSiteAnalyzerUi samSiteAnalyzerUi;
+    private readonly CommanderTheaterCommandUi theaterCommandUi;
     private readonly CommanderDepotUi depotUi;
     private readonly CommanderWorldMarkerRenderer worldMarkerRenderer;
     private readonly Action unlockAdvancedFeatures;
@@ -156,6 +157,11 @@ internal sealed class CommanderOverlayUi
             samSiteAnalyzerService,
             samSiteService,
             supplyHeliService);
+        theaterCommandUi = new CommanderTheaterCommandUi(
+            CommanderTheaterSectorService.Instance!,
+            CommanderBattlegroupService.Instance!,
+            airCommandService,
+            CommanderTacticalMapService.Instance!);
         depotUi = new CommanderDepotUi(spawnService);
         worldMarkerRenderer = new CommanderWorldMarkerRenderer(
             selectionService,
@@ -457,6 +463,10 @@ internal sealed class CommanderOverlayUi
         {
             buildingWindowRect = GUI.Window(BuildingWindowId, buildingWindowRect, DrawBuildingEconomyWindow, "BUILDINGS & INFRASTRUCTURE ECONOMY", CommanderUiTheme.Window);
         }
+        if (advanced && CommanderSettings.ShowTheaterCommandUi)
+        {
+            theaterCommandUi.Draw();
+        }
         if (showSelectionBar) DrawSelectionBar();
         DrawSettingsWindowIfVisible();
         DrawBoxSelectionIfActive();
@@ -706,10 +716,15 @@ internal sealed class CommanderOverlayUi
         }
         y += 38f;
 
-        // [03] INFRASTRUCTURE & ECONOMY
-        GUI.Label(new Rect(12f, y, panelRect.width - 24f, 18f), "INFRASTRUCTURE & ECONOMY", CommanderUiTheme.MutedLabel);
+        // [03] THEATER COMMAND & ECONOMY
+        GUI.Label(new Rect(12f, y, panelRect.width - 24f, 18f), "THEATER COMMAND & ECONOMY", CommanderUiTheme.MutedLabel);
         y += 20f;
-        if (GUI.Button(new Rect(12f, y, panelRect.width - 24f, 32f), "BUILDINGS & ECONOMY", buildingWindowVisible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.PrimaryButton))
+        float econHalf = (panelRect.width - 30f) * 0.5f;
+        if (GUI.Button(new Rect(12f, y, econHalf, 32f), "🗺️ THEATER DIRECTIVES", theaterCommandUi.Visible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.PrimaryButton))
+        {
+            theaterCommandUi.Visible = !theaterCommandUi.Visible;
+        }
+        if (GUI.Button(new Rect(18f + econHalf, y, econHalf, 32f), "BUILDINGS & ECONOMY", buildingWindowVisible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             buildingWindowVisible = !buildingWindowVisible;
         }

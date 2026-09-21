@@ -230,6 +230,7 @@ internal sealed partial class CommanderAirCommandService
     private static void EnsureFixedEquipment(AirMissionOption option)
     {
         EnsureMedusaLaser(option);
+        EnsureRadomeAndElectronicWarfare(option);
         if (CommanderSettings.AirIncludeInternalCannons)
         {
             EnsureInternalCannons(option);
@@ -311,6 +312,54 @@ internal sealed partial class CommanderAirCommandService
                 {
                     group.Select(mountIndex);
                     return;
+                }
+            }
+        }
+    }
+
+    private static void EnsureRadomeAndElectronicWarfare(AirMissionOption option)
+    {
+        // If the user or AI has already applied an official preset, respect the preset's exact armament
+        if (option.SelectedPresetIndex >= 0)
+        {
+            return;
+        }
+
+        string planeName = (!string.IsNullOrEmpty(option.Definition.unitName) ? option.Definition.unitName : option.Definition.name).ToLowerInvariant();
+        bool isAwacsMode = option.Mode == AirCommandMode.AwacsJammer;
+        bool isSeadMode = option.Mode == AirCommandMode.Arad;
+
+        for (int groupIndex = 0; groupIndex < option.HardpointGroups.Count; groupIndex++)
+        {
+            AirHardpointGroup group = option.HardpointGroups[groupIndex];
+            if (group.SelectedMount != null) continue;
+
+            for (int mountIndex = 0; mountIndex < group.Mounts.Count; mountIndex++)
+            {
+                WeaponMount mount = group.Mounts[mountIndex];
+                string identity = string.Join("|", new[]
+                {
+                    mount.jsonKey,
+                    mount.mountName,
+                    mount.name,
+                    mount.info?.weaponName,
+                    mount.info?.shortName,
+                }).ToLowerInvariant();
+
+                bool isRadome = identity.Contains("radome") || identity.Contains("dome") || identity.Contains("rotodome") || identity.Contains("radar_pod");
+                bool isRadar = mount.radar || (mount.prefab != null && mount.prefab.GetComponentInChildren<Radar>(true) != null) || isRadome;
+                bool isJammer = (mount.info != null && mount.info.jammer) || (mount.prefab != null && mount.prefab.GetComponentInChildren<JammingPod>(true) != null) || identity.Contains("jammer") || identity.Contains("ecm");
+
+                // AWACS mode equips Radome / Radar dish; SEAD / ARAD equips Jammer or ARAD missiles without forcing radome
+                if (isAwacsMode && isRadar)
+                {
+                    group.Select(mountIndex);
+                    break;
+                }
+                else if (isSeadMode && isJammer)
+                {
+                    group.Select(mountIndex);
+                    break;
                 }
             }
         }
@@ -832,11 +881,20 @@ internal sealed partial class CommanderAirCommandService
 
     private static SpecialAirSystem GetSpecialAirSystem(WeaponMount mount)
     {
-        if (mount.info?.jammer == true || mount.prefab?.GetComponentInChildren<JammingPod>(true) != null)
+        string identity = string.Join("|", new[]
+        {
+            mount.jsonKey,
+            mount.mountName,
+            mount.name,
+            mount.info?.weaponName,
+            mount.info?.shortName,
+        }).ToLowerInvariant();
+
+        if (mount.info?.jammer == true || (mount.prefab != null && mount.prefab.GetComponentInChildren<JammingPod>(true) != null) || identity.Contains("jammer") || identity.Contains("ecm"))
         {
             return SpecialAirSystem.RadarJammer;
         }
-        if (mount.radar || mount.prefab?.GetComponentInChildren<Radar>(true) != null)
+        if (mount.radar || (mount.prefab != null && mount.prefab.GetComponentInChildren<Radar>(true) != null) || identity.Contains("radome") || identity.Contains("dome") || identity.Contains("radar") || identity.Contains("rotodome") || identity.Contains("awacs"))
         {
             return SpecialAirSystem.Radar;
         }

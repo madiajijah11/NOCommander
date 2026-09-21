@@ -334,6 +334,9 @@ internal sealed class CommanderAlliedAiService
         CommanderSupplyHeliService? supplySvc = CommanderSupplyHeliService.Instance;
         if (supplySvc == null || supplySvc.ActiveMissionCount >= 2) return;
 
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null) return;
+
         // Prune dead keys
         List<Unit>? stale = null;
         float now = Time.timeSinceLevelLoad;
@@ -350,20 +353,39 @@ internal sealed class CommanderAlliedAiService
             for (int s = 0; s < stale.Count; s++) recentlySuppliedUnits.Remove(stale[s]);
         }
 
+        IEnumerable<Airbase> airbases = localHq.GetAirbases();
+
         for (int i = 0; i < lowAmmoFriendlyUnits.Count; i++)
         {
             Unit lowAmmo = lowAmmoFriendlyUnits[i];
             if (lowAmmo == null || lowAmmo.disabled) continue;
+
+            Vector3 unitPos = lowAmmo.transform.position;
+
+            // RULE 1: Never drop supplies inside or right next to an airbase/factory/depot (prevents building jamming)
+            bool nearBase = false;
+            if (airbases != null)
+            {
+                foreach (Airbase ab in airbases)
+                {
+                    if (ab != null && !ab.disabled && Vector3.Distance(unitPos, ab.transform.position) < 1500f)
+                    {
+                        nearBase = true;
+                        break;
+                    }
+                }
+            }
+            if (nearBase) continue;
 
             if (recentlySuppliedUnits.TryGetValue(lowAmmo, out float lastTime) && (now - lastTime) < 90f)
             {
                 continue;
             }
 
-            if (supplySvc.RequestAutomaticCargoRun(lowAmmo.transform.position.ToGlobalPosition()))
+            if (supplySvc.RequestAutomaticCargoRun(unitPos.ToGlobalPosition()))
             {
                 recentlySuppliedUnits[lowAmmo] = now;
-                StatusText = $"ALLIED AI: DISPATCHED MUNITIONS SUPPLY RUN TO {lowAmmo.unitName.ToUpperInvariant()}!";
+                StatusText = $"ALLIED AI: DISPATCHED FRONTLINE MUNITIONS DROP TO {lowAmmo.unitName.ToUpperInvariant()}!";
                 return;
             }
         }
@@ -375,6 +397,7 @@ internal sealed class CommanderAlliedAiService
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
         if (localHq == null) return;
 
+        int slot = 0;
         for (int i = 0; i < damagedFriendlyUnits.Count; i++)
         {
             Unit damaged = damagedFriendlyUnits[i];
@@ -383,7 +406,6 @@ internal sealed class CommanderAlliedAiService
                 continue;
             }
 
-            // Check if severely damaged (at least 2 components damaged or structural loss)
             int brokenComponents = 0;
             IRepairable[] repairables = damaged.GetComponentsInChildren<IRepairable>(true);
             for (int r = 0; r < repairables.Length; r++)
@@ -393,7 +415,6 @@ internal sealed class CommanderAlliedAiService
 
             if (brokenComponents >= 2)
             {
-                // Find nearest friendly FOB, Airbase, or Depot to retreat to for repairs
                 Vector3 bestRetreatPos = Vector3.zero;
                 float minDistance = float.MaxValue;
                 Vector3 myPos = damaged.transform.position;
@@ -434,11 +455,17 @@ internal sealed class CommanderAlliedAiService
                     }
                 }
 
-                if (minDistance < float.MaxValue && minDistance > 60f)
+                // Retreat to open staging perimeter (offset 100m outside building footprint)
+                if (minDistance < float.MaxValue && minDistance > 80f && bestRetreatPos != Vector3.zero)
                 {
+                    Vector3 retreatDir = (myPos - bestRetreatPos).normalized;
+                    if (retreatDir.sqrMagnitude < 0.01f) retreatDir = Vector3.forward;
+                    Vector3 safePerimeter = bestRetreatPos + retreatDir * 120f;
+                    GlobalPosition safeDest = CommanderDestinationFormation.ApplyOffset(safePerimeter.ToGlobalPosition(), slot++, 30f);
+
                     CommanderGameAccess.SetUnitHoldPosition(damaged, false);
-                    CommanderGameAccess.GetUnitCommand(damaged)?.SetDestination(bestRetreatPos.ToGlobalPosition(), false);
-                    StatusText = $"ALLIED AI: TACTICAL RETREAT OF DAMAGED {damaged.unitName.ToUpperInvariant()} TO REPAIR ZONE!";
+                    CommanderGameAccess.GetUnitCommand(damaged)?.SetDestination(safeDest, false);
+                    StatusText = $"ALLIED AI: TACTICAL RETREAT OF DAMAGED {damaged.unitName.ToUpperInvariant()} TO REPAIR PERIMETER!";
                 }
             }
         }
@@ -834,7 +861,7 @@ internal sealed class CommanderAlliedAiService
 
         idleBattlegroupUnits.Clear();
 
-        // Find idle combat ground units waiting near friendly depots
+        // Find idle combat ground units waiting near friendly depots or factory gaps
         foreach (PersistentID id in localHq.factionUnits)
         {
             if (!id.TryGetUnit(out Unit unit) || unit == null || unit.disabled) continue;
@@ -848,18 +875,22 @@ internal sealed class CommanderAlliedAiService
             }
         }
 
-        // When a platoon of 3-5 units has gathered, push towards nearest enemy or frontline
-        if (idleBattlegroupUnits.Count >= 3)
+        if (idleBattlegroupUnits.Count == 0) return;
+
+        // Disperse and push idle units to objective with formation offsets
+        if (MissionPosition.TryGetClosestPosition(idleBattlegroupUnits[0], out GlobalPosition objective))
         {
-            if (MissionPosition.TryGetClosestPosition(idleBattlegroupUnits[0], out GlobalPosition objective))
+            for (int i = 0; i < idleBattlegroupUnits.Count; i++)
             {
-                for (int i = 0; i < idleBattlegroupUnits.Count; i++)
-                {
-                    Unit unit = idleBattlegroupUnits[i];
-                    CommanderGameAccess.SetUnitHoldPosition(unit, false);
-                    CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(objective, false);
-                }
-                StatusText = $"ALLIED AI: DISPATCHED BATTLEGROUP OF {idleBattlegroupUnits.Count} UNITS TO FRONTLINE!";
+                Unit unit = idleBattlegroupUnits[i];
+                GlobalPosition formationSlot = CommanderDestinationFormation.ApplyOffset(objective, i, 28f);
+                CommanderGameAccess.SetUnitHoldPosition(unit, false);
+                CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(formationSlot, false);
+            }
+
+            if (idleBattlegroupUnits.Count >= 2)
+            {
+                StatusText = $"ALLIED AI: DISPATCHED COMBAT BATTLEGROUP ({idleBattlegroupUnits.Count} UNITS) TO FRONTLINE!";
             }
         }
     }
