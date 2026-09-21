@@ -483,6 +483,47 @@ internal sealed partial class CommanderAirCommandService
         return true;
     }
 
+    internal bool RequestAutonomousAirMission(AirCommandMode mode, GlobalPosition targetCenter, float radiusKm = 25f)
+    {
+        if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active)
+        {
+            return false;
+        }
+
+        FactionHQ? hq = CommanderGameAccess.GetLocalHq();
+        if (hq == null) return false;
+
+        SelectMode(mode);
+        if (options.Count == 0) return false;
+
+        AirMissionOption? opt = null;
+        Airbase? chosenBase = null;
+
+        for (int i = 0; i < options.Count; i++)
+        {
+            AirMissionOption candidate = options[i];
+            foreach (Airbase ab in hq.GetAirbases())
+            {
+                if (ab != null && !ab.disabled && IsCompatibleAirbase(ab, hq, candidate.Definition) && ab.CanSpawnAircraft(candidate.Definition))
+                {
+                    opt = candidate;
+                    chosenBase = ab;
+                    break;
+                }
+            }
+            if (opt != null) break;
+        }
+
+        if (opt == null || chosenBase == null)
+        {
+            return false;
+        }
+
+        SetMissionRadius(mode, Mathf.Clamp(radiusKm, 10f, 60f));
+        SpawnMission(opt, chosenBase, targetCenter);
+        return true;
+    }
+
     internal void BeginAreaSelection()
     {
         AirMissionOption? option = SelectedOption;
@@ -891,7 +932,7 @@ internal sealed partial class CommanderAirCommandService
                 continue;
             }
 
-            if (!HasPlanePilot(definition))
+            if (!HasFlightPilot(definition))
             {
                 continue;
             }
@@ -996,7 +1037,7 @@ internal sealed partial class CommanderAirCommandService
         DestroyPendingAreaPreview();
         tacticalMapService.SuppressMapFollow = false;
         mapClickTracker.Reset();
-        if (!uiVisible) tacticalMapService.CloseFullscreen();
+        if (tacticalMapService.IsFullscreenOpen) tacticalMapService.CloseFullscreen();
         if (relocationAircraft != null && missions.TryGetValue(relocationAircraft, out AirMission relocationMission))
         {
             relocationMission.AreaCenter = target;
@@ -1025,7 +1066,7 @@ internal sealed partial class CommanderAirCommandService
         DestroyPendingAreaPreview();
         tacticalMapService.SuppressMapFollow = false;
         mapClickTracker.Reset();
-        if (!uiVisible && tacticalMapService.IsFullscreenOpen)
+        if (tacticalMapService.IsFullscreenOpen)
         {
             tacticalMapService.CloseFullscreen();
         }
@@ -1519,17 +1560,17 @@ internal sealed partial class CommanderAirCommandService
         }
     }
 
-    private static bool HasPlanePilot(AircraftDefinition definition)
+    private static bool HasFlightPilot(AircraftDefinition definition)
     {
         Aircraft? aircraft = definition.unitPrefab.GetComponentInChildren<Aircraft>(true);
-        if (aircraft?.pilots == null)
+        if (aircraft?.pilots == null || aircraft.pilots.Length == 0)
         {
             return false;
         }
 
         for (int i = 0; i < aircraft.pilots.Length; i++)
         {
-            if (aircraft.pilots[i] != null && aircraft.pilots[i].pilotType == Pilot.PilotType.Plane)
+            if (aircraft.pilots[i] != null)
             {
                 return true;
             }

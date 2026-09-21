@@ -14,7 +14,8 @@ internal sealed class CommanderCheatService
         Building = 1,
         Land = 2,
         Air = 3,
-        Naval = 4
+        Naval = 4,
+        Ordnance = 5
     }
 
     private readonly CommanderSelectionService selectionService;
@@ -24,6 +25,7 @@ internal sealed class CommanderCheatService
     private readonly List<UnitDefinition> landDefinitions = new();
     private readonly List<UnitDefinition> airDefinitions = new();
     private readonly List<UnitDefinition> navalDefinitions = new();
+    private readonly List<UnitDefinition> ordnanceDefinitions = new();
 
     private bool catalogInitialized;
     private float statusUntil;
@@ -90,6 +92,13 @@ internal sealed class CommanderCheatService
         string name = !string.IsNullOrEmpty(def.unitName) ? def.unitName.ToLowerInvariant() : string.Empty;
         string prefabName = def.unitPrefab.name != null ? def.unitPrefab.name.ToLowerInvariant() : string.Empty;
 
+        // Check for Artillery Shells & Guided Munitions first
+        if (name.Contains("shell") || name.Contains("munition") || name.Contains("projectile")
+            || prefabName.Contains("shell") || prefabName.Contains("munition") || prefabName.Contains("projectile"))
+        {
+            return EntityCategory.Ordnance;
+        }
+
         if (name.Contains("ship") || name.Contains("corvette") || name.Contains("destroyer") || name.Contains("frigate") || name.Contains("carrier") || name.Contains("barge")
             || prefabName.Contains("ship") || prefabName.Contains("corvette") || prefabName.Contains("destroyer") || prefabName.Contains("frigate") || prefabName.Contains("carrier"))
         {
@@ -142,8 +151,15 @@ internal sealed class CommanderCheatService
                 if (name.Contains("truck") || name.Contains("tractor") || name.Contains("rearm") || name.Contains("repair") || name.Contains("jacknife") || name.Contains("logistics") || name.Contains("trailer")) return "LAND | LOGISTICS & SUPPORT";
                 return "LAND | COMBAT VEHICLE";
 
+            case EntityCategory.Ordnance:
+                if (name.Contains("recon")) return "ORDNANCE | RECON SHELL";
+                if (name.Contains("guided") || name.Contains("arh")) return "ORDNANCE | GUIDED ARTILLERY SHELL";
+                if (name.Contains("1.5kt") || name.Contains("kt") || name.Contains("nuclear")) return "ORDNANCE | NUCLEAR SHELL";
+                return "ORDNANCE | ARTILLERY MUNITION";
+
             case EntityCategory.Building:
             default:
+                if (name.Contains("emplacement") || name.Contains("aaa") || name.Contains("mg") || name.Contains("turret")) return "DEFENSE | STATIC EMPLACEMENT";
                 if (name.Contains("factory") || name.Contains("plant") || name.Contains("refinery") || name.Contains("industrial") || name.Contains("power")) return "BUILDING | INDUSTRY & REVENUE";
                 if (name.Contains("hangar") || name.Contains("depot") || name.Contains("dock") || name.Contains("shipyard") || name.Contains("runway")) return "BUILDING | MILITARY SPAWNER";
                 if (name.Contains("radar") || name.Contains("sam") || name.Contains("tower") || name.Contains("strato") || name.Contains("bunker") || name.Contains("gun")) return "BUILDING | AIR DEFENSE & RADAR";
@@ -164,6 +180,7 @@ internal sealed class CommanderCheatService
         landDefinitions.Clear();
         airDefinitions.Clear();
         navalDefinitions.Clear();
+        ordnanceDefinitions.Clear();
 
         UnitDefinition[] available = Resources.FindObjectsOfTypeAll<UnitDefinition>();
         HashSet<string> seenNames = new(StringComparer.OrdinalIgnoreCase);
@@ -195,6 +212,9 @@ internal sealed class CommanderCheatService
                 case EntityCategory.Land:
                     landDefinitions.Add(def);
                     break;
+                case EntityCategory.Ordnance:
+                    ordnanceDefinitions.Add(def);
+                    break;
                 case EntityCategory.Building:
                 default:
                     buildingDefinitions.Add(def);
@@ -207,6 +227,7 @@ internal sealed class CommanderCheatService
         landDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
         airDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
         navalDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
+        ordnanceDefinitions.Sort(static (a, b) => string.Compare(a.unitName, b.unitName, StringComparison.OrdinalIgnoreCase));
 
         catalogInitialized = true;
     }
@@ -221,6 +242,7 @@ internal sealed class CommanderCheatService
             2 => landDefinitions,
             3 => airDefinitions,
             4 => navalDefinitions,
+            5 => ordnanceDefinitions,
             _ => allDefinitions
         };
 

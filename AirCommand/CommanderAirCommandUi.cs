@@ -41,7 +41,6 @@ internal sealed class CommanderAirCommandUi
         service.SetUiVisible(true);
         service.RefreshOptions();
         aircraftScroll = Vector2.zero;
-        CommanderTacticalMapService.Instance?.OpenFullscreen();
     }
 
     internal void Hide()
@@ -75,11 +74,6 @@ internal sealed class CommanderAirCommandUi
 
     internal void Tick()
     {
-        if (Visible && CommanderTacticalMapService.Instance?.IsFullscreenOpen != true)
-        {
-            CommanderTacticalMapService.Instance?.OpenFullscreen();
-        }
-
         float width = Mathf.Min(480f, CommanderUiScale.Width - 60f);
         float height = Mathf.Min(700f, CommanderUiScale.Height - 32f);
 

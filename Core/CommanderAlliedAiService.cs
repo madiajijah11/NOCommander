@@ -20,6 +20,9 @@ internal sealed class CommanderAlliedAiService
     private readonly CommanderMoveService moveService;
     private readonly List<Unit> idleBattlegroupUnits = new();
     private readonly List<Unit> hostileUnitsScratch = new();
+    private readonly List<Unit> hostileAirScratch = new();
+    private readonly List<Unit> hostileArmorScratch = new();
+    private readonly List<Unit> hostileRadarScratch = new();
     private readonly List<Unit> damagedFriendlyUnits = new();
     private readonly List<Unit> lowAmmoFriendlyUnits = new();
     private readonly List<Unit> availableRepairers = new();
@@ -106,7 +109,7 @@ internal sealed class CommanderAlliedAiService
 
         if (now >= nextAirScrambleTime)
         {
-            ExecuteAirDefenseScramble();
+            ExecuteAutonomousTacticalAirMissions();
         }
 
         if (now >= nextEconomyInvestTime)
@@ -139,21 +142,37 @@ internal sealed class CommanderAlliedAiService
         availableRepairers.Clear();
 
         // 1. Scan Tracked Hostiles in Intelligence Database
+        hostileAirScratch.Clear();
+        hostileArmorScratch.Clear();
+        hostileRadarScratch.Clear();
+
         if (localHq.trackingDatabase != null)
         {
             foreach (KeyValuePair<PersistentID, TrackingInfo> entry in localHq.trackingDatabase)
             {
                 if (!entry.Key.TryGetUnit(out Unit enemy) || enemy == null || enemy.disabled) continue;
 
+                hostileUnitsScratch.Add(enemy);
+                string eName = (!string.IsNullOrEmpty(enemy.unitName) ? enemy.unitName : enemy.name).ToLowerInvariant();
+
                 if (enemy is Aircraft)
                 {
                     trackedEnemyAir++;
-                    hostileUnitsScratch.Add(enemy);
+                    hostileAirScratch.Add(enemy);
                 }
                 else if (enemy is GroundVehicle)
                 {
                     trackedEnemyArmor++;
-                    hostileUnitsScratch.Add(enemy);
+                    hostileArmorScratch.Add(enemy);
+
+                    if (eName.Contains("radar") || eName.Contains("sam") || eName.Contains("strato") || enemy.GetComponentInChildren<Radar>(true) != null)
+                    {
+                        hostileRadarScratch.Add(enemy);
+                    }
+                }
+                else if (enemy is Building && (eName.Contains("radar") || eName.Contains("sam") || enemy.GetComponentInChildren<Radar>(true) != null))
+                {
+                    hostileRadarScratch.Add(enemy);
                 }
             }
         }
@@ -713,47 +732,66 @@ internal sealed class CommanderAlliedAiService
         return name.Contains("darkreach") || name.Contains("hyperion") || name.Contains("bomber") || name.Contains("heavy");
     }
 
-    private void ExecuteAirDefenseScramble()
+    private void ExecuteAutonomousTacticalAirMissions()
     {
-        if (trackedEnemyAir <= 0) return;
+        CommanderAirCommandService? airSvc = CommanderAirCommandService.Instance;
+        if (airSvc == null) return;
 
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
         if (localHq == null) return;
 
-        bool hostileNearBase = false;
-        IEnumerable<Airbase> airbases = localHq.GetAirbases();
-        if (airbases != null)
+        // 1. Air Threat -> Scramble CAP / Air Superiority Interceptors
+        if (hostileAirScratch.Count > 0)
         {
-            foreach (Airbase ab in airbases)
+            GlobalPosition airCenter = CalculateClusterCenter(hostileAirScratch);
+            if (airSvc.RequestAutonomousAirMission(CommanderAirCommandService.AirCommandMode.AirGuard, airCenter, 30f))
             {
-                if (ab == null || ab.disabled) continue;
-                Vector3 basePos = ab.transform.position;
-
-                for (int i = 0; i < hostileUnitsScratch.Count; i++)
-                {
-                    Unit enemy = hostileUnitsScratch[i];
-                    if (enemy != null && !enemy.disabled && Vector3.Distance(enemy.transform.position, basePos) <= 40000f)
-                    {
-                        hostileNearBase = true;
-                        break;
-                    }
-                }
-                if (hostileNearBase) break;
+                nextAirScrambleTime = Time.unscaledTime + AirScrambleCooldownSeconds;
+                StatusText = "ALLIED AI: SCRAMBLED COMBAT AIR PATROL (CAP) INTERCEPTORS!";
+                return;
             }
         }
 
-        if (hostileNearBase)
+        // 2. SEAD / ARAD Threat -> Scramble Anti-Radiation Strike against Enemy Radar / SAMs
+        if (hostileRadarScratch.Count > 0)
         {
-            CommanderAirCommandService? airSvc = CommanderAirCommandService.Instance;
-            if (airSvc != null)
+            GlobalPosition radarCenter = CalculateClusterCenter(hostileRadarScratch);
+            if (airSvc.RequestAutonomousAirMission(CommanderAirCommandService.AirCommandMode.Arad, radarCenter, 35f))
             {
-                if (airSvc.QuickCallInMission(CommanderAirCommandService.AirCommandMode.AirGuard))
-                {
-                    nextAirScrambleTime = Time.unscaledTime + AirScrambleCooldownSeconds;
-                    StatusText = "ALLIED AI: SCRAMBLED COMBAT AIR PATROL (CAP) INTERCEPTORS!";
-                }
+                nextAirScrambleTime = Time.unscaledTime + AirScrambleCooldownSeconds;
+                StatusText = "ALLIED AI: DISPATCHED SEAD / ARAD RADAR SUPPRESSION STRIKE!";
+                return;
             }
         }
+
+        // 3. Heavy Ground Threat -> Dispatch CAS Gunships / Anti-Tank Strike Jets
+        if (hostileArmorScratch.Count >= 2)
+        {
+            GlobalPosition armorCenter = CalculateClusterCenter(hostileArmorScratch);
+            if (airSvc.RequestAutonomousAirMission(CommanderAirCommandService.AirCommandMode.Cas, armorCenter, 20f))
+            {
+                nextAirScrambleTime = Time.unscaledTime + AirScrambleCooldownSeconds;
+                StatusText = "ALLIED AI: DISPATCHED CAS TANK-BUSTER AIR STRIKE ON ENEMY ARMOR!";
+                return;
+            }
+        }
+    }
+
+    private static GlobalPosition CalculateClusterCenter(List<Unit> units)
+    {
+        if (units.Count == 0) return default;
+        Vector3 sum = Vector3.zero;
+        int valid = 0;
+        for (int i = 0; i < units.Count; i++)
+        {
+            if (units[i] != null && !units[i].disabled)
+            {
+                sum += units[i].transform.position;
+                valid++;
+            }
+        }
+        if (valid == 0) return default;
+        return (sum / valid).ToGlobalPosition();
     }
 
     private void ExecuteAutonomousEconomyReinvestment()
@@ -830,6 +868,9 @@ internal sealed class CommanderAlliedAiService
     {
         idleBattlegroupUnits.Clear();
         hostileUnitsScratch.Clear();
+        hostileAirScratch.Clear();
+        hostileArmorScratch.Clear();
+        hostileRadarScratch.Clear();
         damagedFriendlyUnits.Clear();
         lowAmmoFriendlyUnits.Clear();
         availableRepairers.Clear();

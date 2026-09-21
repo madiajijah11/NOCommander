@@ -1367,10 +1367,10 @@ internal sealed class CommanderOverlayUi
 
         if (cheatTab == 0)
         {
-            // TAB 0: SPAWN UNITS & BUILDINGS
-            float catWidth = (view.width - 32f) / 5f;
-            string[] catNames = { "ALL", "BUILDINGS", "LAND", "AIR", "NAVAL" };
-            for (int c = 0; c < 5; c++)
+            // TAB 0: SPAWN UNITS & BUILDINGS & ORDNANCE
+            float catWidth = (view.width - 35f) / 6f;
+            string[] catNames = { "ALL", "BUILDINGS", "LAND", "AIR", "NAVAL", "ORDNANCE" };
+            for (int c = 0; c < 6; c++)
             {
                 if (GUI.Button(new Rect(view.x + c * (catWidth + 6f), view.y, catWidth, 26f), catNames[c],
                     cheatCategoryIndex == c ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
