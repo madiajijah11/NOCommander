@@ -98,6 +98,47 @@ internal static class CommanderAirCommandPatches
         CommanderAirCommandService.NotifyUnitDisabled(__instance);
     }
 
+    // ==========================================
+    // 🛡️ AUTONOMOUS MISSILE DEFENSE (FLARES, CHAFF, ECM)
+    // ==========================================
+
+    [HarmonyPatch(typeof(AIPilotCombatModes), "AICombat_OnMissileAlert")]
+    [HarmonyPostfix]
+    private static void OnMissileAlertPostfix(AIPilotCombatModes __instance)
+    {
+        Aircraft? aircraft = GetStateAircraft(__instance);
+        if (aircraft == null || aircraft.disabled)
+        {
+            return;
+        }
+
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null || !CommanderGameAccess.IsFriendlyUnit(aircraft, localHq))
+        {
+            return;
+        }
+
+        // 1. Pop Flares & Chaff Salvo
+        if (aircraft.countermeasureManager != null)
+        {
+            aircraft.countermeasureManager.PopFlares();
+        }
+        else
+        {
+            aircraft.Countermeasures(true, 0);
+        }
+
+        // 2. Trigger Active Radar Jammer / ECM Pod if equipped
+        RadarJammer[] jammers = aircraft.GetComponentsInChildren<RadarJammer>(true);
+        for (int j = 0; j < jammers.Length; j++)
+        {
+            if (jammers[j] != null && jammers[j].enabled)
+            {
+                jammers[j].Fire();
+            }
+        }
+    }
+
     internal static Aircraft? GetStateAircraft(AIPilotCombatModes state)
     {
         return StateAircraftField?.GetValue(state) as Aircraft;

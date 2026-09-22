@@ -670,14 +670,15 @@ internal sealed partial class CommanderSupplyHeliService
             choice.slot.HardpointIndex,
             choice.mount);
         string cargoLabel = GetCargoLabel(choice.mount, string.Empty);
+        bool canAirdrop = CargoMountSupportsAirdrop(choice.mount);
         SpawnCargoRun(
             choice.aircraft,
             loadout,
             cargoLabel,
             choice.airbase,
             useHighTerrainClearance: true,
-            terrainClearanceMeters: 100f,
-            useAirdrop: false,
+            terrainClearanceMeters: canAirdrop ? 180f : 100f,
+            useAirdrop: canAirdrop,
             supportSummary: SamSiteCargoSupportSummary,
             useOtherAirfields: true,
             target);
@@ -754,14 +755,15 @@ internal sealed partial class CommanderSupplyHeliService
             choice.mount);
 
         string cargoLabel = GetCargoLabel(choice.mount, "Combat Troops");
+        bool canAirdropTroops = CargoMountSupportsAirdrop(choice.mount);
         SpawnCargoRun(
             choice.aircraft,
             loadout,
             cargoLabel,
             choice.airbase,
             useHighTerrainClearance: true,
-            terrainClearanceMeters: 100f,
-            useAirdrop: false,
+            terrainClearanceMeters: canAirdropTroops ? 200f : 100f,
+            useAirdrop: canAirdropTroops,
             supportSummary: "AirAssault=Troops",
             useOtherAirfields: true,
             target);

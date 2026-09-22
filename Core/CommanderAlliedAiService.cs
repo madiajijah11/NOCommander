@@ -924,6 +924,28 @@ internal sealed class CommanderAlliedAiService
                 return;
             }
         }
+
+        // 4. Recon & Electronic Warfare -> Scramble EW-25 / MC-260 AWACS & Jamming Radome Sortie
+        if (airSvc.ActiveMissionCount < 3 && localHq.factionUnits != null && localHq.factionUnits.Count > 0)
+        {
+            GlobalPosition theaterFront = default;
+            bool foundPos = false;
+            foreach (PersistentID pid in localHq.factionUnits)
+            {
+                if (pid.TryGetUnit(out Unit u) && u != null && !u.disabled && MissionPosition.TryGetClosestPosition(u, out theaterFront))
+                {
+                    foundPos = true;
+                    break;
+                }
+            }
+
+            if (foundPos && airSvc.RequestAutonomousAirMission(CommanderAirCommandService.AirCommandMode.AwacsJammer, theaterFront, 40f))
+            {
+                nextAirScrambleTime = Time.unscaledTime + AirScrambleCooldownSeconds * 1.5f;
+                StatusText = "ALLIED AI: DEPLOYED AIRBORNE RADOME AWACS & ELECTRONIC WARFARE (EW) PATROL!";
+                return;
+            }
+        }
     }
 
     private static GlobalPosition CalculateClusterCenter(List<Unit> units)

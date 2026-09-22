@@ -90,6 +90,8 @@ internal sealed class CommanderModeController : MonoBehaviour
         buildingEconomyService = new CommanderBuildingEconomyService();
         battlegroupService = new CommanderBattlegroupService();
         theaterSectorService = new CommanderTheaterSectorService();
+        smokeService = new CommanderSmokeCountermeasuresService();
+        counterBatteryService = new CommanderCounterBatteryRadarService();
         overlayUi = new CommanderOverlayUi(
             selectionService,
             moveService,
