@@ -12,9 +12,11 @@ PilotBaseState (Base State Machine)
    │     ├── Target Engagement (AirGuard, CAS, Strike, ARAD)
    │     ├── Target Altitude & Area Constraints
    │     └── Winchester & Bingo Fuel Logic
-   └── AIHeloTransportState (Helicopter Logistics)
-         ├── Landing Zone (LZ) Calculation
+   └── AIHeloTransportState (Helicopter Logistics & Cargo Transport)
+         ├── TransportMode (Cargo, Sling, Drop, Transit)
+         ├── Landing Zone (LZ) & SearchForLandingSpot Logic
          ├── Sling-load Cargo Pickup & Dropoff
+         ├── Countermeasures & Missile Alert Reaction
          └── Airdrop Parachute Drop Conditions
 ```
 
@@ -22,6 +24,15 @@ PilotBaseState (Base State Machine)
 * `FieldInfo destination`: Target patrol center or waypoint coordinates.
 * `FieldInfo targetHeight`: Assigned cruise altitude above sea level (ASL).
 * `FieldInfo timeWithoutTarget`: Timer elapsed before deciding to Return to Base (RTB).
+
+### Critical Fields & Methods in `AIHeloTransportState`:
+* `TransportMode transportMode`: Active helicopter logistics mode.
+* `TransportDestination transportDestination`: Target landing pad, airfield, or field LZ.
+* `void SearchForLandingSpot()`: Terrain clearance and slope calculation for touchdown.
+* `void DeployCargo()`: Drops sling load or airdrop container.
+* `void ChooseCountermeasures()`: Automated Flare/Chaff deployment on missile alert.
+* `float timeWithoutMission`: Idle timeout before returning to nearest base.
+
 
 ---
 
@@ -41,3 +52,17 @@ PilotBaseState (Base State Machine)
 * When returning a logistics unit to base AI:
   * Invoke `RearmVehicleAI.DriveToRestock()` if ammo capacity $< 50%$.
   * Invoke `RearmVehicleAI.Wait()` if the vehicle is fully restocked and idle.
+
+---
+
+## 4. Ground Unit Role & Standoff Doctrine
+
+### Engine Limitation:
+The base game assigns identical pathfinding and waypoint routing (`UnitCommand.SetDestination`) to all `GroundVehicle` entities. Without behavioral intervention:
+1. Long-range standoff units (**StratoLance R9**, **Boltstrike**, **Radar Trucks**) will naively follow `MissionPosition` objectives along roads into enemy fire alongside frontline tanks.
+2. AI aircraft spawn and fly directly into mission airspace without orbit staging or standoff holding.
+
+### NOCommander Standoff Doctrine Guardrail:
+- Standoff artillery, ballistic missile launchers, and radar vehicles must be excluded from automated frontline objective pushes (`CommanderAlliedAiService.ExecuteBattlegroupCoordination`).
+- Units matching standoff signatures should be anchored at rear perimeters or dedicated defensive fire positions with `CommanderGameAccess.SetUnitHoldPosition(unit, true)`.
+

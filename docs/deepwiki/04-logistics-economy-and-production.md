@@ -21,5 +21,20 @@ Technical documentation covering resource flows, industrial factories, depot spa
 
 ## 3. Helicopter Logistics & Airdrops (`MountedCargo`)
 
-* Heavy transport helicopters (`VL-49 Tarantula`, `UH-90 Ibis`) carry ammunition containers (`Container`) via cargo mounts.
-* `MountedCargo.RemoveFromHardpoint()`: Releases cargo at Landing Zones (LZ) or initiates parachute airdrops.
+---
+
+## 4. Airbases & Base Capture Mechanics (`Airbase` & `Capture`)
+
+### A. Airbase Operations (`Airbase`)
+* `IReadOnlyList<Aircraft> ControlledAircraft`: Active aircraft assigned to this airbase.
+* `IReadOnlyList<Hangar> hangars`: Storage facilities supporting rearm and repair cycles.
+* `FactionHQ CurrentHQ`: Faction controlling the runway and operations.
+* `event Action onLostControl`: Dispatched when enemy ground forces successfully capture the base.
+
+### B. Territorial Sector Capture (`Capture`)
+* `float controlBalance`: Network-synchronized capture progress ($0.0 \dots 1.0$).
+* `FactionHQ capturingHQ`: The faction with superior ground unit presence currently capturing the facility.
+* `bool capturable`: Whether the base can currently be contested.
+* `void ForceCapture(FactionHQ newHq)`: Administrative/instantaneous capture override.
+* **Capture Mechanic:** Units with ground combat presence within the base capture radius accumulate capture credit each `checkInterval` (2s). Once `controlBalance` reaches threshold, the facility transitions to the invading faction.
+

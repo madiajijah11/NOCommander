@@ -27,7 +27,22 @@ Technical documentation covering weapon mounts, radar emission sensors, fire con
 
 ---
 
-## 3. Damage Modeling (`DamageInfo`)
+## 4. Electronic Countermeasures (ECM) & Defenses
+
+### A. Radar Jamming (`RadarJammer` & `JammingPod`)
+* `void Fire()`: Engages active radio-frequency jamming.
+* `float GetMaxJammingIntensity()`: Returns peak effective jamming output in dB/watts.
+* `ThreatTypes GetThreatTypes()`: Returns detectable radar bands jammed by this pod.
+* Units targeted by jamming receive the `JammedMarker` component and degraded tracking fidelity.
+
+### B. Expendable Countermeasures (`FlareEjector` & `ChaffEjector`)
+* `FlareEjector`: Dispenses pyrotechnic heat decoys (`IRFlare`) to divert infrared (IR) guided missiles.
+* `ChaffEjector`: Dispenses reflective dipole clouds (`ChaffDoor`) to break radar-guided missile locks.
+* Key Methods:
+  * `void Fire()`: Ejects a single or burst salvo of decoys.
+  * `int GetAmmo()` / `int GetMaxAmmo()`: Current magazine and maximum capacity.
+  * `void Rearm()`: Replenishes expendable stores at an airbase or ammo depot.
+
 
 **Constructor:** `new DamageInfo(float pierce, float blast, float structural, float fire)`
 

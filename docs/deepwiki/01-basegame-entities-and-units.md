@@ -59,3 +59,68 @@ UnityEngine.MonoBehaviour
 * `Factory`: Industrial production facility producing ground/air units periodically (`NetworkproductionUnit`).
 * `Airbase`: Manages runway slots, hangars, and takeoff queues (`CanSpawnAircraft`).
 * `VehicleDepot`: Ground unit deployment and purchase depot (`TrySpawnVehicle`).
+
+---
+
+## 4. Official Game Unit Registry & Rosters (Extracted from Game Data)
+
+*Note: Data extracted directly from `resources.assets` and `Assembly-CSharp.dll`.*
+
+### A. Air Vehicles (`Aircraft`)
+| Unit Designation | Tactical Role & Classification |
+| :--- | :--- |
+| **CI-22 Cricket** | Light COIN / Close Air Support (Turboprop) |
+| **T/A-30 Compass** | Trainer / Light Strike & Ground Attack Jet |
+| **SAH-46 Chicane** | Dedicated Attack Helicopter / Gunship |
+| **FS-12 Revoker** | Air Superiority Fighter / High-G Interceptor |
+| **FS-20 Vortex** | Multi-Role Stealth VTOL Fighter |
+| **VL-49 Tarantula** | Heavy Cargo / Logistics Tilt-Jet VTOL |
+| **KR-67 Ifrit** | Heavy Stealth Air Dominance Multi-Role Fighter |
+| **EW-25 Medusa** | Electronic Warfare (EW) / SEAD & Radar Jamming Jet |
+| **SFB-81 Darkreach** | Strategic Long-Range Heavy Stealth Bomber |
+| **FGA-57 Anvil** | Heavy Strike / Armored Ground Attack Aircraft |
+
+### B. Ground Vehicles (`GroundVehicle`)
+
+#### 1. Standoff Artillery, Long-Range Missile & Radar Systems
+*(Doctrinal Behavior: Must hold position at rear base perimeters / elevated standoff terrain, NOT push frontlines)*
+| Unit Name | Classification & Role |
+| :--- | :--- |
+| **StratoLance R9 Launcher** / **MSV R9 Stratolance** | Heavy Cruise / Guided Ballistic Missile Transporter Erector Launcher |
+| **MSV Nuclear Ballistic Missile Launcher** | Nuclear Strategic Ballistic Missile Transporter Erector Launcher |
+| **T9K41 Boltstrike** / **RAM45 Launcher** | Long-Range Surface-to-Air Missile (SAM) Radar-Guided Battery |
+| **Linebreaker SAM** | Heavy Armored Surface-to-Air Missile Launcher |
+| **Hexhound SAM** | High-Mobility Medium Air Defense SAM |
+| **LCV25 SAM / LCV25 AA** | Light Mobile Air Defense Truck |
+| **AFV6 AA / AFV8 Mobile Air Defense** | Armored Anti-Air Missile / Gun Carrier |
+| **AeroSentry SPAAG** | Self-Propelled Anti-Aircraft Dual-Autocannon Gun |
+| **HLT Radar Truck** | Mobile Early Warning, Surveillance, & Target Acquisition Radar |
+
+#### 2. Frontline Combat Armor (Direct Offensive / Assault)
+*(Doctrinal Behavior: Assigned to Vanguard push to capture frontline objectives)*
+| Unit Name | Classification & Role |
+| :--- | :--- |
+| **Type-12 MBT** | Main Battle Tank |
+| **Spearhead MBT** | Heavy Frontline Main Battle Tank |
+| **AFV6 IFV / AFV8 IFV** | Infantry Fighting Vehicle (Autocannon + Troop Transport) |
+| **Linebreaker IFV** | Heavy Armored Assault IFV |
+| **AFV6 AT / LCV25 AT** | Dedicated Anti-Tank Guided Missile (ATGM) Carrier |
+| **AFV6 APC / AFV8 APC / Linebreaker APC** | Armored Personnel Carrier |
+| **LCV45 Recon Truck** | High-Speed Scout & Forward Reconnaissance Truck |
+
+#### 3. Logistics & Field Support
+| Unit Name | Classification & Role |
+| :--- | :--- |
+| **HLT Munitions Truck** | Field Ammunition Resupply & Rearm Truck |
+| **HLT Fuel Tanker / MSV Fuel Tanker** | Heavy Fuel Carrier & Forward Refuel Truck |
+| **Airport Fuel Truck** | Airbase Taxiway Refueling Truck |
+| **OTB-31** | Amphibious Assault / Landing Craft |
+
+### C. Naval Warships (`Ship`)
+| Warship Class | Classification & Role |
+| :--- | :--- |
+| **Shard Class Corvette** | Fast Guided-Missile Patrol Corvette |
+| **Dynamo Class Destroyer** | Multi-Role Guided Missile Destroyer (VLS Air Defense + Heavy Naval Guns) |
+| **Annex Class Carrier** | Amphibious Assault Helicopter / VTOL Carrier |
+| **Hyperion Class Carrier** | Heavy Fleet Aircraft Carrier (Catapult & Arrestor Gear) |
+
