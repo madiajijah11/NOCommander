@@ -174,9 +174,15 @@ internal sealed class CommanderBattlegroupService
                 Vector3 targetFlank = tf.FormationCenter + (right * side * flankDist) - (forward * 20f);
                 
                 UnitCommand? cmd = CommanderGameAccess.GetUnitCommand(aaUnit);
-                if (Vector3.Distance(aaUnit.transform.position, targetFlank) > 35f)
+                float distToFlank = Vector3.Distance(aaUnit.transform.position, targetFlank);
+                if (distToFlank > 45f)
                 {
                     cmd?.SetDestination(targetFlank.ToGlobalPosition(), false);
+                }
+                else if (distToFlank < 15f && aaUnit is GroundVehicle gv)
+                {
+                    // Engage brakes to prevent turning radius overshoot/donuts
+                    CommanderGameAccess.SetUnitHoldPosition(gv, true);
                 }
             }
 
@@ -188,9 +194,14 @@ internal sealed class CommanderBattlegroupService
 
                 Vector3 targetRear = tf.FormationCenter - (forward * (SupportRearOffset + (s * 25f)));
                 UnitCommand? cmd = CommanderGameAccess.GetUnitCommand(supUnit);
-                if (Vector3.Distance(supUnit.transform.position, targetRear) > 40f)
+                float distToRear = Vector3.Distance(supUnit.transform.position, targetRear);
+                if (distToRear > 50f)
                 {
                     cmd?.SetDestination(targetRear.ToGlobalPosition(), false);
+                }
+                else if (distToRear < 18f && supUnit is GroundVehicle gvSup)
+                {
+                    CommanderGameAccess.SetUnitHoldPosition(gvSup, true);
                 }
             }
         }

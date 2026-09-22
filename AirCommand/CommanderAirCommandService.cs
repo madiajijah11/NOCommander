@@ -742,6 +742,23 @@ internal sealed partial class CommanderAirCommandService
         return true;
     }
 
+    internal static void RecordTargetlessTick(AIPilotCombatModes state)
+    {
+        if (Instance == null || Instance.missions.Count == 0) return;
+        Aircraft? aircraft = CommanderAirCommandPatches.GetStateAircraft(state);
+        if (aircraft == null || !Instance.missions.TryGetValue(aircraft, out AirMission mission)) return;
+
+        // Count time spent in area without finding any valid hostile target
+        mission.TargetlessTimer += Time.deltaTime;
+
+        // If on CAP/AirGuard or CAS with zero targets for > 45 seconds, trigger Auto-RTB!
+        if (!mission.Returning && mission.Mode != AirCommandMode.AwacsJammer && mission.TargetlessTimer >= 45f)
+        {
+            mission.Returning = true;
+            CommanderPlugin.Log.LogInfo($"[Air Command] Auto-RTB triggered for {aircraft.unitName} (Target area clear for 45s).");
+        }
+    }
+
     internal static void ApplyMissionTargetAltitude(AIPilotCombatModes state, FieldInfo? targetHeightField)
     {
         if (Instance == null || Instance.missions.Count == 0 || targetHeightField == null)
@@ -882,6 +899,11 @@ internal sealed partial class CommanderAirCommandService
                 bestTarget = target;
                 bestStation = station;
             }
+        }
+
+        if (bestTarget != null)
+        {
+            mission.TargetlessTimer = 0f;
         }
 
         return new CombatAI.TargetSearchResults(bestTarget!, bestStation!, bestOpportunity, outOfAmmo);
@@ -2020,5 +2042,6 @@ internal sealed partial class CommanderAirCommandService
         internal GameObject? MapVisual { get; set; }
         internal bool Returning { get; set; }
         internal bool RtbIssued { get; set; }
+        internal float TargetlessTimer { get; set; }
     }
 }
