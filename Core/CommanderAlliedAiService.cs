@@ -16,6 +16,10 @@ internal sealed class CommanderAlliedAiService
     private const float RepairDispatchIntervalSeconds = 6f;
     private const float FrontlineSupplyIntervalSeconds = 40f;
     private const float EmergencyRetreatIntervalSeconds = 5f;
+    private const float AirAssaultCheckIntervalSeconds = 35f;
+
+    private static readonly System.Reflection.FieldInfo? CaptureCapturableField =
+        HarmonyLib.AccessTools.Field(typeof(Capture), "capturable");
 
     private readonly CommanderMoveService moveService;
     private readonly List<Unit> idleBattlegroupUnits = new();
@@ -37,6 +41,7 @@ internal sealed class CommanderAlliedAiService
     private float nextRepairDispatchTime;
     private float nextSupplyCheckTime;
     private float nextRetreatCheckTime;
+    private float nextAirAssaultCheckTime;
 
     private int trackedEnemyAir;
     private int trackedEnemyArmor;
@@ -87,6 +92,12 @@ internal sealed class CommanderAlliedAiService
         {
             nextSupplyCheckTime = now + FrontlineSupplyIntervalSeconds;
             ExecuteAutonomousFrontlineResupply();
+        }
+
+        if (now >= nextAirAssaultCheckTime)
+        {
+            nextAirAssaultCheckTime = now + AirAssaultCheckIntervalSeconds;
+            ExecuteAutonomousTroopAirAssault();
         }
 
         if (now >= nextRetreatCheckTime)
@@ -387,6 +398,60 @@ internal sealed class CommanderAlliedAiService
                 recentlySuppliedUnits[lowAmmo] = now;
                 StatusText = $"ALLIED AI: DISPATCHED FRONTLINE MUNITIONS DROP TO {lowAmmo.unitName.ToUpperInvariant()}!";
                 return;
+            }
+        }
+    }
+
+    private void ExecuteAutonomousTroopAirAssault()
+    {
+        CommanderSupplyHeliService? supplySvc = CommanderSupplyHeliService.Instance;
+        if (supplySvc == null || supplySvc.ActiveMissionCount >= 2) return;
+
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null) return;
+
+        // Scan all airbases in scene to find enemy or neutral airbases that are contestable
+        Airbase[] allAirbases = UnityEngine.Object.FindObjectsOfType<Airbase>();
+        if (allAirbases == null || allAirbases.Length == 0) return;
+
+        Airbase? targetAirbase = null;
+        float minDistance = float.MaxValue;
+        Vector3 hqPos = localHq.transform.position;
+
+        for (int i = 0; i < allAirbases.Length; i++)
+        {
+            Airbase ab = allAirbases[i];
+            if (ab == null || ab.disabled || ab.CurrentHQ == localHq)
+            {
+                continue;
+            }
+
+            // Check if base has active capture component
+            Capture? cap = ab.GetComponentInChildren<Capture>(true);
+            if (cap != null && CaptureCapturableField?.GetValue(cap) is bool capturable && !capturable)
+            {
+                continue;
+            }
+
+            Vector3 abPos = ab.center != null ? ab.center.position : ab.transform.position;
+
+            // Prioritize closest enemy/neutral airbase to friendly territory
+            float dist = Vector3.Distance(hqPos, abPos);
+            if (dist < minDistance)
+            {
+                minDistance = dist;
+                targetAirbase = ab;
+            }
+        }
+
+        if (targetAirbase != null)
+        {
+            Transform abT = targetAirbase.center != null ? targetAirbase.center : targetAirbase.transform;
+            GlobalPosition dropLz = abT.GlobalPosition();
+
+            if (supplySvc.RequestTroopAssaultRun(dropLz))
+            {
+                StatusText = $"ALLIED AI: LAUNCHED TROOP AIR-ASSAULT TO CAPTURE {targetAirbase.name.ToUpperInvariant()}!";
             }
         }
     }
@@ -914,6 +979,7 @@ internal sealed class CommanderAlliedAiService
         nextBattlegroupTime = 0f;
         nextRepairDispatchTime = 0f;
         nextSupplyCheckTime = 0f;
+        nextAirAssaultCheckTime = 0f;
         nextRetreatCheckTime = 0f;
         trackedEnemyAir = 0;
         trackedEnemyArmor = 0;

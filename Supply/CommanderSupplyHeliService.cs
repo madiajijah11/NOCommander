@@ -684,6 +684,99 @@ internal sealed partial class CommanderSupplyHeliService
         return true;
     }
 
+    internal bool RequestTroopAssaultRun(GlobalPosition target)
+    {
+        if (!CanHostSpawn(out FactionHQ? hq, out string error))
+        {
+            SetStatus(error);
+            return false;
+        }
+
+        if (assignedMissions.Count >= 2 || queuedCargoSpawns.Count > 0)
+        {
+            return false;
+        }
+
+        // Prevent duplicate flights to the same airbase/target
+        foreach (KeyValuePair<Aircraft, CargoMission> entry in assignedMissions)
+        {
+            if (entry.Key != null && !entry.Key.disabled && FastMath.InRange(entry.Value.Target, target, 2000f))
+            {
+                return false;
+            }
+        }
+
+        if (aircraftOptions.Count == 0)
+        {
+            RefreshOptions();
+        }
+
+        List<(CargoAircraftOption aircraft, Airbase airbase, CargoSlotOption slot, WeaponMount mount)> choices = new();
+        for (int aircraftIndex = 0; aircraftIndex < aircraftOptions.Count; aircraftIndex++)
+        {
+            CargoAircraftOption aircraft = aircraftOptions[aircraftIndex];
+            foreach (Airbase airbase in hq!.GetAirbases())
+            {
+                if (!IsCompatibleAirbase(airbase, hq, aircraft.Definition)
+                    || !IsSamSupplyAirbaseSafe(airbase, target))
+                {
+                    continue;
+                }
+
+                for (int slotIndex = 0; slotIndex < aircraft.CargoSlots.Count; slotIndex++)
+                {
+                    CargoSlotOption slot = aircraft.CargoSlots[slotIndex];
+                    for (int mountIndex = 0; mountIndex < slot.Mounts.Count; mountIndex++)
+                    {
+                        WeaponMount mount = slot.Mounts[mountIndex];
+                        if (IsTroopMount(mount)
+                            && WeaponChecker.MountAllowedHQ(mount, hq)
+                            && WeaponChecker.MountAllowedAirbase(mount, airbase))
+                        {
+                            choices.Add((aircraft, airbase, slot, mount));
+                        }
+                    }
+                }
+            }
+        }
+
+        if (choices.Count == 0)
+        {
+            return false;
+        }
+
+        var choice = choices[UnityEngine.Random.Range(0, choices.Count)];
+        Loadout loadout = CreateEmptyLoadout(choice.aircraft.HardpointSets.Length);
+        PlaceCargoAndClearNonCargo(
+            loadout,
+            choice.aircraft.HardpointSets,
+            choice.slot.HardpointIndex,
+            choice.mount);
+
+        string cargoLabel = GetCargoLabel(choice.mount, "Combat Troops");
+        SpawnCargoRun(
+            choice.aircraft,
+            loadout,
+            cargoLabel,
+            choice.airbase,
+            useHighTerrainClearance: true,
+            terrainClearanceMeters: 100f,
+            useAirdrop: false,
+            supportSummary: "AirAssault=Troops",
+            useOtherAirfields: true,
+            target);
+        return true;
+    }
+
+    private static bool IsTroopMount(WeaponMount mount)
+    {
+        if (mount == null) return false;
+        if (mount.Troops || (mount.info != null && mount.info.troops)) return true;
+        if (mount.prefab != null && mount.prefab.GetComponentInChildren<MountedTroops>(true) != null) return true;
+        string name = (!string.IsNullOrEmpty(mount.mountName) ? mount.mountName : mount.name).ToLowerInvariant();
+        return name.Contains("troop") || name.Contains("infantry");
+    }
+
     internal bool RequestSamSiteFoundationDrop(int siteId, GlobalPosition target)
     {
         if (!CanHostSpawn(out FactionHQ? hq, out string error))
