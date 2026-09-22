@@ -324,14 +324,59 @@ internal sealed partial class CommanderSupplyHeliService
 
     private static bool IsRuntimeCargoMount(WeaponMount? mount)
     {
-        return mount != null && mount.Cargo && mount.info != null && mount.info.cargo;
+        if (mount == null)
+        {
+            return false;
+        }
+
+        // 1. Explicit cargo flags
+        if (mount.Cargo && mount.info != null && mount.info.cargo)
+        {
+            return true;
+        }
+
+        // 2. Troop transport mounts (Infantry squads, Mechanized infantry)
+        if (mount.Troops || (mount.info != null && mount.info.troops))
+        {
+            return true;
+        }
+
+        // 3. Sling-load hook mounts or container/rearm mounts
+        if (mount.slingloadHook || (mount.info != null && (mount.info.sling || mount.info.rearmGround || mount.info.rearmShip)))
+        {
+            return true;
+        }
+
+        // 4. Prefab inspection for MountedCargo, MountedTroops, or Container
+        if (mount.prefab != null)
+        {
+            if (mount.prefab.GetComponentInChildren<MountedCargo>(true) != null
+                || mount.prefab.GetComponentInChildren<MountedTroops>(true) != null
+                || mount.prefab.GetComponentInChildren<Container>(true) != null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool CargoMountSupportsAirdrop(WeaponMount mount)
     {
+        // Troop transport drops / air-landing
+        if (mount.Troops || (mount.info != null && mount.info.troops))
+        {
+            return true;
+        }
+
         if (mount.prefab == null)
         {
             return false;
+        }
+
+        if (mount.prefab.GetComponentInChildren<MountedTroops>(true) != null)
+        {
+            return true;
         }
 
         MountedCargo[] cargoItems = mount.prefab.GetComponentsInChildren<MountedCargo>(true);
@@ -377,7 +422,7 @@ internal sealed partial class CommanderSupplyHeliService
         for (int i = 0; i < aircraft.pilots.Length; i++)
         {
             Pilot? pilot = aircraft.pilots[i];
-            if (pilot != null && (pilot.pilotType == Pilot.PilotType.Helo || pilot.pilotType == Pilot.PilotType.Tiltwing))
+            if (pilot != null && (pilot.pilotType == Pilot.PilotType.Helo || pilot.pilotType == Pilot.PilotType.Tiltwing || pilot.pilotType == Pilot.PilotType.VTOL))
             {
                 return true;
             }
@@ -398,18 +443,28 @@ internal sealed partial class CommanderSupplyHeliService
 
     private static string GetCargoLabel(WeaponMount mount, string loadoutName)
     {
-        if (mount.info.rearmGround)
+        if (mount.Troops || (mount.info != null && mount.info.troops))
+        {
+            return !string.IsNullOrWhiteSpace(mount.mountName) ? mount.mountName : "Combat Troops";
+        }
+
+        if (mount.info != null && mount.info.rearmGround)
         {
             return "Ground supplies";
         }
 
-        if (mount.info.rearmShip)
+        if (mount.info != null && mount.info.rearmShip)
         {
             return "Naval supplies";
         }
 
         if (mount.prefab != null)
         {
+            if (mount.prefab.GetComponentInChildren<MountedTroops>(true) != null)
+            {
+                return "Infantry Squad";
+            }
+
             Unit[] cargoUnits = mount.prefab.GetComponentsInChildren<Unit>(true);
             for (int i = 0; i < cargoUnits.Length; i++)
             {
@@ -426,7 +481,7 @@ internal sealed partial class CommanderSupplyHeliService
             return mount.mountName;
         }
 
-        if (!string.IsNullOrWhiteSpace(mount.info.weaponName))
+        if (mount.info != null && !string.IsNullOrWhiteSpace(mount.info.weaponName))
         {
             return mount.info.weaponName;
         }
