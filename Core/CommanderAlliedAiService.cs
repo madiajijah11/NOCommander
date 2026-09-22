@@ -452,23 +452,47 @@ internal sealed class CommanderAlliedAiService
 
             Vector3 abPos = ab.center != null ? ab.center.position : ab.transform.position;
 
-            // SAFETY GATE: Do not assault airbases that still have active enemy Air Defense / Radar threats nearby!
-            bool airDefenseThreatPresent = false;
-            for (int r = 0; r < hostileRadarScratch.Count; r++)
+            // STRICT COMPREHENSIVE COMBAT RECON GATE:
+            // 1. Any active enemy presence within base capture zone (5,000m perimeter)
+            bool hostileInPerimeter = false;
+            for (int u = 0; u < hostileUnitsScratch.Count; u++)
             {
-                Unit radarUnit = hostileRadarScratch[r];
-                if (radarUnit != null && !radarUnit.disabled && Vector3.Distance(abPos, radarUnit.transform.position) < 4500f)
+                Unit enemy = hostileUnitsScratch[u];
+                if (enemy == null || enemy.disabled) continue;
+
+                float distToTarget = Vector3.Distance(abPos, enemy.transform.position);
+
+                // Any radar/SAM/SPAAG threat within 6,000m aborts air-assault immediately
+                string eName = (!string.IsNullOrEmpty(enemy.unitName) ? enemy.unitName : enemy.name).ToLowerInvariant();
+                bool isAirDefense = enemy.GetComponentInChildren<Radar>(true) != null
+                    || eName.Contains("sam") || eName.Contains("radar") || eName.Contains("spaag") || eName.Contains("boltstrike") || eName.Contains("aa");
+
+                if (isAirDefense && distToTarget < 6000f)
                 {
-                    airDefenseThreatPresent = true;
+                    hostileInPerimeter = true;
+                    break;
+                }
+
+                // Any ground armor/infantry/vehicle within base boundary (< 2,500m) also blocks drop
+                if (enemy is GroundVehicle && distToTarget < 2500f)
+                {
+                    hostileInPerimeter = true;
                     break;
                 }
             }
-            if (airDefenseThreatPresent)
+
+            if (hostileInPerimeter)
             {
-                continue;
+                continue; // Base is heavily defended or hot kill-zone; CAS/SEAD must soften first!
             }
 
-            // Prioritize closest enemy/neutral airbase to friendly territory
+            // 2. Air Superiority Check: Friendly air cover must be present or no hostile fighters in theater
+            if (trackedEnemyAir > 1 && friendlySamCount == 0)
+            {
+                continue; // Contested sky; fragile transport helos will be intercepted
+            }
+
+            // Prioritize closest cleared enemy/neutral airbase to friendly territory
             float dist = Vector3.Distance(hqPos, abPos);
             if (dist < minDistance)
             {
