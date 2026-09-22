@@ -292,9 +292,26 @@ internal sealed class CommanderAlliedAiService
             Unit damaged = damagedFriendlyUnits[d];
             if (damaged == null || damaged.disabled) continue;
 
+            Vector3 damagedPos = damaged.transform.position;
+
+            // SAFETY GATE: Do not send fragile repair trucks directly into hot kill-zones (enemy armor/guns within 900m)
+            bool hotZone = false;
+            for (int h = 0; h < hostileArmorScratch.Count; h++)
+            {
+                Unit enemyArmor = hostileArmorScratch[h];
+                if (enemyArmor != null && !enemyArmor.disabled && Vector3.Distance(damagedPos, enemyArmor.transform.position) < 900f)
+                {
+                    hotZone = true;
+                    break;
+                }
+            }
+            if (hotZone)
+            {
+                continue; // Wait until enemy armor is cleared or friendly retreats to safe perimeter
+            }
+
             Unit? closestRepairer = null;
             float minDistance = float.MaxValue;
-            Vector3 damagedPos = damaged.transform.position;
 
             for (int r = 0; r < availableRepairers.Count; r++)
             {
@@ -434,6 +451,22 @@ internal sealed class CommanderAlliedAiService
             }
 
             Vector3 abPos = ab.center != null ? ab.center.position : ab.transform.position;
+
+            // SAFETY GATE: Do not assault airbases that still have active enemy Air Defense / Radar threats nearby!
+            bool airDefenseThreatPresent = false;
+            for (int r = 0; r < hostileRadarScratch.Count; r++)
+            {
+                Unit radarUnit = hostileRadarScratch[r];
+                if (radarUnit != null && !radarUnit.disabled && Vector3.Distance(abPos, radarUnit.transform.position) < 4500f)
+                {
+                    airDefenseThreatPresent = true;
+                    break;
+                }
+            }
+            if (airDefenseThreatPresent)
+            {
+                continue;
+            }
 
             // Prioritize closest enemy/neutral airbase to friendly territory
             float dist = Vector3.Distance(hqPos, abPos);
@@ -933,6 +966,16 @@ internal sealed class CommanderAlliedAiService
 
             if (unit is GroundVehicle vehicle && !CommanderGameAccess.IsTrailerVehicleDefinition(vehicle.definition as VehicleDefinition))
             {
+                // SAFETY & DOCTRINE: Standoff artillery, ballistic missile trucks, SAMs, and repairers must NOT push frontlines
+                string vName = (!string.IsNullOrEmpty(unit.unitName) ? unit.unitName : unit.name).ToLowerInvariant();
+                if (vName.Contains("strato") || vName.Contains("r9") || vName.Contains("boltstrike") || vName.Contains("ram45")
+                    || vName.Contains("radar") || vName.Contains("jacknife") || vName.Contains("repair")
+                    || vName.Contains("tanker") || vName.Contains("fuel") || vName.Contains("truck")
+                    || vehicle.TryGetComponent(out Repairer _))
+                {
+                    continue;
+                }
+
                 if (vehicle.UnitCommand != null && !moveService.HasActivePlayerDestination(vehicle))
                 {
                     idleBattlegroupUnits.Add(vehicle);
