@@ -31,6 +31,8 @@ internal sealed class CommanderAlliedAiService
     private readonly List<Unit> lowAmmoFriendlyUnits = new();
     private readonly List<Unit> availableRepairers = new();
     private readonly Dictionary<Unit, float> recentlySuppliedUnits = new();
+    private readonly List<Airbase> cachedAirbases = new();
+    private float nextAirbaseCacheTime;
 
     private float nextThreatScanTime;
     private float nextProcurementTime;
@@ -120,6 +122,7 @@ internal sealed class CommanderAlliedAiService
 
         if (now >= nextAirScrambleTime)
         {
+            nextAirScrambleTime = now + 8f;
             ExecuteAutonomousTacticalAirMissions();
         }
 
@@ -428,16 +431,26 @@ internal sealed class CommanderAlliedAiService
         if (localHq == null) return;
 
         // Scan all airbases in scene to find enemy or neutral airbases that are contestable
-        Airbase[] allAirbases = UnityEngine.Object.FindObjectsOfType<Airbase>();
-        if (allAirbases == null || allAirbases.Length == 0) return;
+        float now = Time.unscaledTime;
+        if (cachedAirbases.Count == 0 || now >= nextAirbaseCacheTime)
+        {
+            nextAirbaseCacheTime = now + 30f;
+            cachedAirbases.Clear();
+            Airbase[] found = UnityEngine.Object.FindObjectsOfType<Airbase>();
+            if (found != null && found.Length > 0)
+            {
+                cachedAirbases.AddRange(found);
+            }
+        }
+        if (cachedAirbases.Count == 0) return;
 
         Airbase? targetAirbase = null;
         float minDistance = float.MaxValue;
         Vector3 hqPos = localHq.transform.position;
 
-        for (int i = 0; i < allAirbases.Length; i++)
+        for (int i = 0; i < cachedAirbases.Count; i++)
         {
-            Airbase ab = allAirbases[i];
+            Airbase ab = cachedAirbases[i];
             if (ab == null || ab.disabled || ab.CurrentHQ == localHq)
             {
                 continue;
@@ -1060,6 +1073,8 @@ internal sealed class CommanderAlliedAiService
         lowAmmoFriendlyUnits.Clear();
         availableRepairers.Clear();
         recentlySuppliedUnits.Clear();
+        cachedAirbases.Clear();
+        nextAirbaseCacheTime = 0f;
         nextThreatScanTime = 0f;
         nextProcurementTime = 0f;
         nextAirScrambleTime = 0f;

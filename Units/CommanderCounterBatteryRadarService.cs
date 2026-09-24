@@ -31,18 +31,37 @@ internal sealed class CommanderCounterBatteryRadarService
     {
         if (Instance == null || weapon == null) return;
 
-        Unit? firingUnit = weapon.GetComponentInParent<Unit>();
-        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
-        if (firingUnit == null || localHq == null || CommanderGameAccess.IsFriendlyUnit(firingUnit, localHq))
+        // Fast zero-allocation rejection of rapid-fire autocannons & machineguns BEFORE hierarchy lookup
+        string rawName = weapon.name;
+        if (string.IsNullOrEmpty(rawName)
+            || rawName.IndexOf("gun", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("20mm", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("23mm", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("30mm", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("ciws", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("bullet", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("tracer", StringComparison.OrdinalIgnoreCase) >= 0)
         {
             return;
         }
 
-        // Only register significant ballistic / rocket / missile launches
-        string wpName = weapon.name.ToLowerInvariant();
-        bool isArtilleryOrMissile = wpName.Contains("missile") || wpName.Contains("rocket") || wpName.Contains("mortar") || wpName.Contains("cannon") || wpName.Contains("howitzer") || wpName.Contains("sam") || wpName.Contains("battery");
+        // Only register significant heavy artillery, rocket, or missile launches
+        bool isArtilleryOrMissile = rawName.IndexOf("missile", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("rocket", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("mortar", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("howitzer", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("sam", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("battery", StringComparison.OrdinalIgnoreCase) >= 0
+            || rawName.IndexOf("artillery", StringComparison.OrdinalIgnoreCase) >= 0;
 
         if (!isArtilleryOrMissile)
+        {
+            return;
+        }
+
+        Unit? firingUnit = weapon.GetComponentInParent<Unit>();
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (firingUnit == null || localHq == null || CommanderGameAccess.IsFriendlyUnit(firingUnit, localHq))
         {
             return;
         }
@@ -55,6 +74,11 @@ internal sealed class CommanderCounterBatteryRadarService
             {
                 return;
             }
+        }
+
+        if (Instance.activePings.Count >= 8)
+        {
+            Instance.activePings.RemoveAt(0);
         }
 
         Instance.activePings.Add(new CounterBatteryPing

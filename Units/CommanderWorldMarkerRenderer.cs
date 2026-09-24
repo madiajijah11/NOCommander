@@ -59,8 +59,11 @@ internal sealed class CommanderWorldMarkerRenderer
             Unit unit = selectionService.SelectedUnits[i];
             if (unit == null || unit.disabled) continue;
 
-            // Draw Weapon Range Ring & SAM Umbrella for selected unit
-            DrawWeaponRangeRings(camera, unit);
+            // Draw Weapon Range Ring & SAM Umbrella for selected unit (throttled to max 2 units to prevent OnGUI framedrops)
+            if (selectedCount <= 2 || i == 0)
+            {
+                DrawWeaponRangeRings(camera, unit);
+            }
 
             bool hasUnitScreen = CommanderGameAccess.TryGetWorldMarkerState(unit.transform.GlobalPosition(), camera, out Vector3 unitScreenPos, out _);
             Vector2 unitGuiPoint = hasUnitScreen ? CommanderUiScale.ScreenToGui(unitScreenPos) : Vector2.zero;
@@ -433,10 +436,10 @@ internal sealed class CommanderWorldMarkerRenderer
             ? new Color(0.15f, 0.85f, 1f, 0.45f)
             : new Color(1f, 0.35f, 0.2f, 0.4f);
 
-        DrawGroundCircle(camera, unit.transform.position, maxRange, ringColor, 32, 1.8f);
+        DrawGroundCircle(camera, unit.transform.position, maxRange, ringColor, 20, 1.8f);
     }
 
-    private static void DrawGroundCircle(Camera camera, Vector3 center, float radius, Color color, int segments = 32, float thickness = 1.8f)
+    private static void DrawGroundCircle(Camera camera, Vector3 center, float radius, Color color, int segments = 20, float thickness = 1.8f)
     {
         Vector2 prevGui = Vector2.zero;
         bool hasPrev = false;

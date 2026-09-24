@@ -42,6 +42,7 @@ internal sealed class CommanderMoveService
     private bool awaitingAttackMoveSelection;
     private FormationShape currentFormation = FormationShape.Ring;
     private float nextRtbCheckTime;
+    private float nextPruneTime;
 
     internal static CommanderMoveService? Instance { get; private set; }
 
@@ -548,11 +549,14 @@ internal sealed class CommanderMoveService
 
     internal void Tick()
     {
-        stoppedUnits.RemoveWhere(static unit => unit == null || unit.disabled);
-        autoRtbUnits.RemoveWhere(static unit => unit == null || unit.disabled);
-
-        // Prune dead collections
-        PruneDeadReferences();
+        // Periodic dead collection pruning (every 2s instead of every frame to eliminate GC drops)
+        if (Time.unscaledTime >= nextPruneTime)
+        {
+            nextPruneTime = Time.unscaledTime + 2.0f;
+            stoppedUnits.RemoveWhere(static unit => unit == null || unit.disabled);
+            autoRtbUnits.RemoveWhere(static unit => unit == null || unit.disabled);
+            PruneDeadReferences();
+        }
 
         // Update Guard / Escort positions
         foreach (KeyValuePair<Unit, Unit> pair in guardTargets)
@@ -943,6 +947,7 @@ internal sealed class CommanderMoveService
         patrolRoutes.Clear();
         patrolIndices.Clear();
         autoRtbUnits.Clear();
+        nextPruneTime = 0f;
         awaitingPatrolSelection = false;
         awaitingGuardSelection = false;
         awaitingBarrageSelection = false;
