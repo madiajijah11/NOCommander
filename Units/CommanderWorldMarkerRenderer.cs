@@ -53,17 +53,11 @@ internal sealed class CommanderWorldMarkerRenderer
         drawnAttackTargets.Clear();
         int selectedCount = selectionService.SelectedUnits.Count;
 
-        // 1. Draw Paths, Vector Lines & Range Rings for Selected Units
+        // 1. Draw Paths & Vector Lines for Selected Units
         for (int i = 0; i < selectedCount; i++)
         {
             Unit unit = selectionService.SelectedUnits[i];
             if (unit == null || unit.disabled) continue;
-
-            // Draw Weapon Range Ring & SAM Umbrella for selected unit (throttled to max 2 units to prevent OnGUI framedrops)
-            if (selectedCount <= 2 || i == 0)
-            {
-                DrawWeaponRangeRings(camera, unit);
-            }
 
             bool hasUnitScreen = CommanderGameAccess.TryGetWorldMarkerState(unit.transform.GlobalPosition(), camera, out Vector3 unitScreenPos, out _);
             Vector2 unitGuiPoint = hasUnitScreen ? CommanderUiScale.ScreenToGui(unitScreenPos) : Vector2.zero;
@@ -397,46 +391,6 @@ internal sealed class CommanderWorldMarkerRenderer
         CommanderUiTheme.DrawFrame(marker, 1.2f);
         GUI.Label(new Rect(marker.x + 7f, marker.y, marker.width - 14f, marker.height), label, CommanderUiTheme.MutedLabel);
         GUI.color = prev;
-    }
-
-    private static void DrawWeaponRangeRings(Camera camera, Unit unit)
-    {
-        if (unit == null || unit.disabled || unit.weaponStations == null || unit.weaponStations.Count == 0)
-        {
-            return;
-        }
-
-        float maxRange = 0f;
-        bool isSamOrAirDefense = false;
-        string name = unit.unitName.ToLowerInvariant();
-        if (name.Contains("sam") || name.Contains("spaag") || name.Contains("strato") || name.Contains("shard") || name.Contains("radar") || name.Contains("23mm"))
-        {
-            isSamOrAirDefense = true;
-        }
-
-        for (int s = 0; s < unit.weaponStations.Count; s++)
-        {
-            WeaponStation station = unit.weaponStations[s];
-            if (station?.WeaponInfo != null)
-            {
-                float r = station.WeaponInfo.targetRequirements.maxRange;
-                if (r > maxRange)
-                {
-                    maxRange = r;
-                }
-            }
-        }
-
-        if (maxRange <= 50f)
-        {
-            return;
-        }
-
-        Color ringColor = isSamOrAirDefense
-            ? new Color(0.15f, 0.85f, 1f, 0.45f)
-            : new Color(1f, 0.35f, 0.2f, 0.4f);
-
-        DrawGroundCircle(camera, unit.transform.position, maxRange, ringColor, 20, 1.8f);
     }
 
     private static void DrawGroundCircle(Camera camera, Vector3 center, float radius, Color color, int segments = 20, float thickness = 1.8f)
