@@ -34,6 +34,7 @@ Comprehensive internal technical reference and knowledge base covering the *Nucl
 ---
 
 ## 🎯 Core Engineering Guidelines for AI Agents
+- **MANDATORY PERFORMANCE RULE:** Zero-tolerance for FPS regression. No secondary cameras, no cumulative scale mutations (`*= factor`), no unthrottled `FindObjectsOfType`, no matrix rotations (`RotateAroundPivot`) in `OnGUI`.
 - **Memory Safety:** Always invoke `PruneDeadReferences()` on any collections holding `Unit` / `GameObject`.
 - **Physics Safety:** Never zero `rb.velocity` in `Update()` (use `SetUnitHoldPosition(true)`).
 - **Zero-GC UI:** Use statically cached styles, textures, and structs from `CommanderUiTheme.cs`.
