@@ -19,6 +19,8 @@ internal sealed class CommanderOverlayUi
     private const int FactoryWindowId = 0x434F4D46;
     private const int BuildingWindowId = 0x434F4D42;
     private const int MoneyWindowId = 0x434F4D24;
+    private const int LeftDockWindowId = 0x434F4D4C;
+    private const int SelectionBarWindowId = 0x434F4D58;
 
     private readonly CommanderSelectionService selectionService;
     private readonly CommanderMoveService moveService;
@@ -102,6 +104,8 @@ internal sealed class CommanderOverlayUi
     private int reserveTab;
     private int reserveMultiplier = 1;
     private bool positionsInitialized;
+    private bool dockPositionInitialized;
+    private bool selectionBarPositionInitialized;
     private Rect launcherRect;
     private Rect moneyRect;
     private Rect panelRect;
@@ -216,7 +220,18 @@ internal sealed class CommanderOverlayUi
             CommanderTacticalMapService.Instance.Close();
         }
         float centerY = CommanderUiScale.Height * 0.5f;
-        launcherRect = new Rect(10f, centerY - 42f, 52f, 84f);
+        if (!dockPositionInitialized)
+        {
+            float dockY = Mathf.Max(50f, centerY - 210f);
+            launcherRect = new Rect(10f, dockY, 52f, 410f);
+            dockPositionInitialized = true;
+        }
+        else
+        {
+            launcherRect.width = 52f;
+            launcherRect.height = 410f;
+            launcherRect = CommanderUiTheme.ClampWindow(launcherRect, 6f);
+        }
 
         if (!positionsInitialized)
         {
@@ -321,11 +336,22 @@ internal sealed class CommanderOverlayUi
 
         int selectedCount = selectionService.SelectedUnits.Count;
         float barH = selectedCount == 1 ? 92f : 66f;
-        selectionBarRect = new Rect(
-            Mathf.Max(12f, (CommanderUiScale.Width - 1040f) * 0.5f),
-            CommanderUiScale.Height - barH - 10f,
-            Mathf.Min(1040f, CommanderUiScale.Width - 24f),
-            barH);
+        float barW = Mathf.Min(1040f, CommanderUiScale.Width - 24f);
+        if (!selectionBarPositionInitialized)
+        {
+            selectionBarRect = new Rect(
+                Mathf.Max(12f, (CommanderUiScale.Width - barW) * 0.5f),
+                CommanderUiScale.Height - barH - 10f,
+                barW,
+                barH);
+            selectionBarPositionInitialized = true;
+        }
+        else
+        {
+            selectionBarRect.width = barW;
+            selectionBarRect.height = barH;
+            selectionBarRect = CommanderUiTheme.ClampWindow(selectionBarRect, 6f);
+        }
         selectionHelpRect = new Rect(selectionBarRect.x, selectionBarRect.y - 92f, selectionBarRect.width, 84f);
         if (CommanderFeatureGate.AdvancedFeaturesEnabled)
         {
@@ -370,9 +396,9 @@ internal sealed class CommanderOverlayUi
     {
         CommanderUiTheme.Ensure();
         float centerY = CommanderUiScale.Height * 0.5f;
-        launcherRect = new Rect(10f, centerY - 42f, 52f, 84f);
+        Rect inactiveRect = new(10f, centerY - 42f, 52f, 84f);
         EventType activationEvent = Event.current.type;
-        if (GUI.Button(launcherRect, "CMD", CommanderUiTheme.PrimaryButton)
+        if (GUI.Button(inactiveRect, "CMD", CommanderUiTheme.PrimaryButton)
             && activationEvent == EventType.MouseUp)
         {
             GUI.FocusControl(null);
@@ -791,7 +817,7 @@ internal sealed class CommanderOverlayUi
                 CommanderUiTheme.Label);
         }
 
-        GUI.DragWindow(new Rect(0f, 0f, panelRect.width - 72f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, panelRect.width - 72f, 34f));
     }
 
     private void DrawSettingsWindowIfVisible()
@@ -844,7 +870,7 @@ internal sealed class CommanderOverlayUi
             DrawControlSettings(y);
         }
 
-        GUI.DragWindow(new Rect(0f, 0f, settingsWindowRect.width - 72f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, settingsWindowRect.width - 72f, 34f));
     }
 
     private void DrawSettingsTab(Rect rect, string label, int tab)
@@ -1027,7 +1053,7 @@ internal sealed class CommanderOverlayUi
         if (factorySvc == null || factorySvc.FriendlyFactories.Count == 0)
         {
             GUI.Label(new Rect(16f, y, factoryWindowRect.width - 32f, 30f), "No active friendly vehicle factories found on this map.", CommanderUiTheme.Label);
-            GUI.DragWindow(new Rect(0f, 0f, factoryWindowRect.width - 72f, 28f));
+            GUI.DragWindow(new Rect(0f, 0f, factoryWindowRect.width - 72f, 34f));
             return;
         }
 
@@ -1066,7 +1092,7 @@ internal sealed class CommanderOverlayUi
 
         if (currentFactory == null || currentFactory.attachedUnit == null)
         {
-            GUI.DragWindow(new Rect(0f, 0f, factoryWindowRect.width - 72f, 28f));
+            GUI.DragWindow(new Rect(0f, 0f, factoryWindowRect.width - 72f, 34f));
             return;
         }
 
@@ -1127,7 +1153,7 @@ internal sealed class CommanderOverlayUi
         }
         GUI.EndScrollView();
 
-        GUI.DragWindow(new Rect(0f, 0f, factoryWindowRect.width - 72f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, factoryWindowRect.width - 72f, 34f));
     }
 
     private void JumpToFactory(Factory? factory)
@@ -1160,7 +1186,7 @@ internal sealed class CommanderOverlayUi
         CommanderFactionVehicleService? factionSvc = CommanderFactionVehicleService.Instance;
         if (bldSvc == null)
         {
-            GUI.DragWindow(new Rect(0f, 0f, buildingWindowRect.width - 72f, 28f));
+            GUI.DragWindow(new Rect(0f, 0f, buildingWindowRect.width - 72f, 34f));
             return;
         }
 
@@ -1323,7 +1349,7 @@ internal sealed class CommanderOverlayUi
             GUI.EndScrollView();
         }
 
-        GUI.DragWindow(new Rect(0f, 0f, buildingWindowRect.width - 72f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, buildingWindowRect.width - 72f, 34f));
     }
 
     private void DrawCheatWindow(int windowId)
@@ -1501,7 +1527,7 @@ internal sealed class CommanderOverlayUi
             }
         }
 
-        GUI.DragWindow(new Rect(0f, 0f, cheatWindowRect.width - 72f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, cheatWindowRect.width - 72f, 34f));
     }
 
     private void DrawBinding(Rect rect, string label, string binding)
@@ -1647,12 +1673,15 @@ internal sealed class CommanderOverlayUi
     private void ResetUiLayout()
     {
         positionsInitialized = false;
+        dockPositionInitialized = false;
+        selectionBarPositionInitialized = false;
         supplyHeliUi.ResetPosition();
         airCommandUi.ResetPosition();
         navalPurchaseUi.ResetPosition();
         samSiteAnalyzerUi.ResetPosition();
         depotUi.ResetPosition();
         CommanderTacticalMapService.Instance?.ResetLayoutPosition();
+        CommanderPovCrewUi.Instance?.ResetPosition();
     }
 
     private GUIStyle GetGhostCommandStyle()
@@ -1682,15 +1711,25 @@ internal sealed class CommanderOverlayUi
             return;
         }
 
-        GUI.Box(selectionBarRect, string.Empty, CommanderUiTheme.Panel);
-        CommanderUiTheme.DrawHeaderStripe(selectionBarRect);
-        CommanderUiTheme.DrawMutedFrame(selectionBarRect);
+        selectionBarRect = GUI.Window(SelectionBarWindowId, selectionBarRect, DrawSelectionBarWindow, string.Empty, CommanderUiTheme.Panel);
+    }
+
+    private void DrawSelectionBarWindow(int windowId)
+    {
+        int count = selectionService.SelectedUnits.Count;
+        if (count == 0)
+        {
+            return;
+        }
+
+        CommanderUiTheme.DrawHeaderStripe(new Rect(0f, 0f, selectionBarRect.width, selectionBarRect.height));
+        CommanderUiTheme.DrawMutedFrame(new Rect(0f, 0f, selectionBarRect.width, selectionBarRect.height));
 
         Unit? focused = selectionService.FocusedSelection;
         bool advanced = CommanderFeatureGate.AdvancedFeaturesEnabled;
         bool oldEnabled = GUI.enabled;
 
-        float buttonY = selectionBarRect.y + (count == 1 ? 54f : 28f);
+        float buttonY = count == 1 ? 54f : 28f;
 
         if (count == 1 && focused != null && !focused.disabled)
         {
@@ -1734,11 +1773,11 @@ internal sealed class CommanderOverlayUi
                 : (heading < 293 ? "W" : "NW"))))));
 
             string line1 = $"[{catLabel}] {focused.unitName.ToUpperInvariant()}   •   SPD: {Mathf.RoundToInt(speedKmh)} km/h   •   HDG: {heading:000}° ({compassDir})   •   ALT: {Mathf.RoundToInt(altM)}m   •   FUEL: {fuelPct}%   •   STANCE: {(isHold ? "HOLD" : "FREE")}";
-            GUI.Label(new Rect(selectionBarRect.x + 12f, selectionBarRect.y + 4f, selectionBarRect.width - 160f, 20f), line1, CommanderUiTheme.Header);
+            GUI.Label(new Rect(12f, 4f, selectionBarRect.width - 160f, 20f), line1, CommanderUiTheme.Header);
 
             Color prev = GUI.color;
             GUI.color = statusCol;
-            GUI.Label(new Rect(selectionBarRect.xMax - 140f, selectionBarRect.y + 4f, 100f, 20f), $"[{statusTag}]", CommanderUiTheme.Header);
+            GUI.Label(new Rect(selectionBarRect.width - 140f, 4f, 100f, 20f), $"[{statusTag}]", CommanderUiTheme.Header);
             GUI.color = prev;
 
             // 2. Armament Breakdown
@@ -1764,34 +1803,28 @@ internal sealed class CommanderOverlayUi
                 ? "ARMAMENT:  " + string.Join("   •   ", weaponSummaries)
                 : "ARMAMENT:  UNARMED LOGISTICS / SUPPORT PLATFORM";
 
-            GUI.Label(new Rect(selectionBarRect.x + 12f, selectionBarRect.y + 26f, selectionBarRect.width - 50f, 22f), wpText, CommanderUiTheme.Label);
+            GUI.Label(new Rect(12f, 26f, selectionBarRect.width - 50f, 22f), wpText, CommanderUiTheme.Label);
         }
         else
         {
             // Multi-Unit Header
             string formName = moveService.CurrentFormation.ToString().ToUpperInvariant();
-            GUI.Label(new Rect(selectionBarRect.x + 12f, selectionBarRect.y + 4f, selectionBarRect.width - 240f, 20f),
+            GUI.Label(new Rect(12f, 4f, selectionBarRect.width - 240f, 20f),
                 $"{count} UNITS SELECTED (TACTICAL BATTLE GROUP)", CommanderUiTheme.Header);
 
-            GUI.Label(new Rect(selectionBarRect.xMax - 220f, selectionBarRect.y + 4f, 180f, 20f),
+            GUI.Label(new Rect(selectionBarRect.width - 220f, 4f, 180f, 20f),
                 $"[FORM: {formName}]", CommanderUiTheme.SubHeader);
         }
 
-        if (GUI.Button(new Rect(selectionBarRect.xMax - 30f, selectionBarRect.y + 3f, 22f, 20f), "?", CommanderUiTheme.HelpButton))
+        if (GUI.Button(new Rect(selectionBarRect.width - 30f, 3f, 22f, 20f), "?", CommanderUiTheme.HelpButton))
         {
             selectionHelpVisible = !selectionHelpVisible;
-        }
-
-        if (selectionHelpVisible)
-        {
-            CommanderUiTheme.DrawHelpOverlay(selectionHelpRect,
-                "STOP holds units. AI returns to basegame. A-MOVE ('T') moves & engages targets. PATROL ('P') loops waypoints. GUARD ('G') escorts target. SCATTER ('X') evades area damage. FORM ('V') cycles military formations. RTB auto-returns for repair/rearm. STANCE ('F') toggles Hold Fire. PIN stores selection.");
         }
 
         // 3. Command Button Grid (Row of 12 Aligned Tactical Buttons)
         float totalWidth = selectionBarRect.width - 24f;
         float btnWidth = (totalWidth - 11f * 4f) / 12f;
-        float bx = selectionBarRect.x + 12f;
+        float bx = 12f;
 
         // 1. STOP
         GUI.enabled = oldEnabled && moveService.HasCommandableSelection;
@@ -1934,7 +1967,9 @@ internal sealed class CommanderOverlayUi
             }
         }
         GUI.enabled = oldEnabled;
+        GUI.DragWindow(new Rect(0f, 0f, selectionBarRect.width, selectionBarRect.height));
     }
+
     private void DrawMoneyWindow(int windowId)
     {
         CommanderBuildingEconomyService? bldSvc = CommanderBuildingEconomyService.Instance;
@@ -1952,18 +1987,18 @@ internal sealed class CommanderOverlayUi
     }
     private void DrawModernLeftDock()
     {
+        launcherRect = GUI.Window(LeftDockWindowId, launcherRect, DrawLeftDockWindow, string.Empty, CommanderUiTheme.Panel);
+    }
+
+    private void DrawLeftDockWindow(int windowId)
+    {
         bool advanced = CommanderFeatureGate.AdvancedFeaturesEnabled;
-        float centerY = CommanderUiScale.Height * 0.5f;
-        float dockY = Mathf.Max(50f, centerY - 210f);
-        launcherRect = new Rect(10f, dockY, 52f, 410f);
+        CommanderUiTheme.DrawMutedFrame(new Rect(0f, 0f, launcherRect.width, launcherRect.height));
 
-        GUI.Box(launcherRect, string.Empty, CommanderUiTheme.Panel);
-        CommanderUiTheme.DrawMutedFrame(launcherRect);
-
-        float by = dockY + 4f;
+        float by = 4f;
         float bw = 44f;
         float bh = 36f;
-        float bx = 14f;
+        float bx = 4f;
 
         // 1. Toggle Drawer
         if (GUI.Button(new Rect(bx, by, bw, bh), panelVisible ? "CMD <" : "CMD >", panelVisible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.PrimaryButton))
@@ -2041,6 +2076,8 @@ internal sealed class CommanderOverlayUi
             settingsVisible = !settingsVisible;
             bindingCapture = null;
         }
+
+        GUI.DragWindow(new Rect(0f, 0f, launcherRect.width, launcherRect.height));
     }
 
     private void DrawOobWindow(int windowId)
@@ -2065,7 +2102,7 @@ internal sealed class CommanderOverlayUi
         if (localHq == null)
         {
             GUI.Label(new Rect(16f, y, oobWindowRect.width - 32f, 30f), "No active faction HQ.", CommanderUiTheme.Label);
-            GUI.DragWindow(new Rect(0f, 0f, oobWindowRect.width - 72f, 28f));
+            GUI.DragWindow(new Rect(0f, 0f, oobWindowRect.width - 72f, 34f));
             return;
         }
 
@@ -2145,7 +2182,7 @@ internal sealed class CommanderOverlayUi
             $"• Active Vehicle Depots: {(spawnService.SelectedDepot != null ? 1 : 0)}");
 
         GUI.EndScrollView();
-        GUI.DragWindow(new Rect(0f, 0f, oobWindowRect.width - 72f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, oobWindowRect.width - 72f, 34f));
     }
 
     private static void DrawOobSection(Rect rect, string title, string line1, string line2, string line3)
@@ -2300,7 +2337,7 @@ internal sealed class CommanderOverlayUi
             }
             GUI.EndScrollView();
         }
-        GUI.DragWindow(new Rect(0f, 0f, pinnedWindowRect.width - 44f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, pinnedWindowRect.width - 44f, 34f));
     }
 
     private void DrawRadarWindow(int windowId)
@@ -2473,7 +2510,7 @@ internal sealed class CommanderOverlayUi
                     relocationRequirement, CommanderUiTheme.Label);
             }
         }
-        GUI.DragWindow(new Rect(0f, 0f, radarWindowRect.width - 44f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, radarWindowRect.width - 44f, 34f));
     }
 
     private float DrawSamSiteLogistics(
@@ -2794,7 +2831,7 @@ internal sealed class CommanderOverlayUi
         if (factionSvc == null)
         {
             GUI.Label(view, "Faction Service is unavailable.", CommanderUiTheme.Label);
-            GUI.DragWindow(new Rect(0f, 0f, reserveWindowRect.width - 72f, 28f));
+            GUI.DragWindow(new Rect(0f, 0f, reserveWindowRect.width - 72f, 34f));
             return;
         }
 
@@ -3009,6 +3046,6 @@ internal sealed class CommanderOverlayUi
             }
         }
 
-        GUI.DragWindow(new Rect(0f, 0f, reserveWindowRect.width - 72f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, reserveWindowRect.width - 72f, 34f));
     }
 }

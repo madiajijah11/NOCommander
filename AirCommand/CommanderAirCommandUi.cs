@@ -88,9 +88,9 @@ internal sealed class CommanderAirCommandUi
             windowRect.width = width;
             windowRect.height = height;
             windowRect = CommanderUiTheme.ClampWindow(windowRect);
-            missionWindowRect.x = Mathf.Min(windowRect.xMax + 12f, CommanderUiScale.Width - 330f);
-            missionWindowRect.y = windowRect.y;
+            missionWindowRect.width = 320f;
             missionWindowRect.height = Mathf.Min(440f, windowRect.height);
+            missionWindowRect = CommanderUiTheme.ClampWindow(missionWindowRect);
         }
 
         service.CollectMissionAircraft(missionAircraft);
@@ -227,7 +227,7 @@ internal sealed class CommanderAirCommandUi
             GUI.Label(new Rect(12f, y, windowRect.width - 24f, 36f), status, CommanderUiTheme.MutedLabel);
         }
 
-        GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 44f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 44f, 34f));
     }
 
     private void DrawModeTab(CommanderAirCommandService.AirCommandMode mode, string label, float x, float y, float width)
@@ -251,7 +251,7 @@ internal sealed class CommanderAirCommandUi
         if (missionAircraft.Count == 0)
         {
             GUI.Label(new Rect(16f, 40f, missionWindowRect.width - 32f, 30f), "No active air missions.", CommanderUiTheme.MutedLabel);
-            GUI.DragWindow(new Rect(0f, 0f, missionWindowRect.width - 44f, 28f));
+            GUI.DragWindow(new Rect(0f, 0f, missionWindowRect.width - 44f, 34f));
             return;
         }
 
@@ -277,6 +277,6 @@ internal sealed class CommanderAirCommandUi
         }
 
         GUI.EndScrollView();
-        GUI.DragWindow(new Rect(0f, 0f, missionWindowRect.width - 44f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, missionWindowRect.width - 44f, 34f));
     }
 }

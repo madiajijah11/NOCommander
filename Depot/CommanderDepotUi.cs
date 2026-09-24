@@ -140,7 +140,7 @@ internal sealed class CommanderDepotUi
             GUI.Label(new Rect(12f, windowRect.height - 42f, windowRect.width - 24f, 28f), spawnService.StatusText, CommanderUiTheme.MutedLabel);
         }
 
-        GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 72f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 72f, 34f));
     }
 
     private float DrawCategories(float y)

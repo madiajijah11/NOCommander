@@ -76,7 +76,7 @@ internal sealed class CommanderTheaterCommandUi
         if (sectors.Count == 0)
         {
             GUI.Label(new Rect(16f, y, windowRect.width - 32f, 24f), "Scanning theater for strategic sectors...", CommanderUiTheme.MutedLabel);
-            GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 40f, 28f));
+            GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 40f, 34f));
             return;
         }
 
@@ -182,6 +182,6 @@ internal sealed class CommanderTheaterCommandUi
             }
         }
 
-        GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 40f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 40f, 34f));
     }
 }

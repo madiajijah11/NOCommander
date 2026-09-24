@@ -268,7 +268,7 @@ internal sealed class CommanderSamSiteAnalyzerUi
         DrawFilterDropdown();
         DrawFilterTooltip();
 
-        GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 72f, 28f));
+        GUI.DragWindow(new Rect(0f, 0f, windowRect.width - 72f, 34f));
     }
 
     private float DrawCandidateTabs(float y, bool enabled)
