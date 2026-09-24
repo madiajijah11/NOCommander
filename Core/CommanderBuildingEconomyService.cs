@@ -124,12 +124,15 @@ internal sealed class CommanderBuildingEconomyService
             5));
     }
 
+    internal bool IsUiActive { get; set; }
+
     internal void Tick()
     {
         float now = Time.unscaledTime;
-        if (now >= nextRefreshTime)
+        float refreshInterval = IsUiActive ? 4f : 60f;
+        if (allEntries.Count == 0 || now >= nextRefreshTime)
         {
-            nextRefreshTime = now + 3f;
+            nextRefreshTime = now + refreshInterval;
             RefreshBuildingDatabase();
         }
 

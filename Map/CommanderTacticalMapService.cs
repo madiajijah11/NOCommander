@@ -224,8 +224,6 @@ internal sealed class CommanderTacticalMapService
         {
             ApplyLayout();
         }
-        HideFullMapPanels();
-        SyncCoverageLayer();
 
         if (!SuppressMapFollow && cameraJumpTracker.Tick(activeMap, out GlobalPosition position))
         {

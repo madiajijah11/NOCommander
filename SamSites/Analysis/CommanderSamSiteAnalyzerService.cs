@@ -273,6 +273,12 @@ internal sealed class CommanderSamSiteAnalyzerService
 
     internal void TickPersistent()
     {
+        // ZERO-REGRESSION PERFORMANCE: Only run heavy terrain analysis when user actively views SAM UI
+        if (!uiVisible && !showProposalMarkers)
+        {
+            return;
+        }
+
         UpdateCoverageOverlayBatch();
 
         if (state == AnalyzerState.Waiting)
@@ -717,7 +723,7 @@ internal sealed class CommanderSamSiteAnalyzerService
             BeginSampling(mapSettings);
         }
 
-        int regionsPerFrame = Mathf.Clamp(ScanQueriesPerFrame / 16, 1, 16);
+        int regionsPerFrame = 1;
         int end = Mathf.Min(regionIndex + regionsPerFrame, regionColumns * regionRows);
         for (; regionIndex < end; regionIndex++)
         {
@@ -916,7 +922,7 @@ internal sealed class CommanderSamSiteAnalyzerService
             return;
         }
 
-        int queryBudget = Mathf.Clamp(ScanQueriesPerFrame * 32, 2048, 16384);
+        int queryBudget = Mathf.Clamp(ScanQueriesPerFrame, 16, 64);
         int queries = 0;
         while (queries < queryBudget && coverageCandidateIndex < candidates.Count)
         {
@@ -1084,9 +1090,9 @@ internal sealed class CommanderSamSiteAnalyzerService
             return;
         }
 
-        int baseBatchSize = Mathf.Clamp(ScanQueriesPerFrame, 64, 512);
+        int baseBatchSize = Mathf.Clamp(ScanQueriesPerFrame, 16, 64);
         int horizonEnd = Mathf.Min(
-            coverageHorizonSampleIndex + baseBatchSize * 24,
+            coverageHorizonSampleIndex + baseBatchSize * 2,
             CoverageHorizonSampleCount);
         for (; coverageHorizonSampleIndex < horizonEnd; coverageHorizonSampleIndex++)
         {
@@ -1113,7 +1119,7 @@ internal sealed class CommanderSamSiteAnalyzerService
 
         int resolution = CoverageOverlayTexture.width;
         int end = Mathf.Min(
-            coverageOverlayPixelIndex + baseBatchSize * 24,
+            coverageOverlayPixelIndex + baseBatchSize * 4,
             coverageOverlayPixels.Length);
         for (; coverageOverlayPixelIndex < end; coverageOverlayPixelIndex++)
         {

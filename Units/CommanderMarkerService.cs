@@ -231,7 +231,10 @@ internal sealed class CommanderMarkerService
             return;
         }
 
-        GameObject rootObject = new("CommanderMarkerRoot", typeof(RectTransform));
+        GameObject rootObject = new("CommanderMarkerRoot", typeof(RectTransform), typeof(Canvas));
+        Canvas subCanvas = rootObject.GetComponent<Canvas>();
+        subCanvas.overrideSorting = true;
+        subCanvas.sortingOrder = 50;
         RectTransform rectTransform = rootObject.GetComponent<RectTransform>();
         rectTransform.SetParent(parent, false);
         rectTransform.anchorMin = Vector2.zero;

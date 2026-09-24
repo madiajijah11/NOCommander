@@ -487,7 +487,12 @@ internal sealed class CommanderOverlayUi
         }
         if (advanced && buildingWindowVisible)
         {
+            if (CommanderBuildingEconomyService.Instance != null) CommanderBuildingEconomyService.Instance.IsUiActive = true;
             buildingWindowRect = GUI.Window(BuildingWindowId, buildingWindowRect, DrawBuildingEconomyWindow, "BUILDINGS & INFRASTRUCTURE ECONOMY", CommanderUiTheme.Window);
+        }
+        else if (CommanderBuildingEconomyService.Instance != null)
+        {
+            CommanderBuildingEconomyService.Instance.IsUiActive = false;
         }
         if (advanced && CommanderSettings.ShowTheaterCommandUi)
         {

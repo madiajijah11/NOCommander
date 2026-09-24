@@ -52,19 +52,35 @@ internal sealed class CommanderMarkerView
         GlobalPosition markerPosition = friendly || trackingInfo == null ? unit.GlobalPosition() : trackingInfo.GetPosition();
         if (sprite == null || alpha <= 0f || !CommanderGameAccess.TryGetWorldMarkerState(markerPosition, camera, out Vector3 screenPosition, out float distanceScale))
         {
-            image.enabled = false;
+            if (image.enabled)
+            {
+                image.enabled = false;
+            }
             SetStatusImagesEnabled(false);
             visible = false;
             return;
         }
 
         rectTransform.position = screenPosition;
-        rectTransform.localScale = Vector3.one * (baseScale * distanceScale);
-        image.sprite = sprite;
+        Vector3 targetScale = Vector3.one * (baseScale * distanceScale);
+        if (rectTransform.localScale != targetScale)
+        {
+            rectTransform.localScale = targetScale;
+        }
+        if (image.sprite != sprite)
+        {
+            image.sprite = sprite;
+        }
         Color markerColor = selected ? selectedColor : (depotMarker ? Color.Lerp(color, Color.white, 0.25f) : color);
         markerColor.a *= alpha;
-        image.color = markerColor;
-        image.enabled = true;
+        if (image.color != markerColor)
+        {
+            image.color = markerColor;
+        }
+        if (!image.enabled)
+        {
+            image.enabled = true;
+        }
         if (friendly)
         {
             UpdateFireControlStatus();
@@ -157,12 +173,12 @@ internal sealed class CommanderMarkerView
 
     private void SetStatusImagesEnabled(bool enabled)
     {
-        if (ammoStatusImage != null)
+        if (ammoStatusImage != null && ammoStatusImage.enabled != (enabled && ammoStatusImage.sprite != null))
         {
             ammoStatusImage.enabled = enabled && ammoStatusImage.sprite != null;
         }
 
-        if (reconStatusImage != null)
+        if (reconStatusImage != null && reconStatusImage.enabled != (enabled && reconStatusImage.sprite != null))
         {
             reconStatusImage.enabled = enabled && reconStatusImage.sprite != null;
         }

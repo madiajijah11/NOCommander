@@ -132,7 +132,7 @@ internal static class CommanderGameAccess
 
     private static bool IsCommanderMarkerUnit(Unit unit, FactionHQ localHq)
     {
-        if (unit is GroundVehicle || unit is Ship || unit is Aircraft || unit is Missile)
+        if (unit is GroundVehicle || unit is Ship || unit is Aircraft)
         {
             return true;
         }
