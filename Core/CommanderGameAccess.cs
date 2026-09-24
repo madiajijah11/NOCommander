@@ -690,6 +690,28 @@ internal static class CommanderGameAccess
                 && definition.code.StartsWith("UGV", System.StringComparison.OrdinalIgnoreCase));
     }
 
+    internal static bool IsStandoffUnit(Unit? unit)
+    {
+        if (unit == null || unit.disabled) return false;
+        if (unit.definition is VehicleDefinition vDef)
+        {
+            if (vDef.vehicleType == VehicleType.ART || vDef.vehicleType == VehicleType.RDR)
+            {
+                return true;
+            }
+        }
+
+        string name = (!string.IsNullOrEmpty(unit.unitName) ? unit.unitName : unit.name).ToLowerInvariant();
+        return name.Contains("strato")
+            || name.Contains("r9")
+            || name.Contains("boltstrike")
+            || name.Contains("ram45")
+            || name.Contains("radar")
+            || name.Contains("nuclear")
+            || name.Contains("howitzer")
+            || name.Contains("artillery");
+    }
+
     internal static void RaiseFollowingUnitSet(Unit? unit)
     {
         if (OnFollowingUnitSetField == null)

@@ -293,6 +293,13 @@ internal sealed class CommanderWorldMarkerRenderer
                 DrawGroundCircle(camera, ping.Position, 60f, new Color(1f, 0.2f, 0.15f, 0.6f), 16, 2f);
             }
         }
+
+        // 8. Ground JTAC Close Air Support Pinpoint
+        if (CommanderAlliedAiService.HasActiveJtacTarget)
+        {
+            DrawMarker(camera, CommanderAlliedAiService.JtacTargetPosition, "JTAC CAS TARGET", new Color(1f, 0.65f, 0.1f, 0.95f), large: true);
+            DrawGroundCircle(camera, CommanderAlliedAiService.JtacTargetPosition.ToLocalPosition(), 80f, new Color(1f, 0.65f, 0.1f, 0.65f), 16, 2.2f);
+        }
     }
 
     internal static void DrawScreenLine(Vector2 pointA, Vector2 pointB, Color color, float width = 2f)

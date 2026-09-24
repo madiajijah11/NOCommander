@@ -109,11 +109,15 @@ internal sealed class CommanderBattlegroupService
         assignedUnits.Add(unit);
 
         string name = (!string.IsNullOrEmpty(unit.unitName) ? unit.unitName : unit.name).ToLowerInvariant();
-        if (unit.TryGetComponent(out Repairer _) || name.Contains("jack") || name.Contains("repair") || name.Contains("truck") || name.Contains("tractor"))
+        if (CommanderGameAccess.IsStandoffUnit(unit))
         {
             tf.SupportUnits.Add(unit);
         }
-        else if (name.Contains("aa") || name.Contains("sam") || name.Contains("spaag") || name.Contains("strato") || name.Contains("shard"))
+        else if (unit.TryGetComponent(out Repairer _) || name.Contains("jack") || name.Contains("repair") || name.Contains("truck") || name.Contains("tractor"))
+        {
+            tf.SupportUnits.Add(unit);
+        }
+        else if (name.Contains("aa") || name.Contains("sam") || name.Contains("spaag") || name.Contains("shard"))
         {
             tf.AirDefenseUnits.Add(unit);
         }
@@ -192,7 +196,8 @@ internal sealed class CommanderBattlegroupService
                 Unit supUnit = tf.SupportUnits[s];
                 if (supUnit == null || supUnit.disabled) continue;
 
-                Vector3 targetRear = tf.FormationCenter - (forward * (SupportRearOffset + (s * 25f)));
+                float rearOffset = CommanderGameAccess.IsStandoffUnit(supUnit) ? (SupportRearOffset + 180f) : (SupportRearOffset + (s * 25f));
+                Vector3 targetRear = tf.FormationCenter - (forward * rearOffset);
                 UnitCommand? cmd = CommanderGameAccess.GetUnitCommand(supUnit);
                 float distToRear = Vector3.Distance(supUnit.transform.position, targetRear);
                 if (distToRear > 50f)

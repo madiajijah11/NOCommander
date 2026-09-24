@@ -330,6 +330,38 @@ internal sealed class CommanderMoveService
         }
     }
 
+    internal void TacticalReverseSelectedUnits(float distance = 65f)
+    {
+        IReadOnlyList<Unit> selected = selectionService.SelectedUnits;
+        int count = selected.Count;
+        if (count == 0) return;
+
+        for (int i = 0; i < count; i++)
+        {
+            Unit unit = selected[i];
+            if (!CommanderGameAccess.ShouldAllowCommanderMove(unit)) continue;
+
+            Vector3 forward = unit.transform.forward;
+            if (forward.sqrMagnitude < 0.01f) forward = Vector3.forward;
+
+            // Move straight backwards to maintain frontal armor orientation towards the threat
+            Vector3 targetPos = unit.transform.position - (forward * distance);
+            GlobalPosition destination = targetPos.ToGlobalPosition();
+
+            stoppedUnits.Remove(unit);
+            patrolRoutes.Remove(unit);
+            patrolIndices.Remove(unit);
+            if (waypointQueues.TryGetValue(unit, out Queue<GlobalPosition> queue))
+            {
+                queue.Clear();
+            }
+
+            CommanderGameAccess.SetUnitHoldPosition(unit, false);
+            playerDestinations[unit] = destination;
+            CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(destination, true);
+        }
+    }
+
     internal void ToggleAutoRtbForSelection()
     {
         IReadOnlyList<Unit> selected = selectionService.SelectedUnits;

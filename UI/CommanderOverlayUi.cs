@@ -1788,9 +1788,9 @@ internal sealed class CommanderOverlayUi
                 "STOP holds units. AI returns to basegame. A-MOVE ('T') moves & engages targets. PATROL ('P') loops waypoints. GUARD ('G') escorts target. SCATTER ('X') evades area damage. FORM ('V') cycles military formations. RTB auto-returns for repair/rearm. STANCE ('F') toggles Hold Fire. PIN stores selection.");
         }
 
-        // 3. Command Button Grid (Row of 11 Aligned Tactical Buttons)
+        // 3. Command Button Grid (Row of 12 Aligned Tactical Buttons)
         float totalWidth = selectionBarRect.width - 24f;
-        float btnWidth = (totalWidth - 10f * 5f) / 11f;
+        float btnWidth = (totalWidth - 11f * 4f) / 12f;
         float bx = selectionBarRect.x + 12f;
 
         // 1. STOP
@@ -1799,7 +1799,7 @@ internal sealed class CommanderOverlayUi
         {
             moveService.StopSelectedUnits();
         }
-        bx += btnWidth + 5f;
+        bx += btnWidth + 4f;
 
         // 2. AI
         GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
@@ -1807,7 +1807,7 @@ internal sealed class CommanderOverlayUi
         {
             moveService.ResumeAiForSelectedUnits();
         }
-        bx += btnWidth + 5f;
+        bx += btnWidth + 4f;
 
         // 3. A-MOVE
         GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
@@ -1818,7 +1818,7 @@ internal sealed class CommanderOverlayUi
             if (isAttackMoving) moveService.CancelAttackMoveOrder();
             else moveService.BeginAttackMoveOrder();
         }
-        bx += btnWidth + 5f;
+        bx += btnWidth + 4f;
 
         // 4. PATROL
         bool isPatrolling = moveService.AwaitingPatrolSelection;
@@ -1828,7 +1828,7 @@ internal sealed class CommanderOverlayUi
             if (isPatrolling) moveService.CancelPatrolOrder();
             else moveService.BeginPatrolOrder();
         }
-        bx += btnWidth + 5f;
+        bx += btnWidth + 4f;
 
         // 5. GUARD / ESCORT
         bool isGuarding = moveService.AwaitingGuardSelection;
@@ -1838,33 +1838,40 @@ internal sealed class CommanderOverlayUi
             if (isGuarding) moveService.CancelGuardOrder();
             else moveService.BeginGuardOrder();
         }
-        bx += btnWidth + 5f;
+        bx += btnWidth + 4f;
 
         // 6. SCATTER
         if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), "SCATTER", CommanderUiTheme.Button))
         {
             moveService.ScatterSelectedUnits(55f);
         }
-        bx += btnWidth + 5f;
+        bx += btnWidth + 4f;
 
-        // 7. FORMATION CYCLE
+        // 7. REVERSE (TACTICAL REVERSE)
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), "REVERSE", CommanderUiTheme.Button))
+        {
+            moveService.TacticalReverseSelectedUnits(65f);
+        }
+        bx += btnWidth + 4f;
+
+        // 8. FORMATION CYCLE
         string formShort = moveService.CurrentFormation.ToString().ToUpperInvariant();
         if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), "FORM: " + formShort, CommanderUiTheme.Button))
         {
             moveService.CycleFormation();
         }
-        bx += btnWidth + 5f;
+        bx += btnWidth + 4f;
 
-        // 8. AUTO-RTB
+        // 9. AUTO-RTB
         bool isRtb = moveService.IsAutoRtb(focused);
         if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), isRtb ? "RTB ON" : "RTB",
             isRtb ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             moveService.ToggleAutoRtbForSelection();
         }
-        bx += btnWidth + 5f;
+        bx += btnWidth + 4f;
 
-        // 9. FOB DEPLOY or ROAD ON/OFF
+        // 10. FOB DEPLOY or ROAD ON/OFF
         GUI.enabled = oldEnabled;
         bool canFob = advanced && count == 1 && focused != null && CommanderForwardOutpostService.Instance?.CanDeployFob(focused) == true;
         if (canFob)
@@ -1894,9 +1901,9 @@ internal sealed class CommanderOverlayUi
                 directPathService.ToggleFocusedUnit();
             }
         }
-        bx += btnWidth + 5f;
+        bx += btnWidth + 4f;
 
-        // 10. STANCE (HOLD / FREE FIRE)
+        // 11. STANCE (HOLD / FREE FIRE)
         GUI.enabled = oldEnabled;
         bool isHoldFire = CommanderStanceService.Instance?.IsHoldFire(focused) == true;
         if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f),
@@ -1905,9 +1912,9 @@ internal sealed class CommanderOverlayUi
         {
             CommanderStanceService.Instance?.ToggleHoldFireForSelection();
         }
-        bx += btnWidth + 5f;
+        bx += btnWidth + 4f;
 
-        // 11. PIN / DEL
+        // 12. PIN / DEL
         GUI.enabled = oldEnabled;
         bool deleteMode = CommanderSettings.DeleteUnitModifier.IsPressed();
         string pinLabel = deleteMode ? "DEL" : (selectionService.IsCurrentSelectionPinned ? "UNPIN" : "PIN");

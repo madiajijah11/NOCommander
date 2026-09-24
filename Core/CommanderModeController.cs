@@ -39,6 +39,7 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderAirLoiterService? airLoiterService;
     private CommanderSmokeCountermeasuresService? smokeService;
     private CommanderCounterBatteryRadarService? counterBatteryService;
+    private CommanderStrikeCamService? strikeCamService;
     private CommanderOverlayUi? overlayUi;
     private CommanderInputController? inputController;
     private CommanderPersistentOperations? persistentOperations;
@@ -94,6 +95,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         counterBatteryService = new CommanderCounterBatteryRadarService();
         airLoiterService = new CommanderAirLoiterService();
         targetDeconflictionService = new CommanderTargetDeconflictionService();
+        strikeCamService = new CommanderStrikeCamService();
         overlayUi = new CommanderOverlayUi(
             selectionService,
             moveService,
@@ -173,6 +175,7 @@ internal sealed class CommanderModeController : MonoBehaviour
             airLoiterService?.Tick();
             smokeService?.Tick();
             counterBatteryService?.Tick();
+            strikeCamService?.Tick();
         }
         overlayUi?.Tick();
         inputController?.Tick();
@@ -204,6 +207,7 @@ internal sealed class CommanderModeController : MonoBehaviour
             if (overlayUi?.CommanderUiHidden != true)
             {
                 povCrewUi?.Draw();
+                strikeCamService?.Draw();
             }
             if (overlayUi?.ShowTacticalMapUi == true)
             {
@@ -407,6 +411,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         targetDeconflictionService?.ResetSession();
         smokeService?.ResetSession();
         counterBatteryService?.ResetSession();
+        strikeCamService?.ResetSession();
         moveService?.ResetSession();
     }
 

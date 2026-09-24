@@ -32,7 +32,13 @@ internal sealed class CommanderAlliedAiService
     private readonly List<Unit> availableRepairers = new();
     private readonly Dictionary<Unit, float> recentlySuppliedUnits = new();
     private readonly List<Airbase> cachedAirbases = new();
+    private readonly List<VehicleDepot> cachedDepots = new();
     private float nextAirbaseCacheTime;
+    private float nextDepotCacheTime;
+
+    internal static GlobalPosition JtacTargetPosition { get; private set; }
+    internal static float JtacTargetExpiryTime { get; private set; }
+    internal static bool HasActiveJtacTarget => Time.unscaledTime < JtacTargetExpiryTime;
 
     private float nextThreatScanTime;
     private float nextProcurementTime;
@@ -238,6 +244,38 @@ internal sealed class CommanderAlliedAiService
                 }
             }
         }
+
+        // FEATURE 3: TACTICAL JTAC PINPOINT ACQUISITION
+        if (hostileArmorScratch.Count > 0 && localHq.factionUnits != null)
+        {
+            float closestDist = float.MaxValue;
+            Unit? bestJtacTarget = null;
+            for (int e = 0; e < hostileArmorScratch.Count; e++)
+            {
+                Unit enemy = hostileArmorScratch[e];
+                if (enemy == null || enemy.disabled) continue;
+
+                Vector3 ePos = enemy.transform.position;
+                foreach (PersistentID pid in localHq.factionUnits)
+                {
+                    if (pid.TryGetUnit(out Unit f) && f != null && !f.disabled && f is GroundVehicle)
+                    {
+                        float dist = Vector3.Distance(ePos, f.transform.position);
+                        if (dist < 2800f && dist < closestDist)
+                        {
+                            closestDist = dist;
+                            bestJtacTarget = enemy;
+                        }
+                    }
+                }
+            }
+
+            if (bestJtacTarget != null)
+            {
+                JtacTargetPosition = bestJtacTarget.transform.GlobalPosition();
+                JtacTargetExpiryTime = Time.unscaledTime + 35f;
+            }
+        }
     }
 
     private static bool IsUnitDamaged(Unit unit)
@@ -420,6 +458,101 @@ internal sealed class CommanderAlliedAiService
                 return;
             }
         }
+
+        // FEATURE 2: AUTO-REARM DRIVE FOR GROUND COMBAT VEHICLES
+        ExecuteAutonomousGroundRearm();
+    }
+
+    private void ExecuteAutonomousGroundRearm()
+    {
+        if (lowAmmoFriendlyUnits.Count == 0) return;
+        FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
+        if (localHq == null) return;
+
+        float now = Time.unscaledTime;
+        if (cachedDepots.Count == 0 || now >= nextDepotCacheTime)
+        {
+            nextDepotCacheTime = now + 40f;
+            cachedDepots.Clear();
+            VehicleDepot[] found = UnityEngine.Object.FindObjectsOfType<VehicleDepot>();
+            if (found != null && found.Length > 0) cachedDepots.AddRange(found);
+        }
+
+        for (int i = 0; i < lowAmmoFriendlyUnits.Count; i++)
+        {
+            Unit unit = lowAmmoFriendlyUnits[i];
+            if (unit == null || unit.disabled || unit is not GroundVehicle vehicle || moveService.HasActivePlayerDestination(vehicle))
+            {
+                continue;
+            }
+
+            Vector3 myPos = vehicle.transform.position;
+            Vector3 bestRearmPos = Vector3.zero;
+            float minDistance = float.MaxValue;
+
+            // 1. Check Deployed FOBs
+            if (CommanderForwardOutpostService.Instance?.DeployedFobs != null)
+            {
+                foreach (Unit fob in CommanderForwardOutpostService.Instance.DeployedFobs)
+                {
+                    if (fob != null && !fob.disabled)
+                    {
+                        float dist = Vector3.Distance(myPos, fob.transform.position);
+                        if (dist < minDistance)
+                        {
+                            minDistance = dist;
+                            bestRearmPos = fob.transform.position;
+                        }
+                    }
+                }
+            }
+
+            // 2. Check friendly Vehicle Depots
+            for (int d = 0; d < cachedDepots.Count; d++)
+            {
+                VehicleDepot depot = cachedDepots[d];
+                if (depot != null && CommanderGameAccess.IsFriendlyDepot(depot, localHq))
+                {
+                    float dist = Vector3.Distance(myPos, depot.transform.position);
+                    if (dist < minDistance)
+                    {
+                        minDistance = dist;
+                        bestRearmPos = depot.transform.position;
+                    }
+                }
+            }
+
+            // 3. Check friendly Munitions Trucks
+            if (minDistance > 2000f && localHq.factionUnits != null)
+            {
+                foreach (PersistentID pid in localHq.factionUnits)
+                {
+                    if (pid.TryGetUnit(out Unit fUnit) && fUnit != null && !fUnit.disabled && fUnit is GroundVehicle && fUnit.GetComponentInChildren<Rearmer>(true) != null)
+                    {
+                        float dist = Vector3.Distance(myPos, fUnit.transform.position);
+                        if (dist < minDistance)
+                        {
+                            minDistance = dist;
+                            bestRearmPos = fUnit.transform.position;
+                        }
+                    }
+                }
+            }
+
+            if (minDistance < 3500f && bestRearmPos != Vector3.zero)
+            {
+                if (minDistance > 40f)
+                {
+                    CommanderGameAccess.SetUnitHoldPosition(vehicle, false);
+                    CommanderGameAccess.GetUnitCommand(vehicle)?.SetDestination(bestRearmPos.ToGlobalPosition(), false);
+                    StatusText = $"ALLIED AI: ROUTED LOW-AMMO {vehicle.unitName.ToUpperInvariant()} TO REARM!";
+                }
+                else
+                {
+                    CommanderGameAccess.SetUnitHoldPosition(vehicle, true);
+                }
+            }
+        }
     }
 
     private void ExecuteAutonomousTroopAirAssault()
@@ -600,6 +733,18 @@ internal sealed class CommanderAlliedAiService
 
                     CommanderGameAccess.SetUnitHoldPosition(damaged, false);
                     CommanderGameAccess.GetUnitCommand(damaged)?.SetDestination(safeDest, false);
+
+                    // FEATURE 4: TACTICAL REVERSE & FRONTAL THREAT ORIENTATION
+                    // Lock turrets to track and suppress closest threat while reversing/retreating
+                    if (hostileArmorScratch.Count > 0 && hostileArmorScratch[0] != null && !hostileArmorScratch[0].disabled)
+                    {
+                        Turret[] turrets = damaged.GetComponentsInChildren<Turret>(true);
+                        for (int t = 0; t < turrets.Length; t++)
+                        {
+                            turrets[t]?.SetTargetFromController(hostileArmorScratch[0]);
+                        }
+                    }
+
                     StatusText = $"ALLIED AI: TACTICAL RETREAT OF DAMAGED {damaged.unitName.ToUpperInvariant()} TO REPAIR PERIMETER!";
                 }
             }
@@ -902,6 +1047,17 @@ internal sealed class CommanderAlliedAiService
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
         if (localHq == null) return;
 
+        // 0. High-Priority Ground JTAC CAS Pinpoint Strike
+        if (HasActiveJtacTarget)
+        {
+            if (airSvc.RequestAutonomousAirMission(CommanderAirCommandService.AirCommandMode.Cas, JtacTargetPosition, 20f))
+            {
+                nextAirScrambleTime = Time.unscaledTime + AirScrambleCooldownSeconds;
+                StatusText = "ALLIED AI: DISPATCHED PRIORITY CAS STRIKE ON GROUND JTAC PINPOINT!";
+                return;
+            }
+        }
+
         // 1. Air Threat -> Scramble CAP / Air Superiority Interceptors
         if (hostileAirScratch.Count > 0)
         {
@@ -1025,10 +1181,19 @@ internal sealed class CommanderAlliedAiService
 
             if (unit is GroundVehicle vehicle && !CommanderGameAccess.IsTrailerVehicleDefinition(vehicle.definition as VehicleDefinition))
             {
-                // SAFETY & DOCTRINE: Standoff artillery, ballistic missile trucks, SAMs, and repairers must NOT push frontlines
+                // FEATURE 1: AUTO-STANDOFF DOCTRINE
+                // Standoff artillery, ballistic missile trucks, and radar units MUST hold position in rear base
+                if (CommanderGameAccess.IsStandoffUnit(vehicle))
+                {
+                    if (!moveService.HasActivePlayerDestination(vehicle))
+                    {
+                        CommanderGameAccess.SetUnitHoldPosition(vehicle, true);
+                    }
+                    continue;
+                }
+
                 string vName = (!string.IsNullOrEmpty(unit.unitName) ? unit.unitName : unit.name).ToLowerInvariant();
-                if (vName.Contains("strato") || vName.Contains("r9") || vName.Contains("boltstrike") || vName.Contains("ram45")
-                    || vName.Contains("radar") || vName.Contains("jacknife") || vName.Contains("repair")
+                if (vName.Contains("jacknife") || vName.Contains("repair")
                     || vName.Contains("tanker") || vName.Contains("fuel") || vName.Contains("truck")
                     || vehicle.TryGetComponent(out Repairer _))
                 {
@@ -1074,7 +1239,11 @@ internal sealed class CommanderAlliedAiService
         availableRepairers.Clear();
         recentlySuppliedUnits.Clear();
         cachedAirbases.Clear();
+        cachedDepots.Clear();
         nextAirbaseCacheTime = 0f;
+        nextDepotCacheTime = 0f;
+        JtacTargetPosition = default;
+        JtacTargetExpiryTime = 0f;
         nextThreatScanTime = 0f;
         nextProcurementTime = 0f;
         nextAirScrambleTime = 0f;
