@@ -34,7 +34,6 @@ internal static class CommanderSettings
     internal static bool ShowTheaterCommandUi { get => Get("UI", "ShowTheaterCommandUi", true); set => Set("UI", "ShowTheaterCommandUi", value); }
     internal static bool ShowSamAnalyzerUi { get => Get("UI", "ShowSamAnalyzerUi", true); set => Set("UI", "ShowSamAnalyzerUi", value); }
     internal static bool ShowWorldMarkers { get => Get("UI", "ShowWorldMarkers", true); set => Set("UI", "ShowWorldMarkers", value); }
-    internal static bool ShowPiPStrikeCam { get => Get("UI", "ShowPiPStrikeCam", true); set => Set("UI", "ShowPiPStrikeCam", value); }
     internal static int SamScanQueriesPerFrame { get => Get("SAM Analyzer", "RaycastsPerFrame", 64); set => Set("SAM Analyzer", "RaycastsPerFrame", value); }
 
     internal static KeyboardShortcut PrimaryAction { get => GetShortcut("PrimaryAction", KeyCode.Mouse0, "Select units and place world targets."); set => Set("Keybinds", "PrimaryAction", value); }

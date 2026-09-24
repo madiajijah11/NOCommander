@@ -277,7 +277,6 @@ internal sealed class CommanderWorldMarkerRenderer
             for (int s = 0; s < smokes.Count; s++)
             {
                 var smoke = smokes[s];
-                DrawGroundCircle(camera, smoke.Position, smoke.Radius, new Color(0.9f, 0.9f, 0.95f, 0.35f), 16, 2.5f);
                 DrawMarker(camera, smoke.Position.ToGlobalPosition(), "SMOKE SCREEN", new Color(0.85f, 0.85f, 0.9f, 0.8f));
             }
         }
@@ -290,7 +289,6 @@ internal sealed class CommanderWorldMarkerRenderer
             {
                 var ping = pings[p];
                 DrawMarker(camera, ping.Position.ToGlobalPosition(), "COUNTER-BATTERY PINPOINT", new Color(1f, 0.2f, 0.15f, 0.95f), large: true);
-                DrawGroundCircle(camera, ping.Position, 60f, new Color(1f, 0.2f, 0.15f, 0.6f), 16, 2f);
             }
         }
 
@@ -298,7 +296,6 @@ internal sealed class CommanderWorldMarkerRenderer
         if (CommanderAlliedAiService.HasActiveJtacTarget)
         {
             DrawMarker(camera, CommanderAlliedAiService.JtacTargetPosition, "JTAC CAS TARGET", new Color(1f, 0.65f, 0.1f, 0.95f), large: true);
-            DrawGroundCircle(camera, CommanderAlliedAiService.JtacTargetPosition.ToLocalPosition(), 80f, new Color(1f, 0.65f, 0.1f, 0.65f), 16, 2.2f);
         }
     }
 
@@ -398,43 +395,6 @@ internal sealed class CommanderWorldMarkerRenderer
         CommanderUiTheme.DrawFrame(marker, 1.2f);
         GUI.Label(new Rect(marker.x + 7f, marker.y, marker.width - 14f, marker.height), label, CommanderUiTheme.MutedLabel);
         GUI.color = prev;
-    }
-
-    private static void DrawGroundCircle(Camera camera, Vector3 center, float radius, Color color, int segments = 20, float thickness = 1.8f)
-    {
-        Vector2 prevGui = Vector2.zero;
-        bool hasPrev = false;
-        Vector2 firstGui = Vector2.zero;
-
-        for (int i = 0; i < segments; i++)
-        {
-            float angle = (float)i / segments * Mathf.PI * 2f;
-            Vector3 worldPoint = center + new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
-
-            if (CommanderGameAccess.TryGetWorldMarkerState(worldPoint.ToGlobalPosition(), camera, out Vector3 screenPoint, out _))
-            {
-                Vector2 guiPoint = CommanderUiScale.ScreenToGui(screenPoint);
-                if (hasPrev)
-                {
-                    DrawScreenLine(prevGui, guiPoint, color, thickness);
-                }
-                else
-                {
-                    firstGui = guiPoint;
-                }
-                prevGui = guiPoint;
-                hasPrev = true;
-            }
-            else
-            {
-                hasPrev = false;
-            }
-        }
-
-        if (hasPrev && firstGui != Vector2.zero)
-        {
-            DrawScreenLine(prevGui, firstGui, color, thickness);
-        }
     }
 
     private static string GetSamLabel(CommanderSamSiteAnalyzerService.SiteUnitRole role)

@@ -246,33 +246,12 @@ internal sealed class CommanderAlliedAiService
         }
 
         // FEATURE 3: TACTICAL JTAC PINPOINT ACQUISITION
-        if (hostileArmorScratch.Count > 0 && localHq.factionUnits != null)
+        if (hostileArmorScratch.Count > 0)
         {
-            float closestDist = float.MaxValue;
-            Unit? bestJtacTarget = null;
-            for (int e = 0; e < hostileArmorScratch.Count; e++)
+            Unit enemy = hostileArmorScratch[0];
+            if (enemy != null && !enemy.disabled)
             {
-                Unit enemy = hostileArmorScratch[e];
-                if (enemy == null || enemy.disabled) continue;
-
-                Vector3 ePos = enemy.transform.position;
-                foreach (PersistentID pid in localHq.factionUnits)
-                {
-                    if (pid.TryGetUnit(out Unit f) && f != null && !f.disabled && f is GroundVehicle)
-                    {
-                        float dist = Vector3.Distance(ePos, f.transform.position);
-                        if (dist < 2800f && dist < closestDist)
-                        {
-                            closestDist = dist;
-                            bestJtacTarget = enemy;
-                        }
-                    }
-                }
-            }
-
-            if (bestJtacTarget != null)
-            {
-                JtacTargetPosition = bestJtacTarget.transform.GlobalPosition();
+                JtacTargetPosition = enemy.transform.GlobalPosition();
                 JtacTargetExpiryTime = Time.unscaledTime + 35f;
             }
         }
@@ -400,6 +379,9 @@ internal sealed class CommanderAlliedAiService
     {
         if (lowAmmoFriendlyUnits.Count == 0) return;
 
+        // FEATURE 2: AUTO-REARM DRIVE FOR GROUND COMBAT VEHICLES
+        ExecuteAutonomousGroundRearm();
+
         CommanderSupplyHeliService? supplySvc = CommanderSupplyHeliService.Instance;
         if (supplySvc == null || supplySvc.ActiveMissionCount >= 2) return;
 
@@ -458,9 +440,6 @@ internal sealed class CommanderAlliedAiService
                 return;
             }
         }
-
-        // FEATURE 2: AUTO-REARM DRIVE FOR GROUND COMBAT VEHICLES
-        ExecuteAutonomousGroundRearm();
     }
 
     private void ExecuteAutonomousGroundRearm()
@@ -478,7 +457,8 @@ internal sealed class CommanderAlliedAiService
             if (found != null && found.Length > 0) cachedDepots.AddRange(found);
         }
 
-        for (int i = 0; i < lowAmmoFriendlyUnits.Count; i++)
+        int maxProcess = Mathf.Min(lowAmmoFriendlyUnits.Count, 2);
+        for (int i = 0; i < maxProcess; i++)
         {
             Unit unit = lowAmmoFriendlyUnits[i];
             if (unit == null || unit.disabled || unit is not GroundVehicle vehicle || moveService.HasActivePlayerDestination(vehicle))
