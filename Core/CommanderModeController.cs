@@ -92,6 +92,8 @@ internal sealed class CommanderModeController : MonoBehaviour
         theaterSectorService = new CommanderTheaterSectorService();
         smokeService = new CommanderSmokeCountermeasuresService();
         counterBatteryService = new CommanderCounterBatteryRadarService();
+        airLoiterService = new CommanderAirLoiterService();
+        targetDeconflictionService = new CommanderTargetDeconflictionService();
         overlayUi = new CommanderOverlayUi(
             selectionService,
             moveService,
@@ -402,6 +404,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         theaterSectorService?.ResetSession();
         alliedAiService?.ResetSession();
         airLoiterService?.ResetSession();
+        targetDeconflictionService?.ResetSession();
         smokeService?.ResetSession();
         counterBatteryService?.ResetSession();
         moveService?.ResetSession();

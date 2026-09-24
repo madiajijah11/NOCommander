@@ -1068,17 +1068,23 @@ internal sealed partial class CommanderSupplyHeliService
 
     private void HandleAircraftReturned(Aircraft aircraft)
     {
-        if (!assignedMissions.TryGetValue(aircraft, out CargoMission mission)
-            || !mission.PurchasedWithFunds
-            || mission.PurchaseRefunded
-            || mission.Hq == null)
+        if (assignedMissions.TryGetValue(aircraft, out CargoMission mission)
+            && mission.PurchasedWithFunds
+            && !mission.PurchaseRefunded
+            && mission.Hq != null)
         {
-            return;
+            mission.Hq.ModifyUnitSupply(aircraft.definition, -1);
+            mission.Hq.AddFunds(mission.PurchaseCost);
+            mission.PurchaseRefunded = true;
         }
 
-        mission.Hq.ModifyUnitSupply(aircraft.definition, -1);
-        mission.Hq.AddFunds(mission.PurchaseCost);
-        mission.PurchaseRefunded = true;
+        if (aircraft.autopilot != null)
+        {
+            terrainClearanceAutopilots.Remove(aircraft.autopilot);
+            assignedAutopilotAircraft.Remove(aircraft.autopilot);
+        }
+        pendingTerrainAutopilotBindings.Remove(aircraft);
+        assignedMissions.Remove(aircraft);
     }
 
     private bool SuppressEjectionAtAssignedSamSite(AIHeloTransportState state)
