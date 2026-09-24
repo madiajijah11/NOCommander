@@ -328,11 +328,9 @@ internal sealed class CommanderWorldMarkerRenderer
         Color prev = GUI.color;
         GUI.color = color;
 
-        // Diamond (Rotated Square Outline)
-        Matrix4x4 matrix = GUI.matrix;
-        GUIUtility.RotateAroundPivot(45f, center);
         float half = size * 0.5f;
 
+        // Clean axis-aligned box reticle (zero matrix rotation, zero batch-break)
         GUI.DrawTexture(new Rect(center.x - half, center.y - half, size, 1.5f), lineTexture);
         GUI.DrawTexture(new Rect(center.x - half, center.y + half - 1.5f, size, 1.5f), lineTexture);
         GUI.DrawTexture(new Rect(center.x - half, center.y - half, 1.5f, size), lineTexture);
@@ -340,7 +338,6 @@ internal sealed class CommanderWorldMarkerRenderer
         // Center pip
         GUI.DrawTexture(new Rect(center.x - 1.5f, center.y - 1.5f, 3f, 3f), lineTexture);
 
-        GUI.matrix = matrix;
         GUI.color = prev;
     }
 
@@ -357,9 +354,7 @@ internal sealed class CommanderWorldMarkerRenderer
 
         if (!string.IsNullOrEmpty(label))
         {
-            GUIContent content = new(label);
-            Vector2 textSize = CommanderUiTheme.MutedLabel.CalcSize(content);
-            float badgeW = textSize.x + 10f;
+            float badgeW = label!.Length * 7.5f + 14f;
             float badgeH = 17f;
             Rect badge = new(guiPoint.x - badgeW * 0.5f, guiPoint.y - (large ? 16f : 12f) - badgeH, badgeW, badgeH);
 
@@ -381,9 +376,7 @@ internal sealed class CommanderWorldMarkerRenderer
         Vector2 mousePos = Input.mousePosition;
         Vector2 guiPoint = CommanderUiScale.ScreenToGui(mousePos);
 
-        GUIContent content = new(label);
-        Vector2 textSize = CommanderUiTheme.MutedLabel.CalcSize(content);
-        float width = textSize.x + 14f;
+        float width = label.Length * 7.5f + 18f;
         float height = 22f;
         Rect marker = new(guiPoint.x + 14f, guiPoint.y - height * 0.5f, width, height);
 

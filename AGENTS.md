@@ -4,7 +4,27 @@ This document specifies the architecture, engineering standards, memory manageme
 
 ---
 
-## 0. Mandatory Knowledge Base (DeepWiki)
+## 0. MANDATORY TOP PRIORITY: ZERO-REGRESSION PERFORMANCE & FPS DISCIPLINE
+
+**Performance is the single highest priority in the NOCommander codebase.** Under no circumstances may any AI agent introduce code, loops, cameras, or patches that degrade game FPS, spike CPU frame times, or cause micro-stutter.
+
+### Strict Performance Commandments (VIOLATION IS A CRITICAL BUG):
+1. **Never mutate scale or transforms cumulatively (`*= factor` is STRICTLY BANNED):**
+   - Modifying transforms inside per-frame loops (like `Update()`, `LateUpdate()`, or Harmony Postfixes) cumulatively (e.g. `transform.localScale *= 1.4f`) causes exponential growth to infinity, corrupting Canvas geometry and plunging FPS to 1-2 FPS.
+2. **Never create secondary Unity Cameras or off-screen render textures that duplicate world rendering:**
+   - Open-world atmospheric rendering (volumetric clouds, terrain, shadows) is extremely heavy. Secondary cameras double or triple the entire draw call pipeline.
+3. **Never call `FindObjectsOfType<T>()` or `Resources.FindObjectsOfTypeAll<T>()` in `Update()`, `OnGUI()`, or hot loops:**
+   - Scanning the entire scene graph costs 20-100ms per call. Always cache objects with a long throttle timer (`Time.unscaledTime >= nextScanTime`) or subscribe to event delegates (`onRegisterUnit`, `onRemoveUnit`).
+4. **Never execute matrix rotations (`GUIUtility.RotateAroundPivot`) in `OnGUI` hot loops:**
+   - Matrix transformations in IMGUI break batching and cause massive CPU overhead. All reticles, markers, and HUD elements must be axis-aligned.
+5. **No heap allocations in hot GUI loops (Zero-GC IMGUI):**
+   - Banned inside `OnGUI()` / `Update()`: `new GUIStyle()`, `new Texture2D()`, `new GUIContent()`, string concatenations (`+`), Linq queries, dynamic closures.
+6. **Throttled query discipline:**
+   - Any distance check, threat scan, or pathfinding evaluation across collections of units must be gated behind timers (`staggered` intervals >= 1.0s).
+
+---
+
+## 1. Mandatory Knowledge Base (DeepWiki)
 
 Before modifying, refactoring, or adding any game-related features, AI agents **MUST** consult the comprehensive reverse-engineered game engine documentation in `docs/deepwiki/`:
 

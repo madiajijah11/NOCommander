@@ -132,20 +132,6 @@ internal static class CommanderKeepTacticalMapOpenPatch
     }
 }
 
-[HarmonyPatch(typeof(UnitMapIcon), nameof(UnitMapIcon.UpdateIcon))]
-internal static class CommanderTacticalMapIconScalePatch
-{
-    private static void Postfix(UnitMapIcon __instance)
-    {
-        if (CommanderPlugin.Instance?.IsCommanderModeActive == true
-            && CommanderTacticalMapService.Instance?.IsOpen == true
-            && __instance.iconImage != null)
-        {
-            __instance.iconImage.transform.localScale *= 1.4f;
-        }
-    }
-}
-
 [HarmonyPatch(typeof(AirbaseMapIcon), nameof(AirbaseMapIcon.ClickIcon))]
 internal static class CommanderAirbaseMapClickPatch
 {
