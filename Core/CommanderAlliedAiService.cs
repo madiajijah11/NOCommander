@@ -1189,10 +1189,11 @@ internal sealed class CommanderAlliedAiService
 
         if (idleBattlegroupUnits.Count == 0) return;
 
-        // Disperse and push idle units to objective with formation offsets
+        // Disperse and push idle units to objective with staggered single-unit dispatch
         if (MissionPosition.TryGetClosestPosition(idleBattlegroupUnits[0], out GlobalPosition objective))
         {
-            for (int i = 0; i < idleBattlegroupUnits.Count; i++)
+            int dispatchLimit = Mathf.Min(idleBattlegroupUnits.Count, 2);
+            for (int i = 0; i < dispatchLimit; i++)
             {
                 Unit unit = idleBattlegroupUnits[i];
                 GlobalPosition formationSlot = CommanderDestinationFormation.ApplyOffset(objective, i, 28f);
@@ -1202,7 +1203,7 @@ internal sealed class CommanderAlliedAiService
 
             if (idleBattlegroupUnits.Count >= 2)
             {
-                StatusText = $"ALLIED AI: DISPATCHED COMBAT BATTLEGROUP ({idleBattlegroupUnits.Count} UNITS) TO FRONTLINE!";
+                StatusText = $"ALLIED AI: DISPATCHED COMBAT BATTLEGROUP ({dispatchLimit} UNITS) TO FRONTLINE!";
             }
         }
     }

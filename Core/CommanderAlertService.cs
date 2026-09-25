@@ -108,25 +108,10 @@ internal static class CommanderGodModeAndDamagePatches
 {
     private static bool ShouldBlockDamage(Unit? unit)
     {
-        if (CommanderCheatService.Instance?.GodModeEnabled != true)
-        {
-            return false;
-        }
-
-        return unit != null
+        return CommanderCheatService.Instance?.GodModeEnabled == true
+            && unit != null
             && !unit.disabled
             && CommanderGameAccess.IsFriendlyUnit(unit, CommanderGameAccess.GetLocalHq());
-    }
-
-    private static bool ShouldBlockPartDamage(object part, Unit? parentUnit)
-    {
-        if (CommanderCheatService.Instance?.GodModeEnabled != true)
-        {
-            return false;
-        }
-
-        Unit? unit = parentUnit ?? (part as Component)?.GetComponentInParent<Unit>();
-        return ShouldBlockDamage(unit);
     }
 
     [HarmonyPatch(typeof(Unit), nameof(Unit.Damage))]
@@ -141,54 +126,5 @@ internal static class CommanderGodModeAndDamagePatches
     private static void UnitDamagePostfix(Unit __instance, DamageInfo damageInfo)
     {
         CommanderAlertService.NotifyUnitDamaged(__instance, damageInfo);
-    }
-
-    [HarmonyPatch(typeof(Unit), nameof(Unit.RpcDamage))]
-    [HarmonyPrefix]
-    private static bool UnitRpcDamagePrefix(Unit __instance)
-    {
-        return !ShouldBlockDamage(__instance);
-    }
-
-    [HarmonyPatch(typeof(UnitPart), nameof(UnitPart.TakeDamage))]
-    [HarmonyPrefix]
-    private static bool UnitPartTakeDamagePrefix(UnitPart __instance)
-    {
-        return !ShouldBlockPartDamage(__instance, __instance.parentUnit);
-    }
-
-    [HarmonyPatch(typeof(UnitPart), nameof(UnitPart.ApplyDamage))]
-    [HarmonyPrefix]
-    private static bool UnitPartApplyDamagePrefix(UnitPart __instance)
-    {
-        return !ShouldBlockPartDamage(__instance, __instance.parentUnit);
-    }
-
-    [HarmonyPatch(typeof(UnitPart), nameof(UnitPart.TakeShockwave))]
-    [HarmonyPrefix]
-    private static bool UnitPartTakeShockwavePrefix(UnitPart __instance)
-    {
-        return !ShouldBlockPartDamage(__instance, __instance.parentUnit);
-    }
-
-    [HarmonyPatch(typeof(AeroPart), nameof(AeroPart.ApplyDamage))]
-    [HarmonyPrefix]
-    private static bool AeroPartApplyDamagePrefix(AeroPart __instance)
-    {
-        return !ShouldBlockPartDamage(__instance, __instance.parentUnit);
-    }
-
-    [HarmonyPatch(typeof(AeroPart), nameof(AeroPart.TakeShockwave))]
-    [HarmonyPrefix]
-    private static bool AeroPartTakeShockwavePrefix(AeroPart __instance)
-    {
-        return !ShouldBlockPartDamage(__instance, __instance.parentUnit);
-    }
-
-    [HarmonyPatch(typeof(ShipPart), nameof(ShipPart.ApplyDamage))]
-    [HarmonyPrefix]
-    private static bool ShipPartApplyDamagePrefix(ShipPart __instance)
-    {
-        return !ShouldBlockPartDamage(__instance, __instance.parentUnit);
     }
 }
