@@ -7,16 +7,16 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderAlliedAiService
 {
-    private const float ThreatScanIntervalSeconds = 4f;
-    private const float MilitaryProcurementIntervalSeconds = 10f;
-    private const float AirScrambleCooldownSeconds = 45f;
-    private const float EconomyInvestCooldownSeconds = 15f;
-    private const float FactoryRetoolCooldownSeconds = 25f;
-    private const float BattlegroupScanIntervalSeconds = 8f;
-    private const float RepairDispatchIntervalSeconds = 6f;
-    private const float FrontlineSupplyIntervalSeconds = 40f;
-    private const float EmergencyRetreatIntervalSeconds = 5f;
-    private const float AirAssaultCheckIntervalSeconds = 35f;
+    private const float ThreatScanIntervalSeconds = 8f;
+    private const float MilitaryProcurementIntervalSeconds = 25f;
+    private const float AirScrambleCooldownSeconds = 60f;
+    private const float EconomyInvestCooldownSeconds = 30f;
+    private const float FactoryRetoolCooldownSeconds = 45f;
+    private const float BattlegroupScanIntervalSeconds = 12f;
+    private const float RepairDispatchIntervalSeconds = 10f;
+    private const float FrontlineSupplyIntervalSeconds = 60f;
+    private const float EmergencyRetreatIntervalSeconds = 8f;
+    private const float AirAssaultCheckIntervalSeconds = 60f;
 
     private static readonly System.Reflection.FieldInfo? CaptureCapturableField =
         HarmonyLib.AccessTools.Field(typeof(Capture), "capturable");

@@ -77,15 +77,15 @@ internal sealed class CommanderSmartAiService
             }
         }
 
-        // 2. Autonomous Frontline Ammo Logistics Ferry Loop
-        if (CommanderSettings.AiAutoFrontlineSupply && now >= nextSupplyCheckTime)
+        // 2. Autonomous Frontline Ammo Logistics Ferry Loop (Only if Allied Auto-Commander is not already managing it)
+        if (CommanderSettings.AiAutoFrontlineSupply && now >= nextSupplyCheckTime && CommanderAlliedAiService.Instance?.IsEnabled != true)
         {
             nextSupplyCheckTime = now + AutoSupplyCheckInterval;
             TryAutoSupplyFrontline();
         }
 
-        // 3. Autonomous Air Wing Intercept & Scramble
-        if (CommanderSettings.AiAutoScrambleAirGuard && now >= nextScrambleCheckTime)
+        // 3. Autonomous Air Wing Intercept & Scramble (Only if Allied Auto-Commander is not already managing it)
+        if (CommanderSettings.AiAutoScrambleAirGuard && now >= nextScrambleCheckTime && CommanderAlliedAiService.Instance?.IsEnabled != true)
         {
             nextScrambleCheckTime = now + AutoScrambleCheckInterval;
             TryAutoScrambleInterceptors();
@@ -134,6 +134,23 @@ internal sealed class CommanderSmartAiService
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
         CommanderFactionVehicleService? factionSvc = CommanderFactionVehicleService.Instance;
         if (localHq == null || factionSvc == null || friendlyAirbases.Count == 0)
+        {
+            return;
+        }
+
+        // STRICT POPULATION CAP: Never exceed 4 active friendly aircraft
+        int activeAirCount = 0;
+        if (localHq.factionUnits != null)
+        {
+            foreach (PersistentID id in localHq.factionUnits)
+            {
+                if (id.TryGetUnit(out Unit u) && u != null && !u.disabled && u is Aircraft)
+                {
+                    activeAirCount++;
+                }
+            }
+        }
+        if (activeAirCount >= 4)
         {
             return;
         }
@@ -401,8 +418,8 @@ internal sealed class CommanderSmartAiService
             }
         }
 
-        // If ground presence is below 12 units, auto-deploy from reserve
-        if (friendlyGroundCount < 12)
+        // STRICT POPULATION CAP: If ground presence is below 8 units, auto-deploy from reserve
+        if (friendlyGroundCount < 8)
         {
             IReadOnlyList<VehicleDefinition> landDefs = factionSvc.LandDefinitions;
             for (int d = 0; d < landDefs.Count; d++)
