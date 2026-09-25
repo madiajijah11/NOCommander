@@ -136,11 +136,4 @@ internal static class CommanderSupplyHeliPatches
             ref altitudeHold,
             followTerrain);
     }
-
-    [HarmonyPatch(typeof(SwivelDuctSystem), "FixedUpdate")]
-    [HarmonyPrefix]
-    private static void SwivelDuctFixedUpdatePrefix(SwivelDuctSystem __instance)
-    {
-        CommanderSupplyHeliService.ForceAssignedVerticalTakeoff(__instance);
-    }
 }

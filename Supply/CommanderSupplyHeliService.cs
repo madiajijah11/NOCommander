@@ -1379,22 +1379,6 @@ internal sealed partial class CommanderSupplyHeliService
         altitudeHold = Mathf.Max(altitudeHold, m.SteepLanding ? 100f : 80f);
     }
 
-    internal static void ForceAssignedVerticalTakeoff(SwivelDuctSystem swivelDuct)
-    {
-        if (Instance == null
-            || SwivelAircraftField?.GetValue(swivelDuct) is not Aircraft aircraft
-            || !Instance.assignedMissions.TryGetValue(aircraft, out CargoMission mission)
-            || !mission.VerticalDepartureActive)
-        {
-            return;
-        }
-
-        if (aircraft.radarAlt >= 35f)
-        {
-            mission.VerticalDepartureActive = false;
-        }
-    }
-
     private static bool CanHostSpawn(out FactionHQ? hq, out string error)
     {
         hq = null;

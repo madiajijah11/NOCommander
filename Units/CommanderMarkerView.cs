@@ -219,52 +219,7 @@ internal sealed class CommanderMarkerView
         }
 
         statusSpritesLoaded = true;
-        Image[] images = Resources.FindObjectsOfTypeAll<Image>();
-        for (int i = 0; i < images.Length; i++)
-        {
-            Image candidateImage = images[i];
-            Sprite candidateSprite = candidateImage.sprite;
-            if (candidateSprite == null)
-            {
-                continue;
-            }
-
-            if (ammoStatusSprite == null && candidateSprite.name == "hudIcon_ammo_friendly")
-            {
-                ammoStatusSprite = candidateSprite;
-                ammoStatusMaterial = candidateImage.material;
-                ammoStatusColor = candidateImage.color;
-            }
-            else if (reconStatusSprite == null && candidateSprite.name == "hudIcon_recon_friendly")
-            {
-                reconStatusSprite = candidateSprite;
-                reconStatusMaterial = candidateImage.material;
-                reconStatusColor = candidateImage.color;
-            }
-
-            if (ammoStatusSprite != null && reconStatusSprite != null)
-            {
-                return;
-            }
-        }
-
-        Sprite[] sprites = Resources.FindObjectsOfTypeAll<Sprite>();
-        for (int i = 0; i < sprites.Length; i++)
-        {
-            Sprite candidate = sprites[i];
-            if (ammoStatusSprite == null && candidate.name == "hudIcon_ammo_friendly")
-            {
-                ammoStatusSprite = candidate;
-            }
-            else if (reconStatusSprite == null && candidate.name == "hudIcon_recon_friendly")
-            {
-                reconStatusSprite = candidate;
-            }
-
-            if (ammoStatusSprite != null && reconStatusSprite != null)
-            {
-                break;
-            }
-        }
+        ammoStatusSprite = GameAssets.i?.targetUnitSpriteFriendly;
+        reconStatusSprite = GameAssets.i?.targetUnitSprite;
     }
 }

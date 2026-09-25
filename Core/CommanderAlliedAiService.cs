@@ -231,8 +231,8 @@ internal sealed class CommanderAlliedAiService
                     availableRepairers.Add(friendly);
                 }
 
-                // Check for Damaged Units
-                if (IsUnitDamaged(friendly))
+                // Check for Damaged Units (cap at 4 to eliminate recursive GetComponentsInChildren spikes)
+                if (damagedFriendlyUnits.Count < 4 && IsUnitDamaged(friendly))
                 {
                     damagedFriendlyUnits.Add(friendly);
                 }

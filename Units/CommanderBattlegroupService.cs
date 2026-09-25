@@ -6,7 +6,8 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderBattlegroupService
 {
-    private const float FormationUpdateInterval = 1.5f;
+    private const float FormationUpdateInterval = 3.5f;
+    private const float TriageInterval = 6.0f;
     private const float AirDefenseFlankOffset = 90f;
     private const float SupportRearOffset = 110f;
     private const float MaxTaskForceRadius = 350f;
@@ -14,6 +15,7 @@ internal sealed class CommanderBattlegroupService
     private readonly List<TaskForce> taskForces = new();
     private readonly HashSet<Unit> assignedUnits = new();
     private float nextFormationUpdateTime;
+    private float nextTriageTime;
 
     internal static CommanderBattlegroupService? Instance { get; private set; }
 
@@ -37,11 +39,17 @@ internal sealed class CommanderBattlegroupService
     {
         PruneDeadReferences();
 
-        if (Time.unscaledTime >= nextFormationUpdateTime)
+        float now = Time.unscaledTime;
+        if (now >= nextFormationUpdateTime)
         {
-            nextFormationUpdateTime = Time.unscaledTime + FormationUpdateInterval;
+            nextFormationUpdateTime = now + FormationUpdateInterval;
             AutoAssignUnassignedUnits();
             UpdateTaskForceFormations();
+        }
+
+        if (now >= nextTriageTime)
+        {
+            nextTriageTime = now + TriageInterval;
             PerformAutonomousFieldTriage();
         }
     }
@@ -179,11 +187,11 @@ internal sealed class CommanderBattlegroupService
                 
                 UnitCommand? cmd = CommanderGameAccess.GetUnitCommand(aaUnit);
                 float distToFlank = Vector3.Distance(aaUnit.transform.position, targetFlank);
-                if (distToFlank > 45f)
+                if (distToFlank > 60f)
                 {
                     cmd?.SetDestination(targetFlank.ToGlobalPosition(), false);
                 }
-                else if (distToFlank < 15f && aaUnit is GroundVehicle gv)
+                else if (distToFlank < 20f && aaUnit is GroundVehicle gv)
                 {
                     // Engage brakes to prevent turning radius overshoot/donuts
                     CommanderGameAccess.SetUnitHoldPosition(gv, true);
@@ -200,11 +208,11 @@ internal sealed class CommanderBattlegroupService
                 Vector3 targetRear = tf.FormationCenter - (forward * rearOffset);
                 UnitCommand? cmd = CommanderGameAccess.GetUnitCommand(supUnit);
                 float distToRear = Vector3.Distance(supUnit.transform.position, targetRear);
-                if (distToRear > 50f)
+                if (distToRear > 60f)
                 {
                     cmd?.SetDestination(targetRear.ToGlobalPosition(), false);
                 }
-                else if (distToRear < 18f && supUnit is GroundVehicle gvSup)
+                else if (distToRear < 20f && supUnit is GroundVehicle gvSup)
                 {
                     CommanderGameAccess.SetUnitHoldPosition(gvSup, true);
                 }

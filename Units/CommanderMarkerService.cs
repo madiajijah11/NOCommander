@@ -6,12 +6,14 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderMarkerService
 {
-    private const float RefreshIntervalSeconds = 1f;
+    private const float RefreshIntervalSeconds = 4f;
+    private const float MarkerUpdateIntervalSeconds = 0.033f;
 
     private readonly CommanderSelectionService selectionService;
     private FactionHQ? boundHq;
     private Transform? markerRoot;
     private float nextRefreshTime;
+    private float nextMarkerUpdateTime;
     private readonly Dictionary<Unit, CommanderMarkerView> markerViews = new();
     private readonly HashSet<Unit> currentUnits = new();
     private readonly List<Unit> unitsToRemove = new();
@@ -40,15 +42,21 @@ internal sealed class CommanderMarkerService
     {
         EnsureMarkerRoot();
 
+        float now = Time.unscaledTime;
+        bool shouldUpdatePositions = now >= nextMarkerUpdateTime;
+        if (shouldUpdatePositions)
+        {
+            nextMarkerUpdateTime = now + MarkerUpdateIntervalSeconds;
+            UpdateMarkerViews();
+        }
+
         if (!CommanderScheduler.IsDue(ref nextRefreshTime, RefreshIntervalSeconds))
         {
-            UpdateMarkerViews();
             return;
         }
 
         RefreshBindings();
         SyncExistingUnits();
-        UpdateMarkerViews();
     }
 
     private void RefreshBindings()

@@ -59,7 +59,7 @@ internal sealed class CommanderCounterBatteryRadarService
             return;
         }
 
-        Unit? firingUnit = weapon.GetComponentInParent<Unit>();
+        Unit? firingUnit = weapon.attachedUnit ?? weapon.GetComponentInParent<Unit>();
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
         if (firingUnit == null || localHq == null || CommanderGameAccess.IsFriendlyUnit(firingUnit, localHq))
         {

@@ -117,6 +117,12 @@ internal sealed class CommanderOverlayUi
     private Rect selectionHelpRect;
     private Rect settingsWindowRect;
     private Rect pinnedLauncherRect;
+    private Unit? lastTelemetryUnit;
+    private float nextTelemetryScanTime;
+    private float cachedHpPct = 1f;
+    private string cachedStatusTag = "READY";
+    private Color cachedStatusCol = new(0.2f, 0.85f, 0.35f, 0.95f);
+    private string cachedArmamentText = string.Empty;
     private Vector2 reserveScroll;
     private readonly List<CommanderControlGroupsService.ControlGroupInfo> activeGroupsScratch = new();
     private Vector2 pinnedScroll;
@@ -1743,24 +1749,55 @@ internal sealed class CommanderOverlayUi
                 ? CommanderCheatService.GetCategoryLabel(focused.definition)
                 : (focused is Aircraft ? "AIR" : (focused is Ship ? "NAVAL" : "LAND"));
 
-            float hpPct = 1f;
-            IRepairable[] rep = focused.GetComponentsInChildren<IRepairable>(true);
-            if (rep.Length > 0)
+            if (!ReferenceEquals(focused, lastTelemetryUnit) || Time.unscaledTime >= nextTelemetryScanTime)
             {
-                int damaged = 0;
-                for (int r = 0; r < rep.Length; r++)
-                {
-                    if (rep[r] != null && rep[r].NeedsRepair()) damaged++;
-                }
-                hpPct = Mathf.Clamp01(1f - ((float)damaged / rep.Length));
-            }
+                lastTelemetryUnit = focused;
+                nextTelemetryScanTime = Time.unscaledTime + 0.35f;
 
-            string statusTag = hpPct <= 0.35f
-                ? "CRITICAL"
-                : (hpPct < 0.85f ? "DAMAGED" : "READY");
-            Color statusCol = hpPct <= 0.35f
-                ? new Color(1f, 0.25f, 0.2f, 0.95f)
-                : (hpPct < 0.85f ? new Color(0.95f, 0.78f, 0.15f, 0.95f) : new Color(0.2f, 0.85f, 0.35f, 0.95f));
+                IRepairable[] rep = focused.GetComponentsInChildren<IRepairable>(true);
+                if (rep.Length > 0)
+                {
+                    int damaged = 0;
+                    for (int r = 0; r < rep.Length; r++)
+                    {
+                        if (rep[r] != null && rep[r].NeedsRepair()) damaged++;
+                    }
+                    cachedHpPct = Mathf.Clamp01(1f - ((float)damaged / rep.Length));
+                }
+                else
+                {
+                    cachedHpPct = 1f;
+                }
+
+                cachedStatusTag = cachedHpPct <= 0.35f
+                    ? "CRITICAL"
+                    : (cachedHpPct < 0.85f ? "DAMAGED" : "READY");
+                cachedStatusCol = cachedHpPct <= 0.35f
+                    ? new Color(1f, 0.25f, 0.2f, 0.95f)
+                    : (cachedHpPct < 0.85f ? new Color(0.95f, 0.78f, 0.15f, 0.95f) : new Color(0.2f, 0.85f, 0.35f, 0.95f));
+
+                List<string> weaponSummaries = new();
+                if (focused.weaponStations != null)
+                {
+                    for (int s = 0; s < focused.weaponStations.Count; s++)
+                    {
+                        WeaponStation st = focused.weaponStations[s];
+                        if (st?.Weapons == null) continue;
+                        for (int w = 0; w < st.Weapons.Count; w++)
+                        {
+                            Weapon wp = st.Weapons[w];
+                            if (wp != null && !string.IsNullOrWhiteSpace(wp.name))
+                            {
+                                weaponSummaries.Add(wp.name + " [" + wp.ammo + "/" + wp.GetFullAmmo() + "]");
+                            }
+                        }
+                    }
+                }
+
+                cachedArmamentText = weaponSummaries.Count > 0
+                    ? "ARMAMENT:  " + string.Join("   •   ", weaponSummaries)
+                    : "ARMAMENT:  UNARMED LOGISTICS / SUPPORT PLATFORM";
+            }
 
             float speedKmh = focused.rb != null ? focused.rb.velocity.magnitude * 3.6f : 0f;
             int heading = Mathf.RoundToInt(focused.transform.eulerAngles.y) % 360;
@@ -1781,34 +1818,11 @@ internal sealed class CommanderOverlayUi
             GUI.Label(new Rect(12f, 4f, selectionBarRect.width - 160f, 20f), line1, CommanderUiTheme.Header);
 
             Color prev = GUI.color;
-            GUI.color = statusCol;
-            GUI.Label(new Rect(selectionBarRect.width - 140f, 4f, 100f, 20f), $"[{statusTag}]", CommanderUiTheme.Header);
+            GUI.color = cachedStatusCol;
+            GUI.Label(new Rect(selectionBarRect.width - 140f, 4f, 100f, 20f), $"[{cachedStatusTag}]", CommanderUiTheme.Header);
             GUI.color = prev;
 
-            // 2. Armament Breakdown
-            List<string> weaponSummaries = new();
-            if (focused.weaponStations != null)
-            {
-                for (int s = 0; s < focused.weaponStations.Count; s++)
-                {
-                    WeaponStation st = focused.weaponStations[s];
-                    if (st?.Weapons == null) continue;
-                    for (int w = 0; w < st.Weapons.Count; w++)
-                    {
-                        Weapon wp = st.Weapons[w];
-                        if (wp != null && !string.IsNullOrWhiteSpace(wp.name))
-                        {
-                            weaponSummaries.Add(wp.name + " [" + wp.ammo + "/" + wp.GetFullAmmo() + "]");
-                        }
-                    }
-                }
-            }
-
-            string wpText = weaponSummaries.Count > 0
-                ? "ARMAMENT:  " + string.Join("   •   ", weaponSummaries)
-                : "ARMAMENT:  UNARMED LOGISTICS / SUPPORT PLATFORM";
-
-            GUI.Label(new Rect(12f, 26f, selectionBarRect.width - 50f, 22f), wpText, CommanderUiTheme.Label);
+            GUI.Label(new Rect(12f, 26f, selectionBarRect.width - 50f, 22f), cachedArmamentText, CommanderUiTheme.Label);
         }
         else
         {
