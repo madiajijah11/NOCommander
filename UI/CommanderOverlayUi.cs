@@ -241,7 +241,7 @@ internal sealed class CommanderOverlayUi
 
         if (!positionsInitialized)
         {
-            moneyRect = new Rect(70f, 10f, 320f, 32f);
+            moneyRect = new Rect(70f, 10f, 560f, 32f);
             float panelHeight = Mathf.Min(480f, CommanderUiScale.Height - 24f);
             panelRect = new Rect(68f, Mathf.Max(12f, centerY - panelHeight * 0.5f), 340f, panelHeight);
             float reserveWidth = Mathf.Min(590f, CommanderUiScale.Width - 24f);
@@ -314,7 +314,7 @@ internal sealed class CommanderOverlayUi
             factoryWindowRect.height = Mathf.Min(600f, CommanderUiScale.Height - 24f);
             buildingWindowRect.width = Mathf.Min(740f, CommanderUiScale.Width - 24f);
             buildingWindowRect.height = Mathf.Min(640f, CommanderUiScale.Height - 24f);
-            moneyRect.width = 220f;
+            moneyRect.width = 560f;
             moneyRect.height = 32f;
         }
         moneyRect = CommanderUiTheme.ClampWindow(moneyRect, 6f);
@@ -2000,7 +2000,8 @@ internal sealed class CommanderOverlayUi
         GUI.Box(new Rect(0f, 0f, moneyRect.width, moneyRect.height), string.Empty, CommanderUiTheme.Panel);
         CommanderUiTheme.DrawFrame(new Rect(0f, 0f, moneyRect.width, moneyRect.height), 1f);
 
-        string fullText = $"FUNDS: {fundsStr}{incStr}";
+        string perfText = string.IsNullOrEmpty(CommanderModeController.LivePerfTelemetry) ? string.Empty : $"  |  {CommanderModeController.LivePerfTelemetry}";
+        string fullText = $"FUNDS: {fundsStr}{incStr}{perfText}";
         GUI.Label(new Rect(8f, 0f, moneyRect.width - 16f, moneyRect.height), fullText, CommanderUiTheme.Header);
         GUI.DragWindow(new Rect(0f, 0f, moneyRect.width, moneyRect.height));
     }

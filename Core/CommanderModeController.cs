@@ -45,6 +45,16 @@ internal sealed class CommanderModeController : MonoBehaviour
     private float nextInactiveEntryProbeAt;
     private bool aircraftSelectionMenuPresent;
 
+    private readonly System.Diagnostics.Stopwatch perfSw = new();
+    private float nextPerfSummaryTime;
+    private float measuredMsMarker;
+    private float measuredMsMap;
+    private float measuredMsBattlegroup;
+    private float measuredMsTheater;
+    private float measuredMsGui;
+
+    internal static string LivePerfTelemetry { get; private set; } = string.Empty;
+
     internal bool IsActive { get; private set; }
 
     private void Awake()
@@ -154,8 +164,15 @@ internal sealed class CommanderModeController : MonoBehaviour
         selectionService?.Tick();
         cameraFollowService?.Tick();
         moveService?.Tick();
+
+        perfSw.Restart();
         markerService?.Tick();
+        measuredMsMarker = (float)perfSw.Elapsed.TotalMilliseconds;
+
+        perfSw.Restart();
         tacticalMapService?.Tick();
+        measuredMsMap = (float)perfSw.Elapsed.TotalMilliseconds;
+
         if (CommanderFeatureGate.AdvancedFeaturesEnabled)
         {
             radarService?.Tick();
@@ -168,14 +185,32 @@ internal sealed class CommanderModeController : MonoBehaviour
             factoryProductionService?.Tick();
             forwardOutpostService?.Tick();
             buildingEconomyService?.Tick();
+
+            perfSw.Restart();
             battlegroupService?.Tick();
+            measuredMsBattlegroup = (float)perfSw.Elapsed.TotalMilliseconds;
+
+            perfSw.Restart();
             theaterSectorService?.Tick();
+            measuredMsTheater = (float)perfSw.Elapsed.TotalMilliseconds;
+
             airLoiterService?.Tick();
             smokeService?.Tick();
             counterBatteryService?.Tick();
         }
         overlayUi?.Tick();
         inputController?.Tick();
+
+        float now = Time.unscaledTime;
+        if (now >= nextPerfSummaryTime)
+        {
+            nextPerfSummaryTime = now + 0.35f;
+            LivePerfTelemetry = $"CPU: Mkr:{measuredMsMarker:0.0}ms Map:{measuredMsMap:0.0}ms BG:{measuredMsBattlegroup:0.0}ms GUI:{measuredMsGui:0.0}ms";
+            if (measuredMsMarker > 10f || measuredMsMap > 10f || measuredMsBattlegroup > 10f || measuredMsGui > 15f)
+            {
+                CommanderPlugin.Log.LogWarning($"[NOCommander SPIKE] {LivePerfTelemetry}");
+            }
+        }
     }
 
     private void FixedUpdate()
@@ -200,7 +235,9 @@ internal sealed class CommanderModeController : MonoBehaviour
                 return;
             }
 
+            perfSw.Restart();
             overlayUi?.Draw();
+            measuredMsGui = (float)perfSw.Elapsed.TotalMilliseconds;
             if (overlayUi?.CommanderUiHidden != true)
             {
                 povCrewUi?.Draw();
