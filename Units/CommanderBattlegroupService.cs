@@ -6,16 +6,19 @@ namespace NuclearOptionCommander;
 
 internal sealed class CommanderBattlegroupService
 {
-    private const float FormationUpdateInterval = 3.5f;
-    private const float TriageInterval = 6.0f;
+    private const float FormationUpdateInterval = 0.5f;
+    private const float TriageInterval = 8.0f;
     private const float AirDefenseFlankOffset = 90f;
     private const float SupportRearOffset = 110f;
     private const float MaxTaskForceRadius = 350f;
+    private const float ReRouteDistanceThreshold = 120f;
 
     private readonly List<TaskForce> taskForces = new();
     private readonly HashSet<Unit> assignedUnits = new();
     private float nextFormationUpdateTime;
     private float nextTriageTime;
+    private int roundRobinTfIndex;
+    private int roundRobinSlotIndex;
 
     internal static CommanderBattlegroupService? Instance { get; private set; }
 
@@ -137,82 +140,91 @@ internal sealed class CommanderBattlegroupService
 
     private void UpdateTaskForceFormations()
     {
-        for (int i = 0; i < taskForces.Count; i++)
+        if (taskForces.Count == 0) return;
+
+        // 1. Advance round-robin task force index
+        roundRobinTfIndex = (roundRobinTfIndex + 1) % taskForces.Count;
+        TaskForce tf = taskForces[roundRobinTfIndex];
+        tf.PruneDeadReferences();
+
+        if (tf.TotalUnitCount == 0)
         {
-            TaskForce tf = taskForces[i];
-            tf.PruneDeadReferences();
+            return;
+        }
 
-            if (tf.TotalUnitCount == 0)
+        // 2. Calculate Vanguard / Formation Center
+        Vector3 center = Vector3.zero;
+        int count = 0;
+        if (tf.VanguardUnits.Count > 0)
+        {
+            for (int v = 0; v < tf.VanguardUnits.Count; v++)
             {
-                continue;
+                center += tf.VanguardUnits[v].transform.position;
+                count++;
             }
-
-            // 1. Calculate Vanguard / Formation Center
-            Vector3 center = Vector3.zero;
-            int count = 0;
-            if (tf.VanguardUnits.Count > 0)
-            {
-                for (int v = 0; v < tf.VanguardUnits.Count; v++)
-                {
-                    center += tf.VanguardUnits[v].transform.position;
-                    count++;
-                }
-            }
-            else
-            {
-                for (int a = 0; a < tf.AirDefenseUnits.Count; a++)
-                {
-                    center += tf.AirDefenseUnits[a].transform.position;
-                    count++;
-                }
-            }
-
-            if (count > 0)
-            {
-                tf.FormationCenter = center / count;
-            }
-
-            // 2. Adjust Air Defense Flank Screen
-            Vector3 forward = tf.VanguardUnits.Count > 0 ? tf.VanguardUnits[0].transform.forward : Vector3.forward;
-            Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
-
+        }
+        else
+        {
             for (int a = 0; a < tf.AirDefenseUnits.Count; a++)
             {
-                Unit aaUnit = tf.AirDefenseUnits[a];
-                if (aaUnit == null || aaUnit.disabled) continue;
+                center += tf.AirDefenseUnits[a].transform.position;
+                count++;
+            }
+        }
 
-                float side = (a % 2 == 0) ? 1f : -1f;
-                float flankDist = AirDefenseFlankOffset * ((a / 2) + 1);
+        if (count > 0)
+        {
+            tf.FormationCenter = center / count;
+        }
+
+        Vector3 forward = tf.VanguardUnits.Count > 0 ? tf.VanguardUnits[0].transform.forward : Vector3.forward;
+        Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
+
+        // 3. Staggered Round-Robin Dispatch (Only re-route at most 1 unit per tick to eliminate A* CPU storms!)
+        bool dispatched = false;
+
+        // Check Air Defense Slot
+        if (tf.AirDefenseUnits.Count > 0)
+        {
+            roundRobinSlotIndex = (roundRobinSlotIndex + 1) % tf.AirDefenseUnits.Count;
+            Unit aaUnit = tf.AirDefenseUnits[roundRobinSlotIndex];
+            if (aaUnit != null && !aaUnit.disabled)
+            {
+                float side = (roundRobinSlotIndex % 2 == 0) ? 1f : -1f;
+                float flankDist = AirDefenseFlankOffset * ((roundRobinSlotIndex / 2) + 1);
                 Vector3 targetFlank = tf.FormationCenter + (right * side * flankDist) - (forward * 20f);
-                
-                UnitCommand? cmd = CommanderGameAccess.GetUnitCommand(aaUnit);
                 float distToFlank = Vector3.Distance(aaUnit.transform.position, targetFlank);
-                if (distToFlank > 60f)
+
+                if (distToFlank > ReRouteDistanceThreshold)
                 {
+                    UnitCommand? cmd = CommanderGameAccess.GetUnitCommand(aaUnit);
                     cmd?.SetDestination(targetFlank.ToGlobalPosition(), false);
+                    dispatched = true;
                 }
-                else if (distToFlank < 20f && aaUnit is GroundVehicle gv)
+                else if (distToFlank < 25f && aaUnit is GroundVehicle gv)
                 {
-                    // Engage brakes to prevent turning radius overshoot/donuts
                     CommanderGameAccess.SetUnitHoldPosition(gv, true);
                 }
             }
+        }
 
-            // 3. Adjust Support Rear Echelon
-            for (int s = 0; s < tf.SupportUnits.Count; s++)
+        // If no AA was re-routed, check Support Rear Slot
+        if (!dispatched && tf.SupportUnits.Count > 0)
+        {
+            int supIdx = UnityEngine.Random.Range(0, tf.SupportUnits.Count);
+            Unit supUnit = tf.SupportUnits[supIdx];
+            if (supUnit != null && !supUnit.disabled)
             {
-                Unit supUnit = tf.SupportUnits[s];
-                if (supUnit == null || supUnit.disabled) continue;
-
-                float rearOffset = CommanderGameAccess.IsStandoffUnit(supUnit) ? (SupportRearOffset + 180f) : (SupportRearOffset + (s * 25f));
+                float rearOffset = CommanderGameAccess.IsStandoffUnit(supUnit) ? (SupportRearOffset + 180f) : (SupportRearOffset + (supIdx * 25f));
                 Vector3 targetRear = tf.FormationCenter - (forward * rearOffset);
-                UnitCommand? cmd = CommanderGameAccess.GetUnitCommand(supUnit);
                 float distToRear = Vector3.Distance(supUnit.transform.position, targetRear);
-                if (distToRear > 60f)
+
+                if (distToRear > ReRouteDistanceThreshold)
                 {
+                    UnitCommand? cmd = CommanderGameAccess.GetUnitCommand(supUnit);
                     cmd?.SetDestination(targetRear.ToGlobalPosition(), false);
                 }
-                else if (distToRear < 20f && supUnit is GroundVehicle gvSup)
+                else if (distToRear < 25f && supUnit is GroundVehicle gvSup)
                 {
                     CommanderGameAccess.SetUnitHoldPosition(gvSup, true);
                 }
@@ -227,28 +239,23 @@ internal sealed class CommanderBattlegroupService
             TaskForce tf = taskForces[i];
             if (tf.SupportUnits.Count == 0 || tf.VanguardUnits.Count == 0) continue;
 
-            // Find most damaged Vanguard unit requiring repair
-            Unit? mostDamaged = null;
+            // Check only 1 random vanguard unit per triage interval
+            int vIdx = UnityEngine.Random.Range(0, tf.VanguardUnits.Count);
+            Unit vanguard = tf.VanguardUnits[vIdx];
+            if (vanguard == null || vanguard.disabled) continue;
 
-            for (int v = 0; v < tf.VanguardUnits.Count; v++)
+            bool needsRepair = false;
+            IRepairable[] repairables = vanguard.GetComponentsInChildren<IRepairable>(true);
+            for (int r = 0; r < repairables.Length; r++)
             {
-                Unit vanguard = tf.VanguardUnits[v];
-                if (vanguard == null || vanguard.disabled) continue;
-
-                IRepairable[] repairables = vanguard.GetComponentsInChildren<IRepairable>(true);
-                for (int r = 0; r < repairables.Length; r++)
+                if (repairables[r] != null && repairables[r].NeedsRepair())
                 {
-                    if (repairables[r] != null && repairables[r].NeedsRepair())
-                    {
-                        mostDamaged = vanguard;
-                        break;
-                    }
+                    needsRepair = true;
+                    break;
                 }
-
-                if (mostDamaged != null) break;
             }
 
-            if (mostDamaged != null)
+            if (needsRepair)
             {
                 for (int s = 0; s < tf.SupportUnits.Count; s++)
                 {
@@ -256,7 +263,7 @@ internal sealed class CommanderBattlegroupService
                     if (jack != null && !jack.disabled && jack.TryGetComponent(out Repairer _))
                     {
                         UnitCommand? cmd = CommanderGameAccess.GetUnitCommand(jack);
-                        cmd?.SetDestination(mostDamaged.transform.position.ToGlobalPosition(), true);
+                        cmd?.SetDestination(vanguard.transform.position.ToGlobalPosition(), true);
                         break;
                     }
                 }

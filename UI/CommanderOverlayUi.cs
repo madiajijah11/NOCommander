@@ -241,7 +241,7 @@ internal sealed class CommanderOverlayUi
 
         if (!positionsInitialized)
         {
-            moneyRect = new Rect(70f, 10f, 560f, 32f);
+            moneyRect = new Rect(70f, 10f, 680f, 32f);
             float panelHeight = Mathf.Min(480f, CommanderUiScale.Height - 24f);
             panelRect = new Rect(68f, Mathf.Max(12f, centerY - panelHeight * 0.5f), 340f, panelHeight);
             float reserveWidth = Mathf.Min(590f, CommanderUiScale.Width - 24f);
@@ -314,7 +314,7 @@ internal sealed class CommanderOverlayUi
             factoryWindowRect.height = Mathf.Min(600f, CommanderUiScale.Height - 24f);
             buildingWindowRect.width = Mathf.Min(740f, CommanderUiScale.Width - 24f);
             buildingWindowRect.height = Mathf.Min(640f, CommanderUiScale.Height - 24f);
-            moneyRect.width = 560f;
+            moneyRect.width = 680f;
             moneyRect.height = 32f;
         }
         moneyRect = CommanderUiTheme.ClampWindow(moneyRect, 6f);
