@@ -18,7 +18,6 @@ internal sealed class CommanderWorldMarkerRenderer
     private readonly List<CommanderSamSiteAnalyzerService.SiteLayoutMarker> samSiteLayout = new();
     private readonly List<CommanderSamSiteAnalyzerService.SiteCandidate> samSiteProposals = new();
     private readonly List<GlobalPosition> queuedWaypointsScratch = new();
-    private readonly List<GlobalPosition> patrolRouteScratch = new();
     private readonly HashSet<Unit> drawnAttackTargets = new();
 
     internal CommanderWorldMarkerRenderer(
@@ -74,44 +73,6 @@ internal sealed class CommanderWorldMarkerRenderer
                 {
                     Vector2 tgtGuiPoint = CommanderUiScale.ScreenToGui(tgtScreen);
                     DrawScreenLine(unitGuiPoint, tgtGuiPoint, new Color(1f, 0.2f, 0.15f, 0.75f), 2.5f);
-                }
-            }
-            // Guard / Escort Line
-            else if (moveService.TryGetGuardTarget(unit, out Unit guardTarget) && guardTarget != null && !guardTarget.disabled)
-            {
-                DrawMarker(camera, guardTarget.transform.GlobalPosition(), "GUARD", new Color(0.25f, 0.95f, 0.5f, 0.9f));
-
-                if (hasUnitScreen && CommanderGameAccess.TryGetWorldMarkerState(guardTarget.transform.GlobalPosition(), camera, out Vector3 guardScreen, out _))
-                {
-                    Vector2 guardGuiPoint = CommanderUiScale.ScreenToGui(guardScreen);
-                    DrawScreenLine(unitGuiPoint, guardGuiPoint, new Color(0.25f, 0.95f, 0.5f, 0.7f), 2f);
-                }
-            }
-            // Patrol Loop Lines
-            else if (moveService.TryGetPatrolRoute(unit, patrolRouteScratch) && patrolRouteScratch.Count >= 2)
-            {
-                Vector2 prevPoint = Vector2.zero;
-                bool hasPrev = false;
-
-                for (int p = 0; p < patrolRouteScratch.Count; p++)
-                {
-                    GlobalPosition pt = patrolRouteScratch[p];
-                    DrawMarker(camera, pt, $"PATROL {p + 1}", new Color(0.35f, 0.88f, 0.95f, 0.9f));
-
-                    if (CommanderGameAccess.TryGetWorldMarkerState(pt, camera, out Vector3 ptScreen, out _))
-                    {
-                        Vector2 ptGui = CommanderUiScale.ScreenToGui(ptScreen);
-                        if (hasPrev)
-                        {
-                            DrawScreenLine(prevPoint, ptGui, new Color(0.35f, 0.88f, 0.95f, 0.75f), 2f);
-                        }
-                        else if (hasUnitScreen)
-                        {
-                            DrawScreenLine(unitGuiPoint, ptGui, new Color(0.35f, 0.88f, 0.95f, 0.5f), 1.5f);
-                        }
-                        prevPoint = ptGui;
-                        hasPrev = true;
-                    }
                 }
             }
             // Move Destination & Sequential Waypoints Lines
@@ -191,11 +152,6 @@ internal sealed class CommanderWorldMarkerRenderer
             string label = "SPAWN: " + cheat.PendingSpawnDefinition.unitName + " (" + (cheat.SpawnAsEnemy ? "ENEMY" : "FRIENDLY") + ") | HDG: " + Mathf.RoundToInt(cheat.PlacementHeading).ToString("000") + "°";
             Color col = cheat.SpawnAsEnemy ? new Color(1f, 0.3f, 0.25f, 0.95f) : new Color(0.25f, 0.9f, 0.95f, 0.95f);
             DrawCursorMarker(label, col);
-        }
-
-        if (moveService.AwaitingGuardSelection)
-        {
-            DrawCursorMarker("SELECT GUARD TARGET", new Color(0.25f, 0.95f, 0.5f, 0.95f));
         }
 
         if (moveService.AwaitingBarrageSelection)
@@ -290,12 +246,6 @@ internal sealed class CommanderWorldMarkerRenderer
                 var ping = pings[p];
                 DrawMarker(camera, ping.Position.ToGlobalPosition(), "COUNTER-BATTERY PINPOINT", new Color(1f, 0.2f, 0.15f, 0.95f), large: true);
             }
-        }
-
-        // 8. Ground JTAC Close Air Support Pinpoint
-        if (CommanderAlliedAiService.HasActiveJtacTarget)
-        {
-            DrawMarker(camera, CommanderAlliedAiService.JtacTargetPosition, "JTAC CAS TARGET", new Color(1f, 0.65f, 0.1f, 0.95f), large: true);
         }
     }
 

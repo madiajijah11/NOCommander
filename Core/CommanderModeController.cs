@@ -28,13 +28,9 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderAlertService? alertService;
     private CommanderStanceService? stanceService;
     private CommanderCheatService? cheatService;
-    private CommanderSmartAiService? smartAiService;
     private CommanderFactoryProductionService? factoryProductionService;
     private CommanderForwardOutpostService? forwardOutpostService;
     private CommanderBuildingEconomyService? buildingEconomyService;
-    private CommanderBattlegroupService? battlegroupService;
-    private CommanderTheaterSectorService? theaterSectorService;
-    private CommanderAlliedAiService? alliedAiService;
     private CommanderTargetDeconflictionService? targetDeconflictionService;
     private CommanderAirLoiterService? airLoiterService;
     private CommanderSmokeCountermeasuresService? smokeService;
@@ -49,8 +45,6 @@ internal sealed class CommanderModeController : MonoBehaviour
     private float nextPerfSummaryTime;
     private float measuredMsMarker;
     private float measuredMsMap;
-    private float measuredMsBattlegroup;
-    private float measuredMsTheater;
     private float measuredMsGui;
 
     internal static string LivePerfTelemetry { get; private set; } = string.Empty;
@@ -81,25 +75,20 @@ internal sealed class CommanderModeController : MonoBehaviour
         spawnService = new CommanderSpawnService(selectionService, factionVehicleService, tacticalMapService);
         markerService = new CommanderMarkerService(selectionService);
         moveService = new CommanderMoveService(selectionService);
-        alliedAiService = new CommanderAlliedAiService(moveService);
         persistentOperations = new CommanderPersistentOperations(
             spawnService,
             supplyHeliService,
             airCommandService,
             mobileEmplacementService,
             samSiteAnalyzerService,
-            samSiteService,
-            alliedAiService);
+            samSiteService);
         controlGroupsService = new CommanderControlGroupsService(selectionService);
         alertService = new CommanderAlertService();
         stanceService = new CommanderStanceService(selectionService);
         cheatService = new CommanderCheatService(selectionService);
-        smartAiService = new CommanderSmartAiService();
         factoryProductionService = new CommanderFactoryProductionService();
         forwardOutpostService = new CommanderForwardOutpostService(selectionService);
         buildingEconomyService = new CommanderBuildingEconomyService();
-        battlegroupService = new CommanderBattlegroupService();
-        theaterSectorService = new CommanderTheaterSectorService();
         smokeService = new CommanderSmokeCountermeasuresService();
         counterBatteryService = new CommanderCounterBatteryRadarService();
         airLoiterService = new CommanderAirLoiterService();
@@ -142,7 +131,6 @@ internal sealed class CommanderModeController : MonoBehaviour
         if (CommanderFeatureGate.AdvancedFeaturesEnabled)
         {
             persistentOperations?.Tick();
-            smartAiService?.Tick();
         }
         if (!IsActive)
         {
@@ -185,15 +173,6 @@ internal sealed class CommanderModeController : MonoBehaviour
             factoryProductionService?.Tick();
             forwardOutpostService?.Tick();
             buildingEconomyService?.Tick();
-
-            perfSw.Restart();
-            battlegroupService?.Tick();
-            measuredMsBattlegroup = (float)perfSw.Elapsed.TotalMilliseconds;
-
-            perfSw.Restart();
-            theaterSectorService?.Tick();
-            measuredMsTheater = (float)perfSw.Elapsed.TotalMilliseconds;
-
             airLoiterService?.Tick();
             smokeService?.Tick();
             counterBatteryService?.Tick();
@@ -205,8 +184,8 @@ internal sealed class CommanderModeController : MonoBehaviour
         if (now >= nextPerfSummaryTime)
         {
             nextPerfSummaryTime = now + 0.35f;
-            LivePerfTelemetry = $"CPU: Mkr:{measuredMsMarker:0.0}ms Map:{measuredMsMap:0.0}ms BG:{measuredMsBattlegroup:0.0}ms GUI:{measuredMsGui:0.0}ms";
-            if (measuredMsMarker > 10f || measuredMsMap > 10f || measuredMsBattlegroup > 10f || measuredMsGui > 15f)
+            LivePerfTelemetry = $"CPU: Mkr:{measuredMsMarker:0.0}ms Map:{measuredMsMap:0.0}ms GUI:{measuredMsGui:0.0}ms";
+            if (measuredMsMarker > 10f || measuredMsMap > 10f || measuredMsGui > 15f)
             {
                 CommanderPlugin.Log.LogWarning($"[NOCommander SPIKE] {LivePerfTelemetry}");
             }
@@ -433,13 +412,9 @@ internal sealed class CommanderModeController : MonoBehaviour
         alertService?.ResetSession();
         stanceService?.ResetSession();
         cheatService?.ResetSession();
-        smartAiService?.ResetSession();
         factoryProductionService?.ResetSession();
         forwardOutpostService?.ResetSession();
         buildingEconomyService?.ResetSession();
-        battlegroupService?.ResetSession();
-        theaterSectorService?.ResetSession();
-        alliedAiService?.ResetSession();
         airLoiterService?.ResetSession();
         targetDeconflictionService?.ResetSession();
         smokeService?.ResetSession();

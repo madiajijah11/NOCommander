@@ -18,7 +18,6 @@ internal sealed class CommanderInputController
     private readonly CommanderMobileEmplacementService mobileEmplacementService;
     private readonly CommanderAirCommandService airCommandService;
     private readonly CommanderControlGroupsService? controlGroupsService;
-    private readonly CommanderAlertService? alertService;
     private readonly CommanderStanceService? stanceService;
     private CommanderPovCrewUi? povCrewUi;
 
@@ -53,7 +52,6 @@ internal sealed class CommanderInputController
         this.mobileEmplacementService = mobileEmplacementService;
         this.airCommandService = airCommandService;
         this.controlGroupsService = controlGroupsService;
-        this.alertService = alertService;
         this.stanceService = stanceService;
         Instance = this;
     }
@@ -221,12 +219,6 @@ internal sealed class CommanderInputController
             }
         }
 
-        // Spacebar alert jump when no unit is focused
-        if (Input.GetKeyDown(KeyCode.Space) && selectionService.FocusedSelection == null)
-        {
-            alertService?.TryJumpToIncident(selectionService, tacticalMapService);
-        }
-
         // Toggle Hold Fire stance (default key F)
         if (CommanderShortcutInput.IsDown(CommanderSettings.ToggleHoldFire))
         {
@@ -239,13 +231,10 @@ internal sealed class CommanderInputController
             controlGroupsService?.SelectAllArmy(combatOnly: true);
         }
 
-        // X key: Emergency Smoke Screen & Scatter Evasion
+        // X key: Emergency Smoke Screen
         if (Input.GetKeyDown(KeyCode.X))
         {
-            if (CommanderSmokeCountermeasuresService.Instance?.TryDeploySmokeForSelection(selectionService, moveService) != true)
-            {
-                moveService.ScatterSelectedUnits(55f);
-            }
+            CommanderSmokeCountermeasuresService.Instance?.TryDeploySmokeForSelection(selectionService, moveService);
         }
 
         // O key: Order Aviation Loiter / Holding Orbit for selected aircraft
@@ -258,32 +247,6 @@ internal sealed class CommanderInputController
                 {
                     CommanderAirLoiterService.Instance?.OrderLoiterOrbit(ac, ac.transform.position);
                 }
-            }
-        }
-
-        // P key: Patrol Mode Toggle
-        if (Input.GetKeyDown(KeyCode.P))
-        {
-            if (moveService.AwaitingPatrolSelection)
-            {
-                moveService.CancelPatrolOrder();
-            }
-            else
-            {
-                moveService.BeginPatrolOrder();
-            }
-        }
-
-        // G key: Guard / Escort Order Toggle
-        if (CommanderShortcutInput.IsDown(CommanderSettings.GuardOrder))
-        {
-            if (moveService.AwaitingGuardSelection)
-            {
-                moveService.CancelGuardOrder();
-            }
-            else
-            {
-                moveService.BeginGuardOrder();
             }
         }
 
@@ -311,12 +274,6 @@ internal sealed class CommanderInputController
             {
                 moveService.BeginBarrageOrder();
             }
-        }
-
-        // V key: Cycle Formations (Ring, Line, Column, Wedge, Box)
-        if (CommanderShortcutInput.IsDown(CommanderSettings.ToggleFormation))
-        {
-            moveService.CycleFormation();
         }
 
         // Ctrl + R: Global Radar Silence / EMCON Toggle
@@ -393,18 +350,6 @@ internal sealed class CommanderInputController
             return;
         }
 
-        if (moveService.AwaitingGuardSelection)
-        {
-            moveService.TrySetGuardTarget(mousePosition);
-            return;
-        }
-
-        if (moveService.AwaitingPatrolSelection)
-        {
-            moveService.TrySetPatrolDestination(mousePosition);
-            return;
-        }
-
         if (moveService.AwaitingBarrageSelection)
         {
             moveService.TrySetBarrageTarget(mousePosition);
@@ -461,16 +406,6 @@ internal sealed class CommanderInputController
         if (moveService.AwaitingAttackMoveSelection)
         {
             moveService.CancelAttackMoveOrder();
-            cancelled = true;
-        }
-        if (moveService.AwaitingGuardSelection)
-        {
-            moveService.CancelGuardOrder();
-            cancelled = true;
-        }
-        if (moveService.AwaitingPatrolSelection)
-        {
-            moveService.CancelPatrolOrder();
             cancelled = true;
         }
         if (moveService.AwaitingBarrageSelection)

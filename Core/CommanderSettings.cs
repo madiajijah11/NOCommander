@@ -12,15 +12,6 @@ internal static class CommanderSettings
     internal static float UiScale { get; set; } = 1.5f;
     internal static bool ModEnabled { get => Get("General", "Enabled", true); set => Set("General", "Enabled", value); }
     internal static bool LimitToFactoryVehicles { get => Get("Gameplay", "LimitToFactoryVehicles", false); set => Set("Gameplay", "LimitToFactoryVehicles", value); }
-    internal static bool AlliedAutoCommanderEnabled { get => Get("Gameplay", "AlliedAutoCommanderEnabled", true); set => Set("Gameplay", "AlliedAutoCommanderEnabled", value); }
-    internal static bool SmartAiEnabled { get => Get("Gameplay", "SmartAiEnabled", false); set => Set("Gameplay", "SmartAiEnabled", value); }
-    internal static bool AiReactiveScatter { get => Get("Gameplay", "AiReactiveScatter", true); set => Set("Gameplay", "AiReactiveScatter", value); }
-    internal static bool AiAdaptiveProduction { get => Get("Gameplay", "AiAdaptiveProduction", true); set => Set("Gameplay", "AiAdaptiveProduction", value); }
-    internal static bool AiAutoDeployAir { get => Get("Gameplay", "AiAutoDeployAir", true); set => Set("Gameplay", "AiAutoDeployAir", value); }
-    internal static bool AiAutoDeployNaval { get => Get("Gameplay", "AiAutoDeployNaval", true); set => Set("Gameplay", "AiAutoDeployNaval", value); }
-    internal static bool AiAutoScrambleAirGuard { get => Get("Gameplay", "AiAutoScrambleAirGuard", true); set => Set("Gameplay", "AiAutoScrambleAirGuard", value); }
-    internal static bool AiAutoFrontlineSupply { get => Get("Gameplay", "AiAutoFrontlineSupply", true); set => Set("Gameplay", "AiAutoFrontlineSupply", value); }
-    internal static bool AiAutoReinforceDepots { get => Get("Gameplay", "AiAutoReinforceDepots", true); set => Set("Gameplay", "AiAutoReinforceDepots", value); }
     internal static bool ShowCommandButton { get => Get("UI", "ShowCommandButton", true); set => Set("UI", "ShowCommandButton", value); }
     internal static bool ShowFactionMoney { get => Get("UI", "ShowFactionMoney", true); set => Set("UI", "ShowFactionMoney", value); }
     internal static bool ShowTacticalMap { get => Get("UI", "ShowTacticalMap", true); set => Set("UI", "ShowTacticalMap", value); }
@@ -31,7 +22,6 @@ internal static class CommanderSettings
     internal static bool ShowSupplyUi { get => Get("UI", "ShowSupplyUi", true); set => Set("UI", "ShowSupplyUi", value); }
     internal static bool ShowAirCommandUi { get => Get("UI", "ShowAirCommandUi", true); set => Set("UI", "ShowAirCommandUi", value); }
     internal static bool ShowNavalUi { get => Get("UI", "ShowNavalUi", true); set => Set("UI", "ShowNavalUi", value); }
-    internal static bool ShowTheaterCommandUi { get => Get("UI", "ShowTheaterCommandUi", true); set => Set("UI", "ShowTheaterCommandUi", value); }
     internal static bool ShowSamAnalyzerUi { get => Get("UI", "ShowSamAnalyzerUi", true); set => Set("UI", "ShowSamAnalyzerUi", value); }
     internal static bool ShowWorldMarkers { get => Get("UI", "ShowWorldMarkers", true); set => Set("UI", "ShowWorldMarkers", value); }
     internal static int SamScanQueriesPerFrame { get => Get("SAM Analyzer", "RaycastsPerFrame", 64); set => Set("SAM Analyzer", "RaycastsPerFrame", value); }
@@ -45,8 +35,6 @@ internal static class CommanderSettings
     internal static KeyboardShortcut ToggleHoldFire { get => GetShortcut("ToggleHoldFire", KeyCode.F, "Toggle Hold Fire / Free Fire for selected units."); set => Set("Keybinds", "ToggleHoldFire", value); }
     internal static KeyboardShortcut ToggleUi { get => GetShortcut("ToggleUi", KeyCode.H, "Cycle visible, Commander UI hidden, and all UI hidden."); set => Set("Keybinds", "ToggleUi", value); }
     internal static KeyboardShortcut SelectAllArmy { get => GetShortcut("SelectAllArmy", KeyCode.BackQuote, "Select all friendly combat army."); set => Set("Keybinds", "SelectAllArmy", value); }
-    internal static KeyboardShortcut ToggleFormation { get => GetShortcut("ToggleFormation", KeyCode.V, "Cycle unit formation shape (Ring, Line, Column, Wedge, Box)."); set => Set("Keybinds", "ToggleFormation", value); }
-    internal static KeyboardShortcut GuardOrder { get => GetShortcut("GuardOrder", KeyCode.G, "Order selected units to guard/escort target unit."); set => Set("Keybinds", "GuardOrder", value); }
     internal static KeyboardShortcut ArtilleryBarrage { get => GetShortcut("ArtilleryBarrage", KeyCode.B, "Call in artillery/MRLS barrage on target area."); set => Set("Keybinds", "ArtilleryBarrage", value); }
     internal static KeyboardShortcut GlobalRadarSilence { get => GetShortcut("GlobalRadarSilence", KeyCode.R, new[] { KeyCode.LeftControl }, "Toggle global EMCON / radar silence across all friendly units."); set => Set("Keybinds", "GlobalRadarSilence", value); }
     internal static KeyboardShortcut CameraForward { get => GetShortcut("CameraForward", KeyCode.W, "Move the Commander camera forward."); set => Set("Keybinds", "CameraForward", value); }

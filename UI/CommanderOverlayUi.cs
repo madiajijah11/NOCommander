@@ -38,7 +38,6 @@ internal sealed class CommanderOverlayUi
     private readonly CommanderAirCommandUi airCommandUi;
     private readonly CommanderNavalPurchaseUi navalPurchaseUi;
     private readonly CommanderSamSiteAnalyzerUi samSiteAnalyzerUi;
-    private readonly CommanderTheaterCommandUi theaterCommandUi;
     private readonly CommanderDepotUi depotUi;
     private readonly CommanderWorldMarkerRenderer worldMarkerRenderer;
     private readonly Action unlockAdvancedFeatures;
@@ -167,11 +166,6 @@ internal sealed class CommanderOverlayUi
             samSiteAnalyzerService,
             samSiteService,
             supplyHeliService);
-        theaterCommandUi = new CommanderTheaterCommandUi(
-            CommanderTheaterSectorService.Instance!,
-            CommanderBattlegroupService.Instance!,
-            airCommandService,
-            CommanderTacticalMapService.Instance!);
         depotUi = new CommanderDepotUi(spawnService);
         worldMarkerRenderer = new CommanderWorldMarkerRenderer(
             selectionService,
@@ -500,10 +494,6 @@ internal sealed class CommanderOverlayUi
         {
             CommanderBuildingEconomyService.Instance.IsUiActive = false;
         }
-        if (advanced && CommanderSettings.ShowTheaterCommandUi)
-        {
-            theaterCommandUi.Draw();
-        }
         if (showSelectionBar) DrawSelectionBar();
         DrawSettingsWindowIfVisible();
         DrawBoxSelectionIfActive();
@@ -753,15 +743,10 @@ internal sealed class CommanderOverlayUi
         }
         y += 38f;
 
-        // [03] THEATER COMMAND & ECONOMY
-        GUI.Label(new Rect(12f, y, panelRect.width - 24f, 18f), "THEATER COMMAND & ECONOMY", CommanderUiTheme.MutedLabel);
+        // [03] INFRASTRUCTURE & ECONOMY
+        GUI.Label(new Rect(12f, y, panelRect.width - 24f, 18f), "INFRASTRUCTURE & ECONOMY", CommanderUiTheme.MutedLabel);
         y += 20f;
-        float econHalf = (panelRect.width - 30f) * 0.5f;
-        if (GUI.Button(new Rect(12f, y, econHalf, 32f), "🗺️ THEATER DIRECTIVES", theaterCommandUi.Visible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.PrimaryButton))
-        {
-            theaterCommandUi.Visible = !theaterCommandUi.Visible;
-        }
-        if (GUI.Button(new Rect(18f + econHalf, y, econHalf, 32f), "BUILDINGS & ECONOMY", buildingWindowVisible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
+        if (GUI.Button(new Rect(12f, y, panelRect.width - 24f, 32f), "BUILDINGS & ECONOMY", buildingWindowVisible ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
         {
             buildingWindowVisible = !buildingWindowVisible;
         }
@@ -901,40 +886,6 @@ internal sealed class CommanderOverlayUi
             new Rect(24f, y + 42f, settingsWindowRect.width - 48f, 30f),
             CommanderSettings.LimitToFactoryVehicles,
             "Limit to vehicles from factories",
-            CommanderUiTheme.Toggle);
-
-        y += 104f;
-        GUI.Box(new Rect(12f, y, settingsWindowRect.width - 24f, 226f), string.Empty, CommanderUiTheme.Panel);
-        GUI.Label(new Rect(24f, y + 8f, settingsWindowRect.width - 48f, 22f), "ALLIED AUTO-COMMANDER & SMART AI", CommanderUiTheme.Header);
-        CommanderSettings.AlliedAutoCommanderEnabled = GUI.Toggle(
-            new Rect(24f, y + 34f, settingsWindowRect.width - 48f, 26f),
-            CommanderSettings.AlliedAutoCommanderEnabled,
-            "Allied Auto-Commander (Factory Retooling, Economy Reinvestment & QRF Scrambles)",
-            CommanderUiTheme.Toggle);
-        CommanderSettings.SmartAiEnabled = GUI.Toggle(
-            new Rect(24f, y + 64f, settingsWindowRect.width - 48f, 26f),
-            CommanderSettings.SmartAiEnabled,
-            "Enable Smart AI Tactics & Counter-Scrambles",
-            CommanderUiTheme.Toggle);
-        CommanderSettings.AiReactiveScatter = GUI.Toggle(
-            new Rect(24f, y + 94f, settingsWindowRect.width - 48f, 26f),
-            CommanderSettings.AiReactiveScatter,
-            "AI Reactive Evasion (Scatter on incoming bombs/missiles)",
-            CommanderUiTheme.Toggle);
-        CommanderSettings.AiAdaptiveProduction = GUI.Toggle(
-            new Rect(24f, y + 124f, settingsWindowRect.width - 48f, 26f),
-            CommanderSettings.AiAdaptiveProduction,
-            "AI Adaptive Counter-Production (Counters air/armor spam)",
-            CommanderUiTheme.Toggle);
-        CommanderSettings.AiAutoDeployAir = GUI.Toggle(
-            new Rect(24f, y + 154f, settingsWindowRect.width - 48f, 26f),
-            CommanderSettings.AiAutoDeployAir,
-            "AI Auto-Sortie Reserve Aircraft (When un-held stock exists)",
-            CommanderUiTheme.Toggle);
-        CommanderSettings.AiAutoDeployNaval = GUI.Toggle(
-            new Rect(24f, y + 184f, settingsWindowRect.width - 48f, 26f),
-            CommanderSettings.AiAutoDeployNaval,
-            "AI Auto-Deploy Reserve Warships (When un-held stock exists)",
             CommanderUiTheme.Toggle);
     }
 
@@ -1827,12 +1778,8 @@ internal sealed class CommanderOverlayUi
         else
         {
             // Multi-Unit Header
-            string formName = moveService.CurrentFormation.ToString().ToUpperInvariant();
-            GUI.Label(new Rect(12f, 4f, selectionBarRect.width - 240f, 20f),
-                $"{count} UNITS SELECTED (TACTICAL BATTLE GROUP)", CommanderUiTheme.Header);
-
-            GUI.Label(new Rect(selectionBarRect.width - 220f, 4f, 180f, 20f),
-                $"[FORM: {formName}]", CommanderUiTheme.SubHeader);
+            GUI.Label(new Rect(12f, 4f, selectionBarRect.width - 50f, 20f),
+                $"{count} UNITS SELECTED", CommanderUiTheme.Header);
         }
 
         if (GUI.Button(new Rect(selectionBarRect.width - 30f, 3f, 22f, 20f), "?", CommanderUiTheme.HelpButton))
@@ -1840,9 +1787,9 @@ internal sealed class CommanderOverlayUi
             selectionHelpVisible = !selectionHelpVisible;
         }
 
-        // 3. Command Button Grid (Row of 12 Aligned Tactical Buttons)
+        // 3. Command Button Grid (Row of 7 Tactical Buttons)
         float totalWidth = selectionBarRect.width - 24f;
-        float btnWidth = (totalWidth - 11f * 4f) / 12f;
+        float btnWidth = (totalWidth - 6f * 4f) / 7f;
         float bx = 12f;
 
         // 1. STOP
@@ -1872,49 +1819,7 @@ internal sealed class CommanderOverlayUi
         }
         bx += btnWidth + 4f;
 
-        // 4. PATROL
-        bool isPatrolling = moveService.AwaitingPatrolSelection;
-        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), "PATROL",
-            isPatrolling ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
-        {
-            if (isPatrolling) moveService.CancelPatrolOrder();
-            else moveService.BeginPatrolOrder();
-        }
-        bx += btnWidth + 4f;
-
-        // 5. GUARD / ESCORT
-        bool isGuarding = moveService.AwaitingGuardSelection;
-        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), "GUARD",
-            isGuarding ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
-        {
-            if (isGuarding) moveService.CancelGuardOrder();
-            else moveService.BeginGuardOrder();
-        }
-        bx += btnWidth + 4f;
-
-        // 6. SCATTER
-        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), "SCATTER", CommanderUiTheme.Button))
-        {
-            moveService.ScatterSelectedUnits(55f);
-        }
-        bx += btnWidth + 4f;
-
-        // 7. REVERSE (TACTICAL REVERSE)
-        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), "REVERSE", CommanderUiTheme.Button))
-        {
-            moveService.TacticalReverseSelectedUnits(65f);
-        }
-        bx += btnWidth + 4f;
-
-        // 8. FORMATION CYCLE
-        string formShort = moveService.CurrentFormation.ToString().ToUpperInvariant();
-        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), "FORM: " + formShort, CommanderUiTheme.Button))
-        {
-            moveService.CycleFormation();
-        }
-        bx += btnWidth + 4f;
-
-        // 9. AUTO-RTB
+        // 4. AUTO-RTB
         bool isRtb = moveService.IsAutoRtb(focused);
         if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), isRtb ? "RTB ON" : "RTB",
             isRtb ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))

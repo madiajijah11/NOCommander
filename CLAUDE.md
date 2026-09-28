@@ -117,14 +117,25 @@ NOCommander/
 | `0..9` | Select Control Group (double-tap to focus) | `CommanderControlGroupsService` |
 | `` ` `` (BackQuote) | Select all friendly combat army | `CommanderControlGroupsService` |
 | `F` | Toggle Hold Fire / Free Fire (Stance) | `CommanderStanceService` |
-| `Space` | Center selection / Jump to under-attack alert | `CommanderCameraFollowService` / `CommanderAlertService` |
+| `Space` | Center selection / Follow selection | `CommanderCameraFollowService` |
 | `H` | Cycle UI visibility (Full / Minimal / Hidden) | `CommanderOverlayUi` |
 | `W, A, S, D, Q, E` | RTS Camera Pan / Elevation | `CommanderCameraController` |
 | `Alt` (Hold) | Expose unit delete action (DEL) on selection | `CommanderOverlayUi` |
 
 ---
 
-## 5. Development & Feature Iteration Cycle
+## 5. Critical-Thinking Gate (MANDATORY BEFORE CODING)
+
+Before writing code for any feature, fix, or removal:
+
+1. Define requested behavior, scope, invariants, and explicit non-goals.
+2. Verify facts: read applicable DeepWiki/docs, inspect implementation, grep every caller/reference, and distinguish active code, dead code, native game behavior, and mod heuristics.
+3. Challenge assumptions: identify performance cause, dependency impact, multiplayer authority, lifecycle/reset effects, and regression risks.
+4. For destructive or ambiguous scope, present the minimal plan and ask the user before editing.
+5. After editing, grep for stale references, build against game assemblies, review the complete diff, and report warnings/errors honestly.
+6. Keep completion states separate: code change, commit, push, and deploy are distinct actions. Never commit, push, or deploy without explicit user instruction.
+
+## 6. Development & Feature Iteration Cycle
 
 When adding features or fixing bugs:
 

@@ -17,10 +17,6 @@ Mainly intended for **Escalation** and **Terminal Control** game modes.
   - The **`GROUPS`** tab in the **Unit List / Pins** window displays all active control groups, unit counts, and vehicle compositions. Click any entry to select directly.
 - **Select All Combat Army (`~` / `BackQuote`):**
   - One-key shortcut to select all friendly combat ground vehicles and surface warships across the map (mapped to tilde `~` to avoid conflict with base game camera keys `F1`–`F4`).
-- **Military Formations (`V` / UI Button):**
-  - Cycle convoy formations: **`LINE`** (frontal firing line), **`COLUMN`** (road march), **`WEDGE`** (assault spearhead), **`BOX`** (grid), **`ECHELON`** (flank defense), and **`RING`** (perimeter).
-- **Guard & Escort Order (`G` / `Alt + RMB` on Friendly Unit):**
-  - Command combat units to guard and escort logistics trucks, commanders, or flagship vessels automatically.
 - **Auto-RTB (Return to Base for Repair & Rearm):**
   - Automatic toggle: Units critically damaged or low on ammunition ($le 20%$) autonomously seek the nearest repair/rearm truck or depot.
 - **Artillery & MRLS Barrage Call-In (`B` / UI Button):**
@@ -46,23 +42,13 @@ Mainly intended for **Escalation** and **Terminal Control** game modes.
 - **Attack Orders & Focus Fire (`RMB` on Enemy):**
   - Right-click directly on enemy units to issue focus fire orders with a red 3D **`[ATTACK]`** target marker.
 - **3D Vector Path Lines (Active for Selected Units):**
-  - Real-time glowing 3D vector lines connecting selected units to destinations (Cyan), sequential waypoints (Amber), guard targets (Green), patrol routes (Sky Blue), and attack targets (Crimson Red).
+  - Real-time glowing 3D vector lines connecting selected units to destinations (Cyan), sequential waypoints (Amber), and attack targets (Crimson Red).
 - **Attack-Move Order (`A-MOVE` / `T`):**
   - Advance toward target coordinates while autonomously engaging any hostiles encountered en route.
 - **Shift-Queued Waypoints (`Shift + RMB`):**
   - Chain sequential waypoints with 3D **`[WAYPOINT 1..N]`** path visualizers.
-- **Scatter / Evade Order (`X` / UI Button):**
-  - Immediately spread units radially by 55 m to minimize damage from incoming artillery, cluster bombs, or nuclear detonations.
-- **Continuous Patrol Mode (`P` / UI Button):**
-  - Set continuous looping patrol routes between start and target points with 3D **`[PATROL 1..N]`** markers.
 - **Rules of Engagement / Fire Stance (`F` / UI Button):**
   - Toggle between **`HOLD FIRE`** (disables turret target acquisition) and **`FREE FIRE`**.
-
----
-
-### 3. Combat Alerts & Emergency Reaction
-- **Under-Attack Incident Jump (`Space`):**
-  - Automatically tracks friendly units taking damage; pressing `Space` (when no unit is selected) pans the camera to the latest incident location and selects the damaged unit.
 
 ---
 
@@ -111,25 +97,7 @@ Accessible via the **`CHEAT / SANDBOX`** button in the Commander panel:
 
 ---
 
-### 6. Smart AI & Autonomous Theater Commander (Supreme Commander Automation)
-- **Autonomous Air Wing Controller (Winchester & Bingo Fuel Auto-RTB):**
-  - Combat aircraft (CAS, Strike, ARAD, Air Guard) automatically trigger RTB when offensive missiles/bombs are expended (*Winchester*) or fuel drops below 15% (*Bingo Fuel*), returning safely to base inventory.
-- **Autonomous Emergency Air Intercept Scramble:**
-  - AI sub-commander automatically scrambles Air Guard interceptors from reserve stockpiles when hostile aircraft approach within 40 km of friendly bases or fleet.
-- **Autonomous Frontline Logistics Ferry Loop:**
-  - AI logistics controller monitors all friendly armor, SAM installations, and FOB outposts; automatically dispatches cargo helicopters with ammo containers whenever frontline units reach $< 30\%$ ammunition.
-- **Autonomous Ground Reinforcement:**
-  - Automatically maintains frontline armor presence by deploying reserve combat vehicles from friendly depots when active forces drop below minimum theater thresholds.
-- **Adaptive Counter-Production:**
-  - Enemy factory AI dynamically adapts production lines to counter force compositions (e.g. producing SAM/AAA against heavy air, or anti-tank against armor).
-- **Reactive Evasive Scatter:**
-  - AI ground vehicles automatically scatter (40–75 m) away from incoming artillery and bomb impact zones.
-- **Settings Switches:**
-  - Full toggle control over *Smart AI*, *Auto-Scramble*, *Auto-Supply*, *Auto-Reinforce*, and *Adaptive Production* under **`SETTINGS -> GAMEPLAY`**.
-
----
-
-### 7. Aircraft Carrier & Flight Safety
+### 6. Aircraft Carrier & Flight Safety
 - **Carrier Bow-Drop Prevention:** Automatically applies positive vertical climb assist ($v_y ge +4.5	ext{ m/s}$) during carrier catapult/deck launches, preventing aircraft from dipping into the sea.
 - **Helicopter Island Clearance:** Helicopters launching from warships climb vertically past superstructure height ($> 22	ext{ m}$) before forward flight.
 - **TailHook Auto-Deployment:** Automatically lowers the `TailHook` during carrier landing approaches for wire capture.
@@ -149,14 +117,11 @@ Accessible via the **`CHEAT / SANDBOX`** button in the Commander panel:
 | `Ctrl + 0..9` | Assign selection to Control Group 0-9 | `CommanderControlGroupsService` |
 | `0..9` | Select Control Group 0-9 (*Double-tap*: center camera) | `CommanderControlGroupsService` |
 | `~` / `BackQuote` | Select all combat army (*Select All Army*) | `CommanderControlGroupsService` |
-| `V` | Cycle military formation (*Line, Column, Wedge, Box, Ring*) | `CommanderMoveService` |
-| `G` / `Alt + RMB` | Guard / Escort target friendly unit | `CommanderMoveService` |
 | `B` | Call in artillery/MRLS barrage on target area | `CommanderMoveService` |
 | `Ctrl + R` | Toggle Global EMCON / Radar Silence | `CommanderRadarService` |
 | `F` | Toggle Hold Fire / Free Fire (Stance) | `CommanderStanceService` |
-| `X` | Scatter / Evade area damage | `CommanderMoveService` |
-| `P` | Toggle continuous patrol mode | `CommanderMoveService` |
-| `Space` | Center camera on unit / Jump to under-attack alert | `CommanderAlertService` |
+| `X` | Deploy emergency smoke screen | `CommanderSmokeCountermeasuresService` |
+| `Space` | Center camera on unit / Follow selection | `CommanderCameraFollowService` |
 | `H` | Cycle UI visibility (*Full / Minimal / Hidden*) | `CommanderOverlayUi` |
 | `W, A, S, D, Q, E` | RTS Camera Pan & Elevation | `CommanderCameraController` |
 | `Left / Right Arrow` | Rotate camera view left / right (Yaw) | `CommanderCameraController` |
