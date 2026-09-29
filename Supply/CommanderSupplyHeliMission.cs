@@ -852,6 +852,13 @@ internal sealed partial class CommanderSupplyHeliService
             return true;
         }
 
+        if (mission.DeliveryCompleted && !mission.ReturnIssued)
+        {
+            mission.ReturnIssued = true;
+            IssueSupplyReturnToBase(aircraft, mission);
+            return true;
+        }
+
         HoldLandingTimerWhileCargoProcesses(state, aircraft, mission);
 
         if (!mission.Airdrop && IsSamLogisticsMission(mission))
@@ -1728,5 +1735,6 @@ internal sealed partial class CommanderSupplyHeliService
         internal int ApproachRouteIndex { get; set; }
         internal readonly List<GlobalPosition> ApproachRoute = new();
         internal bool DeliveryCompleted { get; set; }
+        internal bool ReturnIssued { get; set; }
         internal readonly List<BayDoor> CargoDoors = new();
     }}

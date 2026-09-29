@@ -29,6 +29,7 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderStanceService? stanceService;
     private CommanderCheatService? cheatService;
     private CommanderFactoryProductionService? factoryProductionService;
+    private CommanderWarActivityService? warActivityService;
     private CommanderForwardOutpostService? forwardOutpostService;
     private CommanderBuildingEconomyService? buildingEconomyService;
     private CommanderTargetDeconflictionService? targetDeconflictionService;
@@ -87,6 +88,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         stanceService = new CommanderStanceService(selectionService);
         cheatService = new CommanderCheatService(selectionService);
         factoryProductionService = new CommanderFactoryProductionService();
+        warActivityService = new CommanderWarActivityService(factionVehicleService, spawnService, airCommandService, navalPurchaseService, supplyHeliService);
         forwardOutpostService = new CommanderForwardOutpostService(selectionService);
         buildingEconomyService = new CommanderBuildingEconomyService();
         smokeService = new CommanderSmokeCountermeasuresService();
@@ -106,6 +108,7 @@ internal sealed class CommanderModeController : MonoBehaviour
             navalPurchaseService,
             samSiteAnalyzerService,
             samSiteService,
+            warActivityService,
             UnlockAdvancedFeatures,
             () => Deactivate());
         inputController = new CommanderInputController(
@@ -171,6 +174,7 @@ internal sealed class CommanderModeController : MonoBehaviour
             samSiteAnalyzerService?.TickActive();
             spawnService?.TickActive();
             factoryProductionService?.Tick();
+            warActivityService?.Tick();
             forwardOutpostService?.Tick();
             buildingEconomyService?.Tick();
             airLoiterService?.Tick();
@@ -353,6 +357,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         navalPurchaseService?.Activate();
         samSiteAnalyzerService?.Activate();
         spawnService?.Activate();
+        warActivityService?.Activate();
     }
 
     private void Deactivate(bool restorePreviousCamera = true)
@@ -374,6 +379,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         navalPurchaseService?.Deactivate();
         samSiteAnalyzerService?.Deactivate();
         spawnService?.Deactivate();
+        warActivityService?.Deactivate();
         overlayUi?.Deactivate();
         tacticalMapService?.Close();
         cursorController?.Deactivate();
@@ -413,6 +419,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         stanceService?.ResetSession();
         cheatService?.ResetSession();
         factoryProductionService?.ResetSession();
+        warActivityService?.ResetSession();
         forwardOutpostService?.ResetSession();
         buildingEconomyService?.ResetSession();
         airLoiterService?.ResetSession();

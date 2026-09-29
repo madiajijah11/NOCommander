@@ -16,6 +16,7 @@ internal sealed class CommanderMoveService
 
     private static readonly MethodInfo? RearmVehicleWaitMethod = AccessTools.Method(typeof(RearmVehicleAI), "Wait");
     private static readonly MethodInfo? RearmVehicleRestockMethod = AccessTools.Method(typeof(RearmVehicleAI), "DriveToRestock");
+    private static readonly FieldInfo? PathfindingField = AccessTools.Field(typeof(GroundVehicle), "pathfinder");
 
     private readonly CommanderSelectionService selectionService;
     private readonly HashSet<Unit> stoppedUnits = new();
@@ -23,6 +24,8 @@ internal sealed class CommanderMoveService
     private readonly Dictionary<Unit, Queue<GlobalPosition>> waypointQueues = new();
     private readonly Dictionary<Unit, Unit> focusAttackTargets = new();
     private readonly HashSet<Unit> autoRtbUnits = new();
+    private readonly HashSet<Unit> autoServiceUnits = new();
+    private readonly HashSet<Unit> autoServiceCandidates = new();
 
     private sealed class StuckTracker
     {
@@ -37,6 +40,7 @@ internal sealed class CommanderMoveService
     private bool awaitingAttackMoveSelection;
     private float nextRtbCheckTime;
     private float nextPruneTime;
+    private float nextStuckCheckTime;
 
     internal static CommanderMoveService? Instance { get; private set; }
 
@@ -178,6 +182,34 @@ internal sealed class CommanderMoveService
     internal bool IsAutoRtb(Unit? unit)
     {
         return unit != null && autoRtbUnits.Contains(unit);
+    }
+
+    internal void ToggleAutoServiceForSelection()
+    {
+        IReadOnlyList<Unit> selected = selectionService.SelectedUnits;
+        if (selected.Count == 0) return;
+
+        bool anyEnabled = false;
+        for (int i = 0; i < selected.Count; i++)
+        {
+            if (autoServiceUnits.Contains(selected[i]))
+            {
+                anyEnabled = true;
+                break;
+            }
+        }
+
+        bool newState = !anyEnabled;
+        for (int i = 0; i < selected.Count; i++)
+        {
+            if (newState) autoServiceUnits.Add(selected[i]);
+            else autoServiceUnits.Remove(selected[i]);
+        }
+    }
+
+    internal bool IsAutoService(Unit? unit)
+    {
+        return unit != null && autoServiceUnits.Contains(unit);
     }
 
     internal void IssueDirectMoveOrder(GlobalPosition targetPosition, bool queueWaypoint = false)
@@ -338,6 +370,7 @@ internal sealed class CommanderMoveService
             nextPruneTime = Time.unscaledTime + 2.0f;
             stoppedUnits.RemoveWhere(static unit => unit == null || unit.disabled);
             autoRtbUnits.RemoveWhere(static unit => unit == null || unit.disabled);
+            autoServiceUnits.RemoveWhere(static unit => unit == null || unit.disabled);
             PruneDeadReferences();
         }
 
@@ -346,6 +379,11 @@ internal sealed class CommanderMoveService
         {
             nextRtbCheckTime = Time.unscaledTime + 3f;
             CheckAutoRtb();
+        }
+
+        if (Time.unscaledTime >= nextStuckCheckTime)
+        {
+            nextStuckCheckTime = Time.unscaledTime + 1f;
         }
 
         List<Unit>? staleDestinations = null;
@@ -359,6 +397,10 @@ internal sealed class CommanderMoveService
             }
 
             float dist = CommanderGameAccess.HorizontalDistance(entry.Key.transform.position, entry.Value.ToLocalPosition());
+            if (Time.unscaledTime >= nextStuckCheckTime)
+            {
+                UpdateStuckRoute(entry.Key, entry.Value);
+            }
             if (dist <= WaypointArrivalDistance)
             {
                 // Check queued waypoints
@@ -408,9 +450,16 @@ internal sealed class CommanderMoveService
 
     private void CheckAutoRtb()
     {
-        if (autoRtbUnits.Count == 0) return;
+        if ((!CommanderSettings.AutoRtbEnabled || autoRtbUnits.Count == 0)
+            && (!CommanderSettings.AutoServiceEnabled || autoServiceUnits.Count == 0))
+        {
+            return;
+        }
 
-        foreach (Unit unit in autoRtbUnits)
+        autoServiceCandidates.Clear();
+        autoServiceCandidates.UnionWith(autoRtbUnits);
+        autoServiceCandidates.UnionWith(autoServiceUnits);
+        foreach (Unit unit in autoServiceCandidates)
         {
             if (unit == null || unit.disabled) continue;
 
@@ -446,13 +495,13 @@ internal sealed class CommanderMoveService
                         }
                     }
                 }
-                if (maxAmmo > 0f && (currentAmmo / maxAmmo) <= 0.2f)
+                if (maxAmmo > 0f && (currentAmmo / maxAmmo) <= CommanderSettings.AutoRtbAmmoPercent)
                 {
                     needsService = true;
                 }
             }
 
-            if (needsService)
+            if (needsService && CommanderSettings.AutoServiceEnabled && autoServiceUnits.Contains(unit))
             {
                 Unit? nearestLogistics = FindNearestLogistics(unit);
                 if (nearestLogistics != null)
@@ -465,25 +514,69 @@ internal sealed class CommanderMoveService
         }
     }
 
+    private void UpdateStuckRoute(Unit unit, GlobalPosition destination)
+    {
+        if (unit is not GroundVehicle vehicle
+            || PathfindingField?.GetValue(vehicle) is not PathfindingAgent pathfinder)
+        {
+            return;
+        }
+
+        if (!stuckTrackers.TryGetValue(unit, out StuckTracker? tracker))
+        {
+            tracker = new StuckTracker { LastPosition = unit.transform.position };
+            stuckTrackers[unit] = tracker;
+            return;
+        }
+
+        float moved = (unit.transform.position - tracker.LastPosition).sqrMagnitude;
+        tracker.LastPosition = unit.transform.position;
+        if (moved > 1f)
+        {
+            tracker.StuckDuration = 0f;
+            return;
+        }
+
+        tracker.StuckDuration += 1f;
+        if (tracker.StuckDuration < 5f || Time.unscaledTime - tracker.LastUnstuckTime < 10f)
+        {
+            return;
+        }
+
+        tracker.LastUnstuckTime = Time.unscaledTime;
+        tracker.StuckDuration = 0f;
+        if (!CommanderDirectPathService.TryApplyShortcut(pathfinder, destination))
+        {
+            CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(destination, true);
+        }
+    }
+
     private static Unit? FindNearestLogistics(Unit unit)
     {
         FactionHQ? hq = CommanderGameAccess.GetLocalHq();
         if (hq?.factionUnits == null) return null;
 
         Unit? nearest = null;
-        float minDist = float.MaxValue;
+        float bestScore = float.MaxValue;
         Vector3 pos = unit.transform.position;
 
         foreach (PersistentID id in hq.factionUnits)
         {
             if (id.TryGetUnit(out Unit u) && u != null && !u.disabled && !ReferenceEquals(u, unit))
             {
-                if (u.GetComponentInChildren<Rearmer>(true) != null || u.GetComponentInChildren<Repairer>(true) != null)
+                Rearmer? rearmer = u.GetComponentInChildren<Rearmer>(true);
+                Repairer? repairer = u.GetComponentInChildren<Repairer>(true);
+                if (rearmer != null || repairer != null)
                 {
-                    float d = Vector3.Distance(pos, u.transform.position);
-                    if (d < minDist)
+                    float distance = Vector3.Distance(pos, u.transform.position);
+                    float capacityScore = rearmer != null
+                        ? Mathf.Clamp01(rearmer.Capacity / Mathf.Max(1f, rearmer.GetMaxCapacity()))
+                        : 0f;
+                    float score = distance * (1f - capacityScore * 0.35f)
+                        + (repairer != null ? 0f : 25f);
+                    if (score < bestScore)
                     {
-                        minDist = d;
+                        bestScore = score;
                         nearest = u;
                     }
                 }
@@ -591,6 +684,7 @@ internal sealed class CommanderMoveService
     {
         stoppedUnits.RemoveWhere(static u => u == null || u.disabled);
         autoRtbUnits.RemoveWhere(static u => u == null || u.disabled);
+        autoServiceUnits.RemoveWhere(static u => u == null || u.disabled);
 
         List<Unit>? deadStuck = null;
         foreach (KeyValuePair<Unit, StuckTracker> s in stuckTrackers)
@@ -642,7 +736,11 @@ internal sealed class CommanderMoveService
         waypointQueues.Clear();
         focusAttackTargets.Clear();
         autoRtbUnits.Clear();
+        autoServiceUnits.Clear();
+        autoServiceCandidates.Clear();
+        stuckTrackers.Clear();
         nextPruneTime = 0f;
+        nextStuckCheckTime = 0f;
         awaitingBarrageSelection = false;
         awaitingAttackMoveSelection = false;
     }

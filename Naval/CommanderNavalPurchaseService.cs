@@ -122,6 +122,41 @@ internal sealed class CommanderNavalPurchaseService
         return $"{definition.unitName}\n{type}  |  {cost}";
     }
 
+    internal bool RequestAutonomousNavalPurchase()
+    {
+        if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active
+            || shipDefinitions.Count == 0)
+        {
+            return false;
+        }
+
+        FactionHQ? hq = CommanderGameAccess.GetLocalHq();
+        RoadNetwork? seaLanes = NetworkSceneSingleton<LevelInfo>.i?.seaLanes;
+        if (hq == null || seaLanes == null || !seaLanes.Exists()
+            || !seaLanes.TryGetNearestPoint(hq.transform.GlobalPosition(), out GlobalPosition rally, out _))
+        {
+            return false;
+        }
+
+        ShipDefinition? affordable = null;
+        for (int i = 0; i < shipDefinitions.Count; i++)
+        {
+            if (hq.factionFunds >= shipDefinitions[i].value)
+            {
+                affordable = shipDefinitions[i];
+                break;
+            }
+        }
+        if (affordable == null)
+        {
+            return false;
+        }
+
+        pendingDefinition = affordable;
+        CompletePurchase(rally);
+        return pendingDefinition == null;
+    }
+
     internal void BeginPurchase()
     {
         ShipDefinition? definition = SelectedDefinition;

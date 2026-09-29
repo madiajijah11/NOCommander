@@ -12,6 +12,22 @@ internal static class CommanderSettings
     internal static float UiScale { get; set; } = 1.5f;
     internal static bool ModEnabled { get => Get("General", "Enabled", true); set => Set("General", "Enabled", value); }
     internal static bool LimitToFactoryVehicles { get => Get("Gameplay", "LimitToFactoryVehicles", false); set => Set("Gameplay", "LimitToFactoryVehicles", value); }
+    internal static bool AutoRtbEnabled { get => Get("Gameplay", "AutoRtbEnabled", true); set => Set("Gameplay", "AutoRtbEnabled", value); }
+    internal static bool AutoServiceEnabled { get => Get("Gameplay", "AutoServiceEnabled", true); set => Set("Gameplay", "AutoServiceEnabled", value); }
+    internal static float AutoRtbFuelPercent { get => Get("Gameplay", "AutoRtbFuelPercent", 0.15f); set => Set("Gameplay", "AutoRtbFuelPercent", value); }
+    internal static float AutoRtbAmmoPercent { get => Get("Gameplay", "AutoRtbAmmoPercent", 0.20f); set => Set("Gameplay", "AutoRtbAmmoPercent", value); }
+    internal static bool WarActivityEnabled { get => Get("Gameplay", "WarActivityEnabled", true); set => Set("Gameplay", "WarActivityEnabled", value); }
+    internal static string WarActivityDoctrine { get => Get("Gameplay", "WarActivityDoctrine", "Balanced"); set => Set("Gameplay", "WarActivityDoctrine", value); }
+    internal static float WarActivityIntervalSeconds { get => Get("Gameplay", "WarActivityIntervalSeconds", 8f); set => Set("Gameplay", "WarActivityIntervalSeconds", value); }
+    internal static float WarActivityReserveFunds { get => Get("Gameplay", "WarActivityReserveFunds", 25000f); set => Set("Gameplay", "WarActivityReserveFunds", value); }
+    internal static int WarActivityMinimumGround { get => Get("Gameplay", "WarActivityMinimumGround", 12); set => Set("Gameplay", "WarActivityMinimumGround", value); }
+    internal static int WarActivityMinimumLogistics { get => Get("Gameplay", "WarActivityMinimumLogistics", 2); set => Set("Gameplay", "WarActivityMinimumLogistics", value); }
+    internal static int WarActivityMinimumAir { get => Get("Gameplay", "WarActivityMinimumAir", 4); set => Set("Gameplay", "WarActivityMinimumAir", value); }
+    internal static float WarActivityAirIntervalSeconds { get => Get("Gameplay", "WarActivityAirIntervalSeconds", 20f); set => Set("Gameplay", "WarActivityAirIntervalSeconds", value); }
+    internal static float WarActivityNavalIntervalSeconds { get => Get("Gameplay", "WarActivityNavalIntervalSeconds", 30f); set => Set("Gameplay", "WarActivityNavalIntervalSeconds", value); }
+    internal static int WarActivityMinimumNaval { get => Get("Gameplay", "WarActivityMinimumNaval", 1); set => Set("Gameplay", "WarActivityMinimumNaval", value); }
+    internal static float WarActivityFrontlineIntervalSeconds { get => Get("Gameplay", "WarActivityFrontlineIntervalSeconds", 15f); set => Set("Gameplay", "WarActivityFrontlineIntervalSeconds", value); }
+    internal static float WarActivitySupplyIntervalSeconds { get => Get("Gameplay", "WarActivitySupplyIntervalSeconds", 45f); set => Set("Gameplay", "WarActivitySupplyIntervalSeconds", value); }
     internal static bool ShowCommandButton { get => Get("UI", "ShowCommandButton", true); set => Set("UI", "ShowCommandButton", value); }
     internal static bool ShowFactionMoney { get => Get("UI", "ShowFactionMoney", true); set => Set("UI", "ShowFactionMoney", value); }
     internal static bool ShowTacticalMap { get => Get("UI", "ShowTacticalMap", true); set => Set("UI", "ShowTacticalMap", value); }
@@ -67,6 +83,10 @@ internal static class CommanderSettings
         config = configFile;
         _ = ModEnabled;
         _ = LimitToFactoryVehicles;
+        _ = AutoRtbEnabled;
+        _ = AutoServiceEnabled;
+        _ = AutoRtbFuelPercent;
+        _ = AutoRtbAmmoPercent;
         _ = ShowCommandButton;
         _ = PrimaryAction;
         _ = SecondaryAction;

@@ -1651,8 +1651,10 @@ internal sealed partial class CommanderAirCommandService
             AirMission mission = entry.Value;
             if (aircraft == null || aircraft.disabled) continue;
 
-            // Auto-RTB: Winchester (ammo dry) or Bingo Fuel (< 15%)
-            if (!mission.Returning && IsWinchesterOrBingo(aircraft, mission.Mode))
+            // Auto-RTB: configurable bingo fuel, low ammo, or damage.
+            if (CommanderSettings.AutoRtbEnabled
+                && !mission.Returning
+                && IsWinchesterOrBingo(aircraft, mission.Mode))
             {
                 mission.Returning = true;
                 CommanderPlugin.Log.LogInfo($"[Air Command] Auto-RTB triggered for {aircraft.unitName} (Winchester / Bingo Fuel).");
@@ -1669,10 +1671,20 @@ internal sealed partial class CommanderAirCommandService
     {
         if (aircraft == null || aircraft.disabled) return false;
 
-        // 1. Bingo Fuel Check (< 15%)
-        if (aircraft.GetFuelLevel() <= 0.15f)
+        // 1. Bingo Fuel Check
+        if (aircraft.GetFuelLevel() <= CommanderSettings.AutoRtbFuelPercent)
         {
             return true;
+        }
+
+        // 2. Structural damage: abort before a damaged aircraft becomes unrecoverable.
+        IRepairable[] repairables = aircraft.GetComponentsInChildren<IRepairable>(true);
+        for (int i = 0; i < repairables.Length; i++)
+        {
+            if (repairables[i] != null && repairables[i].NeedsRepair())
+            {
+                return true;
+            }
         }
 
         // AWACS stays on station until fuel is low
@@ -1681,9 +1693,27 @@ internal sealed partial class CommanderAirCommandService
             return false;
         }
 
-        // 2. Winchester Check (all missiles/bombs expended)
+        // 3. Winchester / low ordnance check.
         if (aircraft.weaponStations != null && aircraft.weaponStations.Count > 0)
         {
+            float currentAmmo = 0f;
+            float maxAmmo = 0f;
+            for (int s = 0; s < aircraft.weaponStations.Count; s++)
+            {
+                WeaponStation station = aircraft.weaponStations[s];
+                if (station?.Weapons == null) continue;
+                for (int w = 0; w < station.Weapons.Count; w++)
+                {
+                    Weapon weapon = station.Weapons[w];
+                    if (weapon == null) continue;
+                    currentAmmo += weapon.ammo;
+                    maxAmmo += Mathf.Max(1, weapon.GetFullAmmo());
+                }
+            }
+            if (maxAmmo > 0f && currentAmmo / maxAmmo <= CommanderSettings.AutoRtbAmmoPercent)
+            {
+                return true;
+            }
             bool hasOffensiveWeapon = false;
             bool hasRemainingAmmo = false;
 
