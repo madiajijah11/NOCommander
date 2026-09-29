@@ -176,7 +176,6 @@ internal sealed partial class CommanderAirCommandService
         {
             PruneMissions();
             RefreshMissionMapVisuals();
-            ProcessReturningMissions();
         }
 
     }
@@ -483,47 +482,6 @@ internal sealed partial class CommanderAirCommandService
         return true;
     }
 
-    internal bool RequestAutonomousAirMission(AirCommandMode mode, GlobalPosition targetCenter, float radiusKm = 25f)
-    {
-        if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active)
-        {
-            return false;
-        }
-
-        FactionHQ? hq = CommanderGameAccess.GetLocalHq();
-        if (hq == null) return false;
-
-        SelectMode(mode);
-        if (options.Count == 0) return false;
-
-        AirMissionOption? opt = null;
-        Airbase? chosenBase = null;
-
-        for (int i = 0; i < options.Count; i++)
-        {
-            AirMissionOption candidate = options[i];
-            foreach (Airbase ab in hq.GetAirbases())
-            {
-                if (ab != null && !ab.disabled && IsCompatibleAirbase(ab, hq, candidate.Definition) && ab.CanSpawnAircraft(candidate.Definition))
-                {
-                    opt = candidate;
-                    chosenBase = ab;
-                    break;
-                }
-            }
-            if (opt != null) break;
-        }
-
-        if (opt == null || chosenBase == null)
-        {
-            return false;
-        }
-
-        SetMissionRadius(mode, Mathf.Clamp(radiusKm, 10f, 60f));
-        SpawnMission(opt, chosenBase, targetCenter);
-        return true;
-    }
-
     internal void BeginAreaSelection()
     {
         AirMissionOption? option = SelectedOption;
@@ -742,23 +700,6 @@ internal sealed partial class CommanderAirCommandService
         return true;
     }
 
-    internal static void RecordTargetlessTick(AIPilotCombatModes state)
-    {
-        if (Instance == null || Instance.missions.Count == 0) return;
-        Aircraft? aircraft = CommanderAirCommandPatches.GetStateAircraft(state);
-        if (aircraft == null || !Instance.missions.TryGetValue(aircraft, out AirMission mission)) return;
-
-        // Count time spent in area without finding any valid hostile target
-        mission.TargetlessTimer += Time.deltaTime;
-
-        // If on CAP/AirGuard or CAS with zero targets for > 45 seconds, trigger Auto-RTB!
-        if (!mission.Returning && mission.Mode != AirCommandMode.AwacsJammer && mission.TargetlessTimer >= 45f)
-        {
-            mission.Returning = true;
-            CommanderPlugin.Log.LogInfo($"[Air Command] Auto-RTB triggered for {aircraft.unitName} (Target area clear for 45s).");
-        }
-    }
-
     internal static void ApplyMissionTargetAltitude(AIPilotCombatModes state, FieldInfo? targetHeightField)
     {
         if (Instance == null || Instance.missions.Count == 0 || targetHeightField == null)
@@ -899,11 +840,6 @@ internal sealed partial class CommanderAirCommandService
                 bestTarget = target;
                 bestStation = station;
             }
-        }
-
-        if (bestTarget != null)
-        {
-            mission.TargetlessTimer = 0f;
         }
 
         return new CombatAI.TargetSearchResults(bestTarget!, bestStation!, bestOpportunity, outOfAmmo);
@@ -1233,48 +1169,17 @@ internal sealed partial class CommanderAirCommandService
             Aircraft ac = entry.Key;
             if (ac == null || ac.disabled)
             {
-                staleAircraft.Add(ac);
+                staleAircraft.Add(ac!);
                 continue;
             }
 
-            // Winchester Auto-RTB check (if aircraft has launched and expended all missiles/bombs)
-            if (ac.rb != null && ac.rb.velocity.sqrMagnitude > 400f && IsAircraftWinchester(ac) && !entry.Value.RtbIssued)
-            {
-                CommanderPlugin.Log.LogInfo($"[Air Command] {ac.unitName} Winchester (Zero Ammo). Triggering Auto-RTB.");
-                CommanderAlertService.PostTickerEvent($"[WINCHESTER] {ac.unitName} expended ordnance -> RTB", new Color(1f, 0.85f, 0.2f, 0.95f));
-                IssueReturnToBase(ac, entry.Value);
-                staleAircraft.Add(ac);
-            }
+
         }
 
         for (int i = 0; i < staleAircraft.Count; i++)
         {
             RemoveMission(staleAircraft[i]);
         }
-    }
-
-    private static bool IsAircraftWinchester(Aircraft aircraft)
-    {
-        if (aircraft == null || aircraft.disabled || aircraft.weaponStations == null || aircraft.weaponStations.Count == 0)
-        {
-            return false;
-        }
-
-        float totalAmmo = 0f;
-        for (int s = 0; s < aircraft.weaponStations.Count; s++)
-        {
-            WeaponStation station = aircraft.weaponStations[s];
-            if (station?.Weapons == null) continue;
-            for (int w = 0; w < station.Weapons.Count; w++)
-            {
-                Weapon wp = station.Weapons[w];
-                if (wp != null && wp.ammo > 0)
-                {
-                    totalAmmo += wp.ammo;
-                }
-            }
-        }
-        return totalAmmo <= 0.01f;
     }
 
     private static bool TryFindBestLoadout(
@@ -1643,113 +1548,6 @@ internal sealed partial class CommanderAirCommandService
         }
     }
 
-    private void ProcessReturningMissions()
-    {
-        foreach (KeyValuePair<Aircraft, AirMission> entry in missions)
-        {
-            Aircraft aircraft = entry.Key;
-            AirMission mission = entry.Value;
-            if (aircraft == null || aircraft.disabled) continue;
-
-            // Auto-RTB: configurable bingo fuel, low ammo, or damage.
-            if (CommanderSettings.AutoRtbEnabled
-                && !mission.Returning
-                && IsWinchesterOrBingo(aircraft, mission.Mode))
-            {
-                mission.Returning = true;
-                CommanderPlugin.Log.LogInfo($"[Air Command] Auto-RTB triggered for {aircraft.unitName} (Winchester / Bingo Fuel).");
-            }
-
-            if (mission.Returning && !mission.RtbIssued)
-            {
-                IssueReturnToBase(aircraft, mission);
-            }
-        }
-    }
-
-    private static bool IsWinchesterOrBingo(Aircraft aircraft, AirCommandMode mode)
-    {
-        if (aircraft == null || aircraft.disabled) return false;
-
-        // 1. Bingo Fuel Check
-        if (aircraft.GetFuelLevel() <= CommanderSettings.AutoRtbFuelPercent)
-        {
-            return true;
-        }
-
-        // 2. Structural damage: abort before a damaged aircraft becomes unrecoverable.
-        IRepairable[] repairables = aircraft.GetComponentsInChildren<IRepairable>(true);
-        for (int i = 0; i < repairables.Length; i++)
-        {
-            if (repairables[i] != null && repairables[i].NeedsRepair())
-            {
-                return true;
-            }
-        }
-
-        // AWACS stays on station until fuel is low
-        if (mode == AirCommandMode.AwacsJammer)
-        {
-            return false;
-        }
-
-        // 3. Winchester / low ordnance check.
-        if (aircraft.weaponStations != null && aircraft.weaponStations.Count > 0)
-        {
-            float currentAmmo = 0f;
-            float maxAmmo = 0f;
-            for (int s = 0; s < aircraft.weaponStations.Count; s++)
-            {
-                WeaponStation station = aircraft.weaponStations[s];
-                if (station?.Weapons == null) continue;
-                for (int w = 0; w < station.Weapons.Count; w++)
-                {
-                    Weapon weapon = station.Weapons[w];
-                    if (weapon == null) continue;
-                    currentAmmo += weapon.ammo;
-                    maxAmmo += Mathf.Max(1, weapon.GetFullAmmo());
-                }
-            }
-            if (maxAmmo > 0f && currentAmmo / maxAmmo <= CommanderSettings.AutoRtbAmmoPercent)
-            {
-                return true;
-            }
-            bool hasOffensiveWeapon = false;
-            bool hasRemainingAmmo = false;
-
-            for (int s = 0; s < aircraft.weaponStations.Count; s++)
-            {
-                WeaponStation station = aircraft.weaponStations[s];
-                if (station?.Weapons == null) continue;
-
-                for (int w = 0; w < station.Weapons.Count; w++)
-                {
-                    Weapon weapon = station.Weapons[w];
-                    if (weapon == null) continue;
-
-                    bool isGun = weapon.name != null && (weapon.name.ToLowerInvariant().Contains("cannon") || weapon.name.ToLowerInvariant().Contains("gun"));
-                    if (!isGun)
-                    {
-                        hasOffensiveWeapon = true;
-                        if (weapon.ammo > 0)
-                        {
-                            hasRemainingAmmo = true;
-                            break;
-                        }
-                    }
-                }
-                if (hasRemainingAmmo) break;
-            }
-
-            if (hasOffensiveWeapon && !hasRemainingAmmo)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private static void IssueReturnToBase(Aircraft aircraft, AirMission mission)
     {
         if (aircraft == null || aircraft.disabled || aircraft.pilots == null) return;
@@ -2072,6 +1870,5 @@ internal sealed partial class CommanderAirCommandService
         internal GameObject? MapVisual { get; set; }
         internal bool Returning { get; set; }
         internal bool RtbIssued { get; set; }
-        internal float TargetlessTimer { get; set; }
     }
 }

@@ -4,6 +4,24 @@ All notable changes to the NOCommander mod are documented in this file.
 
 ---
 
+## [Unreleased]
+
+### 🌟 New Features
+- **Host-Authoritative Order Authority (Phase 1):**
+  - Added `CommanderOrderAuthority`: validates every Commander order on the host (session token, command id de-duplication, faction ownership, stale-timestamp rejection) before any world mutation.
+  - Added `CommanderDoctrineService`: classifies friendly units into Frontline / Standoff / AirDefense / Recon / Logistics roles from a selection-only, throttled (2s) cache — never a scene scan.
+  - New settings: `DoctrineEnabled` (default on), `DoctrineRefreshIntervalSeconds` (default 2s, clamped to ≥1s).
+- **Threat-Aware Ground Movement (Phase 2):**
+  - `CommanderRadarService` now maintains a 1s cached snapshot of hostile contacts (active, operational friendly radars) and exposes `IsPositionDangerous(...)`, also accounting for live counter-battery fire pings.
+  - `CommanderMoveService` refuses move orders into a known hostile fire zone for non-frontline units; explicit frontline player orders execute with a throttled `[THREAT]` warning.
+  - Rejected queued waypoints now stay queued instead of being silently dropped.
+  - New settings: `ThreatAwareMovementEnabled` (default on), `ThreatDangerRadiusMeters` (default 200 m).
+
+### 🐛 Fixes
+- Stopped a rejected waypoint from being dequeued and lost when the host declined the order.
+
+---
+
 ## [0.2.0.0] - 2026-09-19
 
 ### 🌟 New Features
@@ -38,16 +56,6 @@ All notable changes to the NOCommander mod are documented in this file.
   - **`SELL`:** Scrap surplus reserve units for a 75% cash refund to faction funds.
   - **`FREE / DEPLOY`:** Instantly deploy reserve units to active depots at zero cost ($0).
   - **`HOLD ALL / RELEASE ALL`:** Bulk toggle factory output retention per category.
-- **Autonomous Theater Commander & AI Automation:**
-  - **Winchester & Bingo Fuel Auto-RTB:** Combat aircraft autonomously RTB upon expending offensive munitions or hitting $\le 15\%$ fuel reserves.
-  - **Autonomous Air Intercept Scramble:** Auto-scrambles ready Air Guard fighters when hostile aircraft enter within 40 km of friendly airspace.
-  - **Autonomous Frontline Logistics Loop:** Auto-dispatches cargo helicopters with ammo crates to frontline combat units, SAM sites, and FOBs low on ammo ($< 30\%$).
-  - **Autonomous Ground Army Reinforcement:** Auto-deploys reserve armor and IFVs to friendly depots when frontline counts drop.
-- **Smart AI System & Macro Counters:**
-  - **Autonomous Air & Naval Auto-Deploy:** AI bot allies automatically sortie reserve aircraft from nearby airbases and deploy reserve warships to sea lanes (when units are not set to `HOLD`).
-  - **Adaptive Counter-Production:** Enemy AI monitors player force composition and dynamically alters factory output to counter air or armor spam (e.g. producing AAA/SAM when player deploys heavy air).
-  - **Reactive Evasive Scatter:** AI ground vehicles automatically scatter (40–75 m) away from incoming artillery and bomb detonations.
-  - **Threat-Scoring Heuristics:** Dynamic threat prioritization prioritizing active combat vehicles and aircraft over unarmed support trucks.
 - **Buildings & Infrastructure Economy Dashboard (Core RTS):**
   - Added dedicated **`BUILDINGS & ECONOMY`** overview dashboard categorizing all friendly structures into **Economy**, **Spawning**, **Defense**, and **Logistics**.
   - Displays real-time financial stats: **Income Rate (+$/min)**, **Sector Control**, and **Total Asset Count**.

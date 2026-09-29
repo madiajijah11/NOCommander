@@ -24,6 +24,8 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderSpawnService? spawnService;
     private CommanderMarkerService? markerService;
     private CommanderMoveService? moveService;
+    private CommanderDoctrineService? doctrineService;
+    private CommanderOrderAuthority? orderAuthority;
     private CommanderControlGroupsService? controlGroupsService;
     private CommanderAlertService? alertService;
     private CommanderStanceService? stanceService;
@@ -75,7 +77,9 @@ internal sealed class CommanderModeController : MonoBehaviour
             supplyHeliService);
         spawnService = new CommanderSpawnService(selectionService, factionVehicleService, tacticalMapService);
         markerService = new CommanderMarkerService(selectionService);
-        moveService = new CommanderMoveService(selectionService);
+        orderAuthority = new CommanderOrderAuthority();
+        doctrineService = new CommanderDoctrineService(selectionService, CommanderSettings.DoctrineRefreshIntervalSeconds);
+        moveService = new CommanderMoveService(selectionService, orderAuthority, doctrineService);
         persistentOperations = new CommanderPersistentOperations(
             spawnService,
             supplyHeliService,
@@ -108,7 +112,6 @@ internal sealed class CommanderModeController : MonoBehaviour
             navalPurchaseService,
             samSiteAnalyzerService,
             samSiteService,
-            warActivityService,
             UnlockAdvancedFeatures,
             () => Deactivate());
         inputController = new CommanderInputController(
@@ -153,6 +156,7 @@ internal sealed class CommanderModeController : MonoBehaviour
 
         cursorController?.Tick();
         selectionService?.Tick();
+        doctrineService?.Tick();
         cameraFollowService?.Tick();
         moveService?.Tick();
 
@@ -312,6 +316,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         CommanderFeatureGate.RefreshMission();
         cursorController?.Activate();
         IsActive = true;
+        orderAuthority?.BeginSession();
         selectionService?.Activate();
         markerService?.Activate();
         if (CommanderFeatureGate.AdvancedFeaturesEnabled)
@@ -368,6 +373,8 @@ internal sealed class CommanderModeController : MonoBehaviour
         }
 
         IsActive = false;
+        orderAuthority?.ResetSession();
+        doctrineService?.ResetSession();
         selectionService?.Deactivate();
         cameraFollowService?.Disable();
         markerService?.Deactivate();
@@ -399,6 +406,8 @@ internal sealed class CommanderModeController : MonoBehaviour
         Deactivate(restorePreviousCamera: false);
         CommanderFeatureGate.ResetSession();
         selectionService?.ResetSession();
+        doctrineService?.ResetSession();
+        orderAuthority?.ResetSession();
         cameraFollowService?.Disable();
         tacticalMapService?.ResetSession();
         radarService?.ResetSession();

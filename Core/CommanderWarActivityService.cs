@@ -278,18 +278,7 @@ internal sealed class CommanderWarActivityService
             return;
         }
 
-        GlobalPosition target = hq.transform.GlobalPosition();
-        CommanderAirCommandService.AirCommandMode mode = CommanderAirCommandService.AirCommandMode.AirGuard;
-        string doctrine = CommanderSettings.WarActivityDoctrine;
-        if (string.Equals(doctrine, "Ground Offensive", StringComparison.OrdinalIgnoreCase))
-        {
-            mode = CommanderAirCommandService.AirCommandMode.Cas;
-        }
-        else if (string.Equals(doctrine, "Naval Pressure", StringComparison.OrdinalIgnoreCase))
-        {
-            mode = CommanderAirCommandService.AirCommandMode.Arad;
-        }
-        airCommandService.RequestAutonomousAirMission(mode, target, 25f);
+        // Manual air tasking only; no autonomous mission dispatch.
     }
 
     private VehicleDefinition? SelectLandReplacement(int ground, int logistics, bool replacementDue)

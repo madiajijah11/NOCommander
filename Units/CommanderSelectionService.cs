@@ -464,7 +464,7 @@ internal sealed class CommanderSelectionService
             if (entry.Key == null || entry.Key.disabled)
             {
                 deadMissionKeys ??= new List<Unit>();
-                deadMissionKeys.Add(entry.Key);
+                deadMissionKeys.Add(entry.Key!);
             }
         }
         if (deadMissionKeys != null)
@@ -478,7 +478,7 @@ internal sealed class CommanderSelectionService
             if (entry.Key == null || entry.Key.disabled)
             {
                 deadSamKeys ??= new List<Unit>();
-                deadSamKeys.Add(entry.Key);
+                deadSamKeys.Add(entry.Key!);
             }
         }
         if (deadSamKeys != null)

@@ -8,8 +8,6 @@ internal sealed class CommanderMarkerView
     private static bool statusSpritesLoaded;
     private static Sprite? ammoStatusSprite;
     private static Sprite? reconStatusSprite;
-    private static Material? ammoStatusMaterial;
-    private static Material? reconStatusMaterial;
     private static Color ammoStatusColor = Color.white;
     private static Color reconStatusColor = Color.white;
 
@@ -155,14 +153,14 @@ internal sealed class CommanderMarkerView
             ammoStatusImage = CreateStatusImage(
                 "RadarOfflineAmmoStatus",
                 ammoStatusSprite,
-                ammoStatusMaterial,
+                null,
                 ammoStatusColor,
                 statusPosition,
                 statusSize);
             reconStatusImage = CreateStatusImage(
                 "RadarOfflineReconStatus",
                 reconStatusSprite,
-                reconStatusMaterial,
+                null,
                 reconStatusColor,
                 statusPosition,
                 statusSize);

@@ -14,6 +14,10 @@ internal static class CommanderSettings
     internal static bool LimitToFactoryVehicles { get => Get("Gameplay", "LimitToFactoryVehicles", false); set => Set("Gameplay", "LimitToFactoryVehicles", value); }
     internal static bool AutoRtbEnabled { get => Get("Gameplay", "AutoRtbEnabled", true); set => Set("Gameplay", "AutoRtbEnabled", value); }
     internal static bool AutoServiceEnabled { get => Get("Gameplay", "AutoServiceEnabled", true); set => Set("Gameplay", "AutoServiceEnabled", value); }
+    internal static bool DoctrineEnabled { get => Get("Gameplay", "DoctrineEnabled", true); set => Set("Gameplay", "DoctrineEnabled", value); }
+    internal static float DoctrineRefreshIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "DoctrineRefreshIntervalSeconds", 2f)); set => Set("Gameplay", "DoctrineRefreshIntervalSeconds", Mathf.Max(1f, value)); }
+    internal static bool ThreatAwareMovementEnabled { get => Get("Gameplay", "ThreatAwareMovementEnabled", true); set => Set("Gameplay", "ThreatAwareMovementEnabled", value); }
+    internal static float ThreatDangerRadiusMeters { get => Mathf.Max(0f, Get("Gameplay", "ThreatDangerRadiusMeters", 200f)); set => Set("Gameplay", "ThreatDangerRadiusMeters", Mathf.Max(0f, value)); }
     internal static float AutoRtbFuelPercent { get => Get("Gameplay", "AutoRtbFuelPercent", 0.15f); set => Set("Gameplay", "AutoRtbFuelPercent", value); }
     internal static float AutoRtbAmmoPercent { get => Get("Gameplay", "AutoRtbAmmoPercent", 0.20f); set => Set("Gameplay", "AutoRtbAmmoPercent", value); }
     internal static bool WarActivityEnabled { get => Get("Gameplay", "WarActivityEnabled", true); set => Set("Gameplay", "WarActivityEnabled", value); }
@@ -85,6 +89,10 @@ internal static class CommanderSettings
         _ = LimitToFactoryVehicles;
         _ = AutoRtbEnabled;
         _ = AutoServiceEnabled;
+        _ = DoctrineEnabled;
+        _ = DoctrineRefreshIntervalSeconds;
+        _ = ThreatAwareMovementEnabled;
+        _ = ThreatDangerRadiusMeters;
         _ = AutoRtbFuelPercent;
         _ = AutoRtbAmmoPercent;
         _ = ShowCommandButton;

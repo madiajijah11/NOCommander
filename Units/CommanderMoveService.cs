@@ -13,34 +13,23 @@ internal sealed class CommanderMoveService
     private const float ShipFormationSpacingMeters = 80f;
     private const float WaypointArrivalDistance = 25f;
     private const float GuardFollowThreshold = 35f;
+    private const float ThreatWarnIntervalSeconds = 5f;
 
     private static readonly MethodInfo? RearmVehicleWaitMethod = AccessTools.Method(typeof(RearmVehicleAI), "Wait");
     private static readonly MethodInfo? RearmVehicleRestockMethod = AccessTools.Method(typeof(RearmVehicleAI), "DriveToRestock");
-    private static readonly FieldInfo? PathfindingField = AccessTools.Field(typeof(GroundVehicle), "pathfinder");
 
     private readonly CommanderSelectionService selectionService;
+    private readonly CommanderOrderAuthority? orderAuthority;
+    private readonly CommanderDoctrineService? doctrineService;
     private readonly HashSet<Unit> stoppedUnits = new();
     private readonly Dictionary<Unit, GlobalPosition> playerDestinations = new();
     private readonly Dictionary<Unit, Queue<GlobalPosition>> waypointQueues = new();
     private readonly Dictionary<Unit, Unit> focusAttackTargets = new();
-    private readonly HashSet<Unit> autoRtbUnits = new();
-    private readonly HashSet<Unit> autoServiceUnits = new();
-    private readonly HashSet<Unit> autoServiceCandidates = new();
-
-    private sealed class StuckTracker
-    {
-        internal Vector3 LastPosition;
-        internal float StuckDuration;
-        internal float LastUnstuckTime;
-    }
-
-    private readonly Dictionary<Unit, StuckTracker> stuckTrackers = new();
 
     private bool awaitingBarrageSelection;
     private bool awaitingAttackMoveSelection;
-    private float nextRtbCheckTime;
     private float nextPruneTime;
-    private float nextStuckCheckTime;
+    private float nextThreatWarnTime;
 
     internal static CommanderMoveService? Instance { get; private set; }
 
@@ -62,10 +51,82 @@ internal sealed class CommanderMoveService
         }
     }
 
-    internal CommanderMoveService(CommanderSelectionService selectionService)
+    internal CommanderMoveService(CommanderSelectionService selectionService, CommanderOrderAuthority? orderAuthority = null, CommanderDoctrineService? doctrineService = null)
     {
         this.selectionService = selectionService;
+        this.orderAuthority = orderAuthority;
+        this.doctrineService = doctrineService;
         Instance = this;
+    }
+
+    private bool CanExecuteOrder(Unit unit, CommanderOrderKind kind, GlobalPosition destination)
+    {
+        if (GameManager.gameState == GameState.Multiplayer
+            && (orderAuthority == null
+                || NetworkManagerNuclearOption.i == null
+                || !NetworkManagerNuclearOption.i.Server.Active))
+        {
+            return false;
+        }
+
+        if (!IsDestinationSafe(unit, kind, destination))
+        {
+            return false;
+        }
+
+        if (GameManager.gameState != GameState.Multiplayer)
+        {
+            return true;
+        }
+
+        CommanderOrderEnvelope envelope = new CommanderOrderEnvelope(
+            orderAuthority!.NextCommandId(),
+            orderAuthority.CurrentSessionToken,
+            kind,
+            unit,
+            destination,
+            Time.unscaledTime);
+        return orderAuthority.TryAccept(envelope, out _);
+    }
+
+    /// <summary>
+    /// Threat-aware movement gate. Host-side only in multiplayer: the decision must be made
+    /// on the authority that will own the SetDestination, never on a client.
+    /// Autonomous roles keep their doctrine standoff distance; explicit player orders into a
+    /// known danger zone are warned about but still honoured.
+    /// </summary>
+    private bool IsDestinationSafe(Unit unit, CommanderOrderKind kind, GlobalPosition destination)
+    {
+        if (!CommanderSettings.ThreatAwareMovementEnabled
+            || kind != CommanderOrderKind.Move
+            || CommanderRadarService.Instance == null)
+        {
+            return true;
+        }
+
+        float dangerRadius = CommanderSettings.ThreatDangerRadiusMeters;
+        if (!CommanderRadarService.Instance.IsPositionDangerous(destination, dangerRadius))
+        {
+            return true;
+        }
+
+        bool autonomous = doctrineService != null
+            && doctrineService.TryGetRole(unit, out CommanderDoctrineRole role2)
+            && role2 != CommanderDoctrineRole.Frontline;
+        if (autonomous)
+        {
+            return false;
+        }
+
+        if (Time.unscaledTime >= nextThreatWarnTime)
+        {
+            nextThreatWarnTime = Time.unscaledTime + ThreatWarnIntervalSeconds;
+            CommanderAlertService.PostTickerEvent(
+                "[THREAT] Move destination is inside a known hostile fire zone",
+                new Color(1f, 0.45f, 0.2f, 0.95f));
+        }
+
+        return true;
     }
 
     internal void BeginBarrageOrder()
@@ -144,6 +205,11 @@ internal sealed class CommanderMoveService
                 continue;
             }
 
+            if (!CanExecuteOrder(unit, CommanderOrderKind.Move, targetPos))
+            {
+                continue;
+            }
+
             stoppedUnits.Remove(unit);
             focusAttackTargets.Remove(unit);
 
@@ -156,64 +222,14 @@ internal sealed class CommanderMoveService
         return true;
     }
 
-    internal void ToggleAutoRtbForSelection()
-    {
-        IReadOnlyList<Unit> selected = selectionService.SelectedUnits;
-        if (selected.Count == 0) return;
-
-        bool anyEnabled = false;
-        for (int i = 0; i < selected.Count; i++)
-        {
-            if (autoRtbUnits.Contains(selected[i]))
-            {
-                anyEnabled = true;
-                break;
-            }
-        }
-
-        bool newState = !anyEnabled;
-        for (int i = 0; i < selected.Count; i++)
-        {
-            if (newState) autoRtbUnits.Add(selected[i]);
-            else autoRtbUnits.Remove(selected[i]);
-        }
-    }
-
-    internal bool IsAutoRtb(Unit? unit)
-    {
-        return unit != null && autoRtbUnits.Contains(unit);
-    }
-
-    internal void ToggleAutoServiceForSelection()
-    {
-        IReadOnlyList<Unit> selected = selectionService.SelectedUnits;
-        if (selected.Count == 0) return;
-
-        bool anyEnabled = false;
-        for (int i = 0; i < selected.Count; i++)
-        {
-            if (autoServiceUnits.Contains(selected[i]))
-            {
-                anyEnabled = true;
-                break;
-            }
-        }
-
-        bool newState = !anyEnabled;
-        for (int i = 0; i < selected.Count; i++)
-        {
-            if (newState) autoServiceUnits.Add(selected[i]);
-            else autoServiceUnits.Remove(selected[i]);
-        }
-    }
-
-    internal bool IsAutoService(Unit? unit)
-    {
-        return unit != null && autoServiceUnits.Contains(unit);
-    }
-
     internal void IssueDirectMoveOrder(GlobalPosition targetPosition, bool queueWaypoint = false)
     {
+        if (GameManager.gameState == GameState.Multiplayer
+            && (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active))
+        {
+            return;
+        }
+
         if (selectionService.SelectedUnits.Count == 0)
         {
             return;
@@ -234,6 +250,11 @@ internal sealed class CommanderMoveService
             GlobalPosition destination = unit is Ship
                 ? CommanderDestinationFormation.ApplyOffset(targetPosition, shipSlot++, ShipFormationSpacingMeters)
                 : CommanderDestinationFormation.ApplyOffset(targetPosition, groundSlot++, GroundFormationSpacingMeters);
+
+            if (!CanExecuteOrder(unit, CommanderOrderKind.Move, destination))
+            {
+                continue;
+            }
 
             stoppedUnits.Remove(unit);
             CommanderGameAccess.SetUnitHoldPosition(unit, false);
@@ -307,6 +328,11 @@ internal sealed class CommanderMoveService
                 ? CommanderDestinationFormation.ApplyOffset(waterDestination, shipSlot++, ShipFormationSpacingMeters)
                 : CommanderDestinationFormation.ApplyOffset(groundDestination, groundSlot++, GroundFormationSpacingMeters);
 
+            if (!CanExecuteOrder(unit, CommanderOrderKind.Move, destination))
+            {
+                continue;
+            }
+
             stoppedUnits.Remove(unit);
             CommanderGameAccess.SetUnitHoldPosition(unit, false);
 
@@ -339,6 +365,12 @@ internal sealed class CommanderMoveService
             return;
         }
 
+        GlobalPosition targetPos = enemyTarget.transform.GlobalPosition();
+        if (!CanExecuteOrder(unit, CommanderOrderKind.Attack, targetPos))
+        {
+            return;
+        }
+
         stoppedUnits.Remove(unit);
         CommanderGameAccess.SetUnitHoldPosition(unit, false);
         focusAttackTargets[unit] = enemyTarget;
@@ -348,7 +380,6 @@ internal sealed class CommanderMoveService
             queue.Clear();
         }
 
-        GlobalPosition targetPos = enemyTarget.transform.GlobalPosition();
         playerDestinations[unit] = targetPos;
         CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(targetPos, true);
     }
@@ -369,21 +400,7 @@ internal sealed class CommanderMoveService
         {
             nextPruneTime = Time.unscaledTime + 2.0f;
             stoppedUnits.RemoveWhere(static unit => unit == null || unit.disabled);
-            autoRtbUnits.RemoveWhere(static unit => unit == null || unit.disabled);
-            autoServiceUnits.RemoveWhere(static unit => unit == null || unit.disabled);
             PruneDeadReferences();
-        }
-
-        // Periodic Auto-RTB check (every 3 seconds)
-        if (Time.unscaledTime >= nextRtbCheckTime)
-        {
-            nextRtbCheckTime = Time.unscaledTime + 3f;
-            CheckAutoRtb();
-        }
-
-        if (Time.unscaledTime >= nextStuckCheckTime)
-        {
-            nextStuckCheckTime = Time.unscaledTime + 1f;
         }
 
         List<Unit>? staleDestinations = null;
@@ -397,16 +414,18 @@ internal sealed class CommanderMoveService
             }
 
             float dist = CommanderGameAccess.HorizontalDistance(entry.Key.transform.position, entry.Value.ToLocalPosition());
-            if (Time.unscaledTime >= nextStuckCheckTime)
-            {
-                UpdateStuckRoute(entry.Key, entry.Value);
-            }
             if (dist <= WaypointArrivalDistance)
             {
                 // Check queued waypoints
                 if (waypointQueues.TryGetValue(entry.Key, out Queue<GlobalPosition> queue) && queue.Count > 0)
                 {
-                    GlobalPosition nextWaypoint = queue.Dequeue();
+                    // Peek first: a rejected waypoint must stay queued instead of being silently lost.
+                    GlobalPosition nextWaypoint = queue.Peek();
+                    if (!CanExecuteOrder(entry.Key, CommanderOrderKind.Move, nextWaypoint))
+                    {
+                        continue;
+                    }
+                    queue.Dequeue();
                     playerDestinations[entry.Key] = nextWaypoint;
                     CommanderGameAccess.GetUnitCommand(entry.Key)?.SetDestination(nextWaypoint, true);
                 }
@@ -446,143 +465,6 @@ internal sealed class CommanderMoveService
                 unit.rb.angularVelocity = Vector3.zero;
             }
         }
-    }
-
-    private void CheckAutoRtb()
-    {
-        if ((!CommanderSettings.AutoRtbEnabled || autoRtbUnits.Count == 0)
-            && (!CommanderSettings.AutoServiceEnabled || autoServiceUnits.Count == 0))
-        {
-            return;
-        }
-
-        autoServiceCandidates.Clear();
-        autoServiceCandidates.UnionWith(autoRtbUnits);
-        autoServiceCandidates.UnionWith(autoServiceUnits);
-        foreach (Unit unit in autoServiceCandidates)
-        {
-            if (unit == null || unit.disabled) continue;
-
-            bool needsService = false;
-
-            // Check damage
-            IRepairable[] repairables = unit.GetComponentsInChildren<IRepairable>(true);
-            for (int r = 0; r < repairables.Length; r++)
-            {
-                if (repairables[r] != null && repairables[r].NeedsRepair())
-                {
-                    needsService = true;
-                    break;
-                }
-            }
-
-            // Check ammo
-            if (!needsService && unit.weaponStations != null && unit.weaponStations.Count > 0)
-            {
-                float currentAmmo = 0f;
-                float maxAmmo = 0f;
-                for (int s = 0; s < unit.weaponStations.Count; s++)
-                {
-                    WeaponStation station = unit.weaponStations[s];
-                    if (station?.Weapons == null) continue;
-                    for (int w = 0; w < station.Weapons.Count; w++)
-                    {
-                        Weapon weapon = station.Weapons[w];
-                        if (weapon != null)
-                        {
-                            currentAmmo += weapon.ammo;
-                            maxAmmo += Mathf.Max(1, weapon.GetFullAmmo());
-                        }
-                    }
-                }
-                if (maxAmmo > 0f && (currentAmmo / maxAmmo) <= CommanderSettings.AutoRtbAmmoPercent)
-                {
-                    needsService = true;
-                }
-            }
-
-            if (needsService && CommanderSettings.AutoServiceEnabled && autoServiceUnits.Contains(unit))
-            {
-                Unit? nearestLogistics = FindNearestLogistics(unit);
-                if (nearestLogistics != null)
-                {
-                    GlobalPosition dest = nearestLogistics.transform.GlobalPosition();
-                    playerDestinations[unit] = dest;
-                    CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(dest, true);
-                }
-            }
-        }
-    }
-
-    private void UpdateStuckRoute(Unit unit, GlobalPosition destination)
-    {
-        if (unit is not GroundVehicle vehicle
-            || PathfindingField?.GetValue(vehicle) is not PathfindingAgent pathfinder)
-        {
-            return;
-        }
-
-        if (!stuckTrackers.TryGetValue(unit, out StuckTracker? tracker))
-        {
-            tracker = new StuckTracker { LastPosition = unit.transform.position };
-            stuckTrackers[unit] = tracker;
-            return;
-        }
-
-        float moved = (unit.transform.position - tracker.LastPosition).sqrMagnitude;
-        tracker.LastPosition = unit.transform.position;
-        if (moved > 1f)
-        {
-            tracker.StuckDuration = 0f;
-            return;
-        }
-
-        tracker.StuckDuration += 1f;
-        if (tracker.StuckDuration < 5f || Time.unscaledTime - tracker.LastUnstuckTime < 10f)
-        {
-            return;
-        }
-
-        tracker.LastUnstuckTime = Time.unscaledTime;
-        tracker.StuckDuration = 0f;
-        if (!CommanderDirectPathService.TryApplyShortcut(pathfinder, destination))
-        {
-            CommanderGameAccess.GetUnitCommand(unit)?.SetDestination(destination, true);
-        }
-    }
-
-    private static Unit? FindNearestLogistics(Unit unit)
-    {
-        FactionHQ? hq = CommanderGameAccess.GetLocalHq();
-        if (hq?.factionUnits == null) return null;
-
-        Unit? nearest = null;
-        float bestScore = float.MaxValue;
-        Vector3 pos = unit.transform.position;
-
-        foreach (PersistentID id in hq.factionUnits)
-        {
-            if (id.TryGetUnit(out Unit u) && u != null && !u.disabled && !ReferenceEquals(u, unit))
-            {
-                Rearmer? rearmer = u.GetComponentInChildren<Rearmer>(true);
-                Repairer? repairer = u.GetComponentInChildren<Repairer>(true);
-                if (rearmer != null || repairer != null)
-                {
-                    float distance = Vector3.Distance(pos, u.transform.position);
-                    float capacityScore = rearmer != null
-                        ? Mathf.Clamp01(rearmer.Capacity / Mathf.Max(1f, rearmer.GetMaxCapacity()))
-                        : 0f;
-                    float score = distance * (1f - capacityScore * 0.35f)
-                        + (repairer != null ? 0f : 25f);
-                    if (score < bestScore)
-                    {
-                        bestScore = score;
-                        nearest = u;
-                    }
-                }
-            }
-        }
-        return nearest;
     }
 
     internal bool TryGetFocusAttackTarget(Unit unit, out Unit target)
@@ -683,22 +565,7 @@ internal sealed class CommanderMoveService
     internal void PruneDeadReferences()
     {
         stoppedUnits.RemoveWhere(static u => u == null || u.disabled);
-        autoRtbUnits.RemoveWhere(static u => u == null || u.disabled);
-        autoServiceUnits.RemoveWhere(static u => u == null || u.disabled);
 
-        List<Unit>? deadStuck = null;
-        foreach (KeyValuePair<Unit, StuckTracker> s in stuckTrackers)
-        {
-            if (s.Key == null || s.Key.disabled)
-            {
-                deadStuck ??= new List<Unit>();
-                deadStuck.Add(s.Key);
-            }
-        }
-        if (deadStuck != null)
-        {
-            for (int i = 0; i < deadStuck.Count; i++) stuckTrackers.Remove(deadStuck[i]);
-        }
 
         List<Unit>? deadWaypointKeys = null;
         foreach (KeyValuePair<Unit, Queue<GlobalPosition>> pair in waypointQueues)
@@ -706,7 +573,7 @@ internal sealed class CommanderMoveService
             if (pair.Key == null || pair.Key.disabled)
             {
                 deadWaypointKeys ??= new List<Unit>();
-                deadWaypointKeys.Add(pair.Key);
+                deadWaypointKeys.Add(pair.Key!);
             }
         }
         if (deadWaypointKeys != null)
@@ -720,7 +587,7 @@ internal sealed class CommanderMoveService
             if (pair.Key == null || pair.Key.disabled || pair.Value == null || pair.Value.disabled)
             {
                 deadAttackKeys ??= new List<Unit>();
-                deadAttackKeys.Add(pair.Key);
+                deadAttackKeys.Add(pair.Key!);
             }
         }
         if (deadAttackKeys != null)
@@ -735,12 +602,7 @@ internal sealed class CommanderMoveService
         playerDestinations.Clear();
         waypointQueues.Clear();
         focusAttackTargets.Clear();
-        autoRtbUnits.Clear();
-        autoServiceUnits.Clear();
-        autoServiceCandidates.Clear();
-        stuckTrackers.Clear();
         nextPruneTime = 0f;
-        nextStuckCheckTime = 0f;
         awaitingBarrageSelection = false;
         awaitingAttackMoveSelection = false;
     }

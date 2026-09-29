@@ -101,7 +101,7 @@ internal static class CommanderSamSiteCoreRegistry
             if (entry.Key == null || entry.Key.disabled || entry.Value == null || entry.Value.disabled)
             {
                 deadKeys ??= new List<Unit>();
-                deadKeys.Add(entry.Key);
+                deadKeys.Add(entry.Key!);
             }
         }
 

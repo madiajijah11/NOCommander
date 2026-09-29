@@ -22,11 +22,14 @@ internal sealed class CommanderRadarService
     private readonly HashSet<Unit> nearbyLauncherUnits = new();
     private readonly Dictionary<Unit, Radar[]> radarsByUnit = new();
     private readonly Dictionary<Unit, Turret[]> turretsByUnit = new();
+    private readonly List<Unit> threatUnits = new();
+    private readonly HashSet<Unit> threatUnitSet = new();
 
     private FactionHQ? boundHq;
     private Unit? inspectedUnit;
     private RadarState? focusedState;
     private float nextRefreshTime;
+    private float nextThreatTime;
     private float statusUntil;
     private string statusText = string.Empty;
 
@@ -62,6 +65,9 @@ internal sealed class CommanderRadarService
         offlineRadarUnits.Clear();
         nearbyRadarUnits.Clear();
         nearbyLauncherUnits.Clear();
+        threatUnits.Clear();
+        threatUnitSet.Clear();
+        nextThreatTime = 0f;
         statusText = string.Empty;
     }
 
@@ -70,6 +76,7 @@ internal sealed class CommanderRadarService
         RefreshBindings();
         PruneDeadReferences();
         SyncFocusedUnit();
+        RefreshThreatSnapshot();
         if (focusedState == null
             || !focusedState.IsCommandTruck
             || !CommanderScheduler.IsDue(ref nextRefreshTime, RefreshIntervalSeconds))
@@ -92,7 +99,7 @@ internal sealed class CommanderRadarService
             if (entry.Key == null || entry.Key.disabled)
             {
                 deadKeys ??= new List<Unit>();
-                deadKeys.Add(entry.Key);
+                deadKeys.Add(entry.Key!);
             }
         }
         if (deadKeys != null)
@@ -106,7 +113,7 @@ internal sealed class CommanderRadarService
             if (entry.Key == null || entry.Key.disabled)
             {
                 deadKeys ??= new List<Unit>();
-                deadKeys.Add(entry.Key);
+                deadKeys.Add(entry.Key!);
             }
         }
         if (deadKeys != null)
@@ -116,6 +123,127 @@ internal sealed class CommanderRadarService
     }
 
     private bool globalEmconActive;
+
+    private const float ThreatRefreshIntervalSeconds = 1f;
+
+    private void RefreshThreatSnapshot()
+    {
+        if (!CommanderSettings.ThreatAwareMovementEnabled
+            || boundHq == null
+            || !CommanderScheduler.IsDue(ref nextThreatTime, ThreatRefreshIntervalSeconds))
+        {
+            return;
+        }
+
+        threatUnitSet.Clear();
+        foreach (KeyValuePair<Unit, Radar[]> entry in radarsByUnit)
+        {
+            Unit radarUnit = entry.Key;
+            if (radarUnit == null || radarUnit.disabled)
+            {
+                continue;
+            }
+
+            Radar[] radars = entry.Value;
+            for (int i = 0; i < radars.Length; i++)
+            {
+                Radar radar = radars[i];
+                if (radar == null || !radar.activated || !radar.IsOperational())
+                {
+                    continue;
+                }
+
+                List<Unit> contacts = radar.detectedTargets;
+                if (contacts == null)
+                {
+                    continue;
+                }
+
+                for (int c = 0; c < contacts.Count; c++)
+                {
+                    Unit contact = contacts[c];
+                    if (contact == null
+                        || contact.disabled
+                        || CommanderGameAccess.IsFriendlyUnit(contact, boundHq))
+                    {
+                        continue;
+                    }
+
+                    threatUnitSet.Add(contact);
+                }
+            }
+        }
+
+        if (threatUnits.Count == threatUnitSet.Count)
+        {
+            // Same population; keep the existing list to avoid per-second allocation.
+            bool identical = true;
+            for (int i = 0; i < threatUnits.Count; i++)
+            {
+                if (!threatUnitSet.Contains(threatUnits[i]))
+                {
+                    identical = false;
+                    break;
+                }
+            }
+            if (identical)
+            {
+                return;
+            }
+        }
+
+        threatUnits.Clear();
+        foreach (Unit unit in threatUnitSet)
+        {
+            threatUnits.Add(unit);
+        }
+    }
+
+    /// <summary>
+    /// Host-side threat query. Returns true when a hostile contact known to friendly
+    /// sensors (or a live counter-battery pinpoint) sits within the danger radius.
+    /// </summary>
+    internal bool IsPositionDangerous(GlobalPosition position, float dangerRadiusMeters)
+    {
+        if (dangerRadiusMeters <= 0f || threatUnits.Count == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < threatUnits.Count; i++)
+        {
+            Unit threat = threatUnits[i];
+            if (threat == null || threat.disabled)
+            {
+                continue;
+            }
+
+            if (FastMath.InRange(position, threat.GlobalPosition(), dangerRadiusMeters))
+            {
+                return true;
+            }
+        }
+
+        IReadOnlyList<CommanderCounterBatteryRadarService.CounterBatteryPing>? pings = CommanderCounterBatteryRadarService.Instance?.ActivePings;
+        if (pings != null)
+        {
+            for (int i = 0; i < pings.Count; i++)
+            {
+                CommanderCounterBatteryRadarService.CounterBatteryPing ping = pings[i];
+                if (ping.SourceUnit == null || ping.SourceUnit.disabled)
+                {
+                    continue;
+                }
+
+                if (FastMath.InRange(position, ping.Position.ToGlobalPosition(), dangerRadiusMeters))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 
     internal bool IsGlobalEmconActive => globalEmconActive;
 

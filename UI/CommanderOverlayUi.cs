@@ -21,7 +21,6 @@ internal sealed class CommanderOverlayUi
     private const int MoneyWindowId = 0x434F4D24;
     private const int LeftDockWindowId = 0x434F4D4C;
     private const int SelectionBarWindowId = 0x434F4D58;
-    private const int WarActivityWindowId = 0x434F4D57;
 
     private readonly CommanderSelectionService selectionService;
     private readonly CommanderMoveService moveService;
@@ -35,8 +34,6 @@ internal sealed class CommanderOverlayUi
     private readonly CommanderNavalPurchaseService navalPurchaseService;
     private readonly CommanderSamSiteAnalyzerService samSiteAnalyzerService;
     private readonly CommanderSamSiteService samSiteService;
-    private readonly CommanderWarActivityService warActivityService;
-    private Rect warActivityWindowRect = new(20f, 150f, 310f, 70f);
     private readonly CommanderSupplyHeliUi supplyHeliUi;
     private readonly CommanderAirCommandUi airCommandUi;
     private readonly CommanderNavalPurchaseUi navalPurchaseUi;
@@ -144,7 +141,6 @@ internal sealed class CommanderOverlayUi
         CommanderNavalPurchaseService navalPurchaseService,
         CommanderSamSiteAnalyzerService samSiteAnalyzerService,
         CommanderSamSiteService samSiteService,
-        CommanderWarActivityService warActivityService,
         Action unlockAdvancedFeatures,
         Action exitCommander)
     {
@@ -161,7 +157,6 @@ internal sealed class CommanderOverlayUi
         this.navalPurchaseService = navalPurchaseService;
         this.samSiteAnalyzerService = samSiteAnalyzerService;
         this.samSiteService = samSiteService;
-        this.warActivityService = warActivityService;
         this.unlockAdvancedFeatures = unlockAdvancedFeatures;
         this.exitCommander = exitCommander;
         supplyHeliUi = new CommanderSupplyHeliUi(supplyHeliService);
@@ -438,10 +433,6 @@ internal sealed class CommanderOverlayUi
         if (advanced && showFactionMoney)
         {
             moneyRect = GUI.Window(MoneyWindowId, moneyRect, DrawMoneyWindow, string.Empty, CommanderUiTheme.Panel);
-        }
-        if (advanced && CommanderSettings.WarActivityEnabled && !string.IsNullOrEmpty(warActivityService.StatusText))
-        {
-            warActivityWindowRect = GUI.Window(WarActivityWindowId, warActivityWindowRect, DrawWarActivityWindow, "WAR ACTIVITY", CommanderUiTheme.Panel);
         }
 
         if (panelVisible)
@@ -1796,9 +1787,9 @@ internal sealed class CommanderOverlayUi
             selectionHelpVisible = !selectionHelpVisible;
         }
 
-        // 3. Command Button Grid (Row of 7 Tactical Buttons)
+        // 3. Command Button Grid (Row of 6 Tactical Buttons)
         float totalWidth = selectionBarRect.width - 24f;
-        float btnWidth = (totalWidth - 7f * 4f) / 8f;
+        float btnWidth = (totalWidth - 5f * 4f) / 6f;
         float bx = 12f;
 
         // 1. STOP
@@ -1809,9 +1800,9 @@ internal sealed class CommanderOverlayUi
         }
         bx += btnWidth + 4f;
 
-        // 2. AI
+        // 2. NATIVE AI
         GUI.enabled = oldEnabled && advanced && moveService.HasCommandableSelection;
-        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), "AI", CommanderUiTheme.PrimaryButton))
+        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), "NATIVE AI", CommanderUiTheme.PrimaryButton))
         {
             moveService.ResumeAiForSelectedUnits();
         }
@@ -1828,25 +1819,7 @@ internal sealed class CommanderOverlayUi
         }
         bx += btnWidth + 4f;
 
-        // 4. AUTO-RTB
-        bool isRtb = moveService.IsAutoRtb(focused);
-        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), isRtb ? "RTB ON" : "RTB",
-            isRtb ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
-        {
-            moveService.ToggleAutoRtbForSelection();
-        }
-        bx += btnWidth + 4f;
-
-        // 5. AUTO-SERVICE
-        bool isService = moveService.IsAutoService(focused);
-        if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f), isService ? "SVC ON" : "SERVICE",
-            isService ? CommanderUiTheme.SelectedButton : CommanderUiTheme.Button))
-        {
-            moveService.ToggleAutoServiceForSelection();
-        }
-        bx += btnWidth + 4f;
-
-        // 10. FOB DEPLOY or ROAD ON/OFF
+        // 4. FOB DEPLOY or ROAD ON/OFF
         GUI.enabled = oldEnabled;
         bool canFob = advanced && count == 1 && focused != null && CommanderForwardOutpostService.Instance?.CanDeployFob(focused) == true;
         if (canFob)
@@ -1878,7 +1851,7 @@ internal sealed class CommanderOverlayUi
         }
         bx += btnWidth + 4f;
 
-        // 11. STANCE (HOLD / FREE FIRE)
+        // 5. STANCE (HOLD / FREE FIRE)
         GUI.enabled = oldEnabled;
         bool isHoldFire = CommanderStanceService.Instance?.IsHoldFire(focused) == true;
         if (GUI.Button(new Rect(bx, buttonY, btnWidth, 32f),
@@ -1889,7 +1862,7 @@ internal sealed class CommanderOverlayUi
         }
         bx += btnWidth + 4f;
 
-        // 12. PIN / DEL
+        // 6. PIN / DEL
         GUI.enabled = oldEnabled;
         bool deleteMode = CommanderSettings.DeleteUnitModifier.IsPressed();
         string pinLabel = deleteMode ? "DEL" : (selectionService.IsCurrentSelectionPinned ? "UNPIN" : "PIN");
@@ -1910,12 +1883,6 @@ internal sealed class CommanderOverlayUi
         }
         GUI.enabled = oldEnabled;
         GUI.DragWindow(new Rect(0f, 0f, selectionBarRect.width, selectionBarRect.height));
-    }
-
-    private void DrawWarActivityWindow(int windowId)
-    {
-        GUI.Label(new Rect(12f, 26f, warActivityWindowRect.width - 24f, 28f), warActivityService.StatusText, CommanderUiTheme.MutedLabel);
-        GUI.DragWindow(new Rect(0f, 0f, warActivityWindowRect.width, 22f));
     }
 
     private void DrawMoneyWindow(int windowId)

@@ -16,7 +16,7 @@ internal sealed class CommanderCounterBatteryRadarService
     {
         internal Vector3 Position;
         internal float ExpiryTime;
-        internal string WeaponSource;
+        internal string WeaponSource = string.Empty;
         internal Unit? SourceUnit;
     }
 

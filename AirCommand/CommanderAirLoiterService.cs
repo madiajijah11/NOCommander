@@ -89,7 +89,7 @@ internal sealed class CommanderAirLoiterService
 
             if (ac == null || ac.disabled)
             {
-                staleOrbits.Add(ac);
+                staleOrbits.Add(ac!);
                 continue;
             }
 

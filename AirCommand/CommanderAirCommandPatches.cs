@@ -60,7 +60,6 @@ internal static class CommanderAirCommandPatches
         }
 
         DestinationField?.SetValue(__instance, point);
-        CommanderAirCommandService.RecordTargetlessTick(__instance);
     }
 
     [HarmonyPatch(typeof(AIPilotCombatModes), "ManageAltitude")]

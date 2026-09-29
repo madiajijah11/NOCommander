@@ -1,6 +1,6 @@
 # NOCommander
 
-**NOCommander** is a comprehensive real-time strategy (RTS) mod for *Nuclear Option* (powered by BepInEx 5). It transforms the game into a 3D tactical command suite, enabling complete battlefield management, multi-domain logistics, air mission tasking, smart AI behaviors, and 3D sandbox controls.
+**NOCommander** is a comprehensive real-time strategy (RTS) mod for *Nuclear Option* (powered by BepInEx 5). It transforms the game into a 3D tactical command suite, enabling manual battlefield management, multi-domain logistics, air mission tasking, native game AI control, and 3D sandbox controls.
 
 Mainly intended for **Escalation** and **Terminal Control** game modes.
 
@@ -17,8 +17,6 @@ Mainly intended for **Escalation** and **Terminal Control** game modes.
   - The **`GROUPS`** tab in the **Unit List / Pins** window displays all active control groups, unit counts, and vehicle compositions. Click any entry to select directly.
 - **Select All Combat Army (`~` / `BackQuote`):**
   - One-key shortcut to select all friendly combat ground vehicles and surface warships across the map (mapped to tilde `~` to avoid conflict with base game camera keys `F1`–`F4`).
-- **Auto-RTB (Return to Base for Repair & Rearm):**
-  - Automatic toggle: Units critically damaged or low on ammunition ($le 20%$) autonomously seek the nearest repair/rearm truck or depot.
 - **Artillery & MRLS Barrage Call-In (`B` / UI Button):**
   - Designate a circular target area to command all in-range artillery and MRLS units to fire simultaneous salvos.
 - **Global EMCON / Radar Silence (`Ctrl + R`):**
@@ -44,11 +42,16 @@ Mainly intended for **Escalation** and **Terminal Control** game modes.
 - **3D Vector Path Lines (Active for Selected Units):**
   - Real-time glowing 3D vector lines connecting selected units to destinations (Cyan), sequential waypoints (Amber), and attack targets (Crimson Red).
 - **Attack-Move Order (`A-MOVE` / `T`):**
-  - Advance toward target coordinates while autonomously engaging any hostiles encountered en route.
+  - Advance toward target coordinates while using the game's native combat behavior.
 - **Shift-Queued Waypoints (`Shift + RMB`):**
   - Chain sequential waypoints with 3D **`[WAYPOINT 1..N]`** path visualizers.
 - **Rules of Engagement / Fire Stance (`F` / UI Button):**
   - Toggle between **`HOLD FIRE`** (disables turret target acquisition) and **`FREE FIRE`**.
+- **Threat-Aware Move Orders:**
+  - Before issuing a move order, the host checks the destination against known hostile contacts (radar detections + counter-battery pings, cached 1s).
+  - Non-frontline units (logistics, standoff, air-defense, recon) are **refused** orders into a known hostile fire zone.
+  - Explicit frontline player orders still execute, with a throttled **`[THREAT]`** warning.
+  - Configure via `ThreatAwareMovementEnabled` and `ThreatDangerRadiusMeters` (default 200 m).
 
 ---
 
@@ -88,7 +91,7 @@ Accessible via the **`CHEAT / SANDBOX`** button in the Commander panel:
   - **Air:** Strike fighters, interceptors, bombers, and cargo/gunship helicopters.
   - **Naval:** Corvettes, frigates, destroyers, aircraft carriers, and supply barges.
 - **Integrated Stockpile Management:**
-  - **`HOLD`:** Intercepts automatic AI deployment to reserve units for manual command.
+  - **`HOLD`:** Reserves stock for manual deployment.
   - **`BATCH MULTIPLIERS (x1 / x5 / x10 / MAX)`:** Perform bulk transactions with one click.
   - **`+BUY`:** Procure units from faction funds directly into reserve storage.
   - **`SELL`:** Scrap surplus reserve units for a 75% cash refund to faction funds.

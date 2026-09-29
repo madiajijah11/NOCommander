@@ -101,7 +101,7 @@ internal sealed class CommanderSmokeCountermeasuresService
             if (pair.Key == null || pair.Key.disabled)
             {
                 deadCooldowns ??= new List<Unit>();
-                deadCooldowns.Add(pair.Key);
+                deadCooldowns.Add(pair.Key!);
             }
         }
         if (deadCooldowns != null)
