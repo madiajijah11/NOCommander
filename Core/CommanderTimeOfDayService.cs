@@ -7,15 +7,16 @@ using UnityEngine;
 namespace NuclearOptionCommander;
 
 /// <summary>
-/// Host-only day/night compression. The game stores the world clock in seconds since
-/// midnight (0 - 86400), so the full range is known and needs no auto-calibration.
+/// Host-only day/night compression. Verified against BepInEx LogOutput.log: the game
+/// stores the world clock as decimal hours (0 - 24) and its own formatter renders
+/// "HH:MM", so the full range is 24 and no calibration is needed.
 /// </summary>
 internal sealed class CommanderTimeOfDayService
 {
-    /// <summary>Seconds in a full day, matching the game's own timeOfDay range.</summary>
-    internal const float RangeSeconds = 86400f;
+    /// <summary>Hours in a full day, matching the game's own timeOfDay range.</summary>
+    internal const float RangeHours = 24f;
 
-    private static readonly float[] PresetSeconds = { 21600f, 43200f, 64800f, 0f, 32400f };
+    private static readonly float[] PresetHours = { 6f, 12f, 18f, 0f, 9f };
     private static readonly string[] PresetNames = { "DAWN", "NOON", "DUSK", "NIGHT", "MORNING" };
 
     private static readonly MethodInfo? SetTimeOfDayMethod = AccessTools.Method(typeof(LevelInfo), "SetTimeOfDay");
@@ -77,16 +78,16 @@ internal sealed class CommanderTimeOfDayService
             cycleStartValue = level.NetworktimeOfDay;
             CommanderPlugin.Log.LogInfo(
                 $"[TimeOfDay] cycle engaged at {Describe(cycleStartValue)} "
-                + $"(raw {cycleStartValue:0}), {CommanderSettings.TimeOfDayCycleMinutes:0} min per 24h.");
+                + $"(raw {cycleStartValue:0.00}), {CommanderSettings.TimeOfDayCycleMinutes:0} min per 24h.");
         }
 
         float cycleSeconds = Mathf.Max(60f, CommanderSettings.TimeOfDayCycleMinutes * 60f);
         float elapsed = Time.unscaledTime - cycleStartTime;
-        float compressed = cycleStartValue + (elapsed / cycleSeconds) * RangeSeconds;
-        float wrapped = compressed % RangeSeconds;
+        float compressed = cycleStartValue + (elapsed / cycleSeconds) * RangeHours;
+        float wrapped = compressed % RangeHours;
         if (wrapped < 0f)
         {
-            wrapped += RangeSeconds;
+            wrapped += RangeHours;
         }
 
         try
@@ -102,7 +103,7 @@ internal sealed class CommanderTimeOfDayService
 
     internal bool CyclePreset()
     {
-        presetIndex = (presetIndex + 1) % PresetSeconds.Length;
+        presetIndex = (presetIndex + 1) % PresetHours.Length;
         return JumpToPreset(presetIndex);
     }
 
@@ -111,7 +112,7 @@ internal sealed class CommanderTimeOfDayService
         if (SetTimeOfDayMethod == null
             || !CommanderHostAuthority.IsHostAuthority()
             || index < 0
-            || index >= PresetSeconds.Length)
+            || index >= PresetHours.Length)
         {
             return false;
         }
@@ -122,7 +123,7 @@ internal sealed class CommanderTimeOfDayService
             return false;
         }
 
-        float value = PresetSeconds[index];
+        float value = PresetHours[index];
         try
         {
             SetTimeOfDayMethod.Invoke(level, new object[] { value });
@@ -136,7 +137,7 @@ internal sealed class CommanderTimeOfDayService
         cycleStartTime = Time.unscaledTime;
         cycleStartValue = value;
         CommanderPlugin.Log.LogInfo(
-            $"[TimeOfDay] preset {PresetNames[index]} -> {Describe(value)} (raw {value:0}).");
+            $"[TimeOfDay] preset {PresetNames[index]} -> {Describe(value)} (raw {value:0.00}).");
         return true;
     }
 
