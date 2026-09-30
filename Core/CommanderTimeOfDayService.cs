@@ -24,6 +24,8 @@ internal sealed class CommanderTimeOfDayService
     private static readonly MethodInfo? FormatTimeOfDayMethod =
         AccessTools.Method(typeof(UnitConverter), "TimeOfDay", new[] { typeof(float), typeof(bool) });
     private static readonly FieldInfo? TimeFactorField = AccessTools.Field(typeof(LevelInfo), "timeFactor");
+    private static readonly FieldInfo? IsDayLightField = AccessTools.Field(typeof(LevelInfo), "isDayLight");
+    private static readonly FieldInfo? DaylightEventField = AccessTools.Field(typeof(LevelInfo), "onDaylightChange");
 
     private float nextSyncAt;
     private float appliedRate = -1f;
@@ -219,6 +221,230 @@ internal sealed class CommanderTimeOfDayService
         {
             return "n/a";
         }
+    }
+
+    /// <summary>
+    /// Diagnostic for the missing night lights. Reports what the base game itself believes
+    /// the light state is, and how many subsystems subscribed to the daylight change event.
+    /// If the subscriber count is zero, nothing is listening for nightfall.
+    /// </summary>
+    internal string DaylightStateText
+    {
+        get
+        {
+            LevelInfo? level = NetworkSceneSingleton<LevelInfo>.i;
+            if (level == null)
+            {
+                return "no level";
+            }
+
+            object? isDay = IsDayLightField?.GetValue(level);
+            int subscribers = 0;
+            if (DaylightEventField?.GetValue(level) is Delegate handler)
+            {
+                subscribers = handler.GetInvocationList().Length;
+            }
+
+            return $"isDayLight={isDay ?? "?"}  subscribers={subscribers}  clock={ClockText}";
+        }
+    }
+
+    internal void LogDaylightState()
+    {
+        CommanderPlugin.Log.LogInfo("[TimeOfDay] " + DaylightStateText);
+    }
+
+    private static readonly Type? BuildingLightsType = AccessTools.TypeByName("BuildingLights");
+    private static readonly FieldInfo? BuildingLightsArrayField =
+        BuildingLightsType == null ? null : AccessTools.Field(BuildingLightsType, "lights");
+    private static readonly FieldInfo? BuildingLightsToggleField =
+        BuildingLightsType == null ? null : AccessTools.Field(BuildingLightsType, "daylightToggle");
+
+    /// <summary>
+    /// One-shot scene scan for building lights. Only ever runs from an explicit button press,
+    /// never from a tick or GUI frame loop, so the FindObjectsOfType cost is paid once.
+    /// </summary>
+    internal string BuildingLightReport
+    {
+        get
+        {
+            if (BuildingLightsType == null || BuildingLightsArrayField == null)
+            {
+                return "BuildingLights type not found";
+            }
+
+            UnityEngine.Object[] all = UnityEngine.Object.FindObjectsOfType(BuildingLightsType);
+            int withLightArray = 0;
+            int daylightToggle = 0;
+            int lightTotal = 0;
+            int lightEnabled = 0;
+            int lightZeroIntensity = 0;
+
+            for (int i = 0; i < all.Length; i++)
+            {
+                object? component = all[i];
+                if (component == null)
+                {
+                    continue;
+                }
+
+                if (BuildingLightsToggleField?.GetValue(component) is bool toggle && toggle)
+                {
+                    daylightToggle++;
+                }
+
+                if (BuildingLightsArrayField.GetValue(component) is not Array lights || lights.Length == 0)
+                {
+                    continue;
+                }
+
+                withLightArray++;
+                for (int j = 0; j < lights.Length; j++)
+                {
+                    if (lights.GetValue(j) is not Light light || light == null)
+                    {
+                        continue;
+                    }
+
+                    lightTotal++;
+                    if (light.enabled)
+                    {
+                        lightEnabled++;
+                    }
+                    if (light.intensity <= 0f)
+                    {
+                        lightZeroIntensity++;
+                    }
+                }
+            }
+
+            return $"buildings={all.Length} withLightArray={withLightArray} daylightToggle={daylightToggle} "
+                + $"lights={lightTotal} enabled={lightEnabled} zeroIntensity={lightZeroIntensity}";
+        }
+    }
+
+    internal void LogBuildingLights()
+    {
+        CommanderPlugin.Log.LogInfo("[TimeOfDay] " + DaylightStateText);
+        CommanderPlugin.Log.LogInfo("[Lights] " + BuildingLightReport);
+    }
+
+    private static readonly Type? NavLightType = AccessTools.TypeByName("NavLight");
+    private static readonly Type? NavLightsType = AccessTools.TypeByName("NavLights");
+    private static readonly FieldInfo? NavLightIsOnField =
+        NavLightType == null ? null : AccessTools.Field(NavLightType, "isOn");
+    private static readonly FieldInfo? NavLightRendererField =
+        NavLightType == null ? null : AccessTools.Field(NavLightType, "renderer");
+    private static readonly FieldInfo? NavLightsArrayField =
+        NavLightsType == null ? null : AccessTools.Field(NavLightsType, "navLights");
+    private static readonly MethodInfo? NavLightToggleStateMethod =
+        NavLightType == null ? null : AccessTools.Method(NavLightType, "ToggleState");
+
+    private string ScanType(string label, Type? type, FieldInfo? stateField, FieldInfo? arrayField)
+    {
+        if (type == null)
+        {
+            return $"{label}: type not found";
+        }
+
+        UnityEngine.Object[] all = UnityEngine.Object.FindObjectsOfType(type);
+        int hosts = 0;
+        int stateTrue = 0;
+        int stateFalse = 0;
+
+        for (int i = 0; i < all.Length; i++)
+        {
+            object? component = all[i];
+            if (component == null)
+            {
+                continue;
+            }
+
+            bool counted = false;
+            if (arrayField != null && arrayField.GetValue(component) is Array items)
+            {
+                for (int j = 0; j < items.Length; j++)
+                {
+                    object? item = items.GetValue(j);
+                    if (item == null)
+                    {
+                        continue;
+                    }
+
+                    counted = true;
+                    if (stateField != null)
+                    {
+                        bool on = stateField.GetValue(item) is bool value && value;
+                        if (on)
+                        {
+                            stateTrue++;
+                        }
+                        else
+                        {
+                            stateFalse++;
+                        }
+                    }
+                }
+            }
+
+            if (counted)
+            {
+                hosts++;
+            }
+        }
+
+        return stateField == null
+            ? $"{label}: instances={all.Length} hostsWithArray={hosts}"
+            : $"{label}: instances={all.Length} hostsWithArray={hosts} on={stateTrue} off={stateFalse}";
+    }
+
+    /// <summary>One-shot scan of aircraft and ground unit nav lights. Button press only.</summary>
+    internal string UnitLightReport
+    {
+        get
+        {
+            return ScanType("navLight", NavLightsType, NavLightIsOnField, NavLightsArrayField)
+                + "  |  " + ScanType("navLightComp", NavLightType, NavLightIsOnField, null);
+        }
+    }
+
+    internal void LogUnitLights()
+    {
+        CommanderPlugin.Log.LogInfo("[Lights] " + UnitLightReport);
+    }
+
+    /// <summary>Turns nav lights on for every aircraft in the scene, on the host only.</summary>
+    internal int ForceUnitLightsOn()
+    {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            return 0;
+        }
+
+        UnityEngine.Object[] all = UnityEngine.Object.FindObjectsOfType(NavLightType);
+        int toggled = 0;
+        for (int i = 0; i < all.Length; i++)
+        {
+            object? component = all[i];
+            if (component == null || NavLightIsOnField?.GetValue(component) is not bool on || on)
+            {
+                continue;
+            }
+
+            if (NavLightRendererField?.GetValue(component) is Renderer renderer && renderer != null)
+            {
+                renderer.enabled = true;
+            }
+
+            NavLightToggleStateMethod?.Invoke(component, null);
+            toggled++;
+        }
+
+        if (toggled > 0)
+        {
+            CommanderPlugin.Log.LogInfo($"[Lights] forced {toggled} nav light(s) on.");
+        }
+        return toggled;
     }
 
     internal string ClockText
