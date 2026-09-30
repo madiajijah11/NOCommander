@@ -898,7 +898,6 @@ internal sealed class CommanderOverlayUi
     {
         float panelWidth = settingsWindowRect.width - 24f;
         float contentWidth = settingsWindowRect.width - 48f;
-        float halfWidth = (contentWidth - 6f) * 0.5f;
 
         GUI.Box(new Rect(12f, y, panelWidth, 128f), string.Empty, CommanderUiTheme.Panel);
         GUI.Label(new Rect(24f, y + 10f, contentWidth, 22f), "GAME SPEED", CommanderUiTheme.Header);
@@ -936,25 +935,31 @@ internal sealed class CommanderOverlayUi
         y += 136f;
         CommanderTimeOfDayService? clock = CommanderTimeOfDayService.Instance;
         GUI.Box(new Rect(12f, y, panelWidth, 192f), string.Empty, CommanderUiTheme.Panel);
-        GUI.Label(new Rect(24f, y + 10f, contentWidth, 22f), "DAY / NIGHT CYCLE (HOST)", CommanderUiTheme.Header);
+        GUI.Label(new Rect(24f, y + 10f, contentWidth, 22f), "DAY / NIGHT RATE (HOST)", CommanderUiTheme.Header);
 
         bool clockOn = GUI.Toggle(
             new Rect(24f, y + 38f, contentWidth, 28f),
-            CommanderSettings.TimeOfDaySyncEnabled,
-            "Compress the day/night cycle",
+            CommanderSettings.TimeOfDayControlEnabled,
+            "Control the clock speed",
             CommanderUiTheme.Toggle);
-        if (clockOn != CommanderSettings.TimeOfDaySyncEnabled)
+        if (clockOn != CommanderSettings.TimeOfDayControlEnabled)
         {
             clock?.SetEnabled(clockOn);
         }
 
-        if (GUI.Button(new Rect(24f, y + 72f, halfWidth, 26f), "FASTER 30 MIN", CommanderUiTheme.Button))
+        string[] rates = { "0 (FROZEN)", "1 (GAME DEFAULT)", "24 (1 MIN = 1 HOUR)", "48", "96" };
+        float[] values = { 0f, 1f, 24f, 48f, 96f };
+        float rateWidth = (contentWidth - (rates.Length - 1) * 4f) / rates.Length;
+        float currentRate = clock?.CurrentRate ?? 1f;
+        for (int i = 0; i < rates.Length; i++)
         {
-            clock?.SetCycleMinutes(clock.CycleMinutes - 30f);
-        }
-        if (GUI.Button(new Rect(30f + halfWidth, y + 72f, halfWidth, 26f), "SLOWER 30 MIN", CommanderUiTheme.Button))
-        {
-            clock?.SetCycleMinutes(clock.CycleMinutes + 30f);
+            float x = 24f + i * (rateWidth + 4f);
+            bool selected = Mathf.Approximately(currentRate, values[i]);
+            string label = selected ? "> " + rates[i] : rates[i];
+            if (GUI.Button(new Rect(x, y + 72f, rateWidth, 26f), label, CommanderUiTheme.Button))
+            {
+                clock?.SetRate(values[i]);
+            }
         }
 
         if (clock == null)
@@ -964,7 +969,7 @@ internal sealed class CommanderOverlayUi
 
         GUI.Label(
             new Rect(24f, y + 102f, contentWidth, 20f),
-            "CYCLE: " + clock.CycleMinutes.ToString("0") + " MIN PER DAY    NOW: " + clock.ClockText,
+            "RATE: " + currentRate.ToString("0.##") + "x    NOW: " + clock.ClockText,
             CommanderUiTheme.MutedLabel);
 
         string[] presets = CommanderTimeOfDayService.PresetLabelNames;
@@ -978,9 +983,9 @@ internal sealed class CommanderOverlayUi
             }
         }
 
-        if (GUI.Button(new Rect(24f, y + 158f, contentWidth, 24f), "REAL-TIME RATE (1440 MIN)", CommanderUiTheme.Button))
+        if (GUI.Button(new Rect(24f, y + 158f, contentWidth, 24f), "RESET RATE TO 1x", CommanderUiTheme.Button))
         {
-            clock.SetCycleMinutes(1440f);
+            clock.SetRate(1f);
         }
     }
 

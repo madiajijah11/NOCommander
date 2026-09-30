@@ -35,6 +35,8 @@ internal static class CommanderSettings
     internal static bool TimeOfDaySyncEnabled { get => Get("Gameplay", "TimeOfDaySyncEnabled", true); set => Set("Gameplay", "TimeOfDaySyncEnabled", value); }
     internal static float TimeOfDayCycleMinutes { get => Get("Gameplay", "TimeOfDayCycleMinutes", 60f); set => Set("Gameplay", "TimeOfDayCycleMinutes", value); }
     internal static float TimeOfDaySyncIntervalSeconds { get => Get("Gameplay", "TimeOfDaySyncIntervalSeconds", 5f); set => Set("Gameplay", "TimeOfDaySyncIntervalSeconds", value); }
+    internal static bool TimeOfDayControlEnabled { get => Get("Gameplay", "TimeOfDayControlEnabled", true); set => Set("Gameplay", "TimeOfDayControlEnabled", value); }
+    internal static float TimeOfDayRateMultiplier { get => Get("Gameplay", "TimeOfDayRateMultiplier", 1f); set => Set("Gameplay", "TimeOfDayRateMultiplier", value); }
     internal static bool GameSpeedEnabled { get => Get("Gameplay", "GameSpeedEnabled", true); set => Set("Gameplay", "GameSpeedEnabled", value); }
     internal static float GameSpeedValue { get => Get("Gameplay", "GameSpeedValue", 1f); set => Set("Gameplay", "GameSpeedValue", value); }
     internal static bool ShowCommandButton { get => Get("UI", "ShowCommandButton", true); set => Set("UI", "ShowCommandButton", value); }

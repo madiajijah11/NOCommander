@@ -7,25 +7,26 @@ using UnityEngine;
 namespace NuclearOptionCommander;
 
 /// <summary>
-/// Host-only day/night compression. Verified against BepInEx LogOutput.log: the game
-/// stores the world clock as decimal hours (0 - 24) and its own formatter renders
-/// "HH:MM", so the full range is 24 and no calibration is needed.
+/// Host-only control over the world clock.
+/// <para>
+/// The base game already advances the clock in real time inside
+/// <c>LevelInfo.UpdateSimulation</c> using <c>timeOfDay += timeFactor * deltaTime / 3600</c>,
+/// with a 24 hour wrap. This service exposes that native <c>timeFactor</c> multiplier instead
+/// of overwriting the clock, so the game keeps ownership of the value.
+/// </para>
 /// </summary>
 internal sealed class CommanderTimeOfDayService
 {
-    /// <summary>Hours in a full day, matching the game's own timeOfDay range.</summary>
-    internal const float RangeHours = 24f;
-
     private static readonly float[] PresetHours = { 6f, 12f, 18f, 0f, 9f };
     private static readonly string[] PresetNames = { "DAWN", "NOON", "DUSK", "NIGHT", "MORNING" };
 
     private static readonly MethodInfo? SetTimeOfDayMethod = AccessTools.Method(typeof(LevelInfo), "SetTimeOfDay");
     private static readonly MethodInfo? FormatTimeOfDayMethod =
         AccessTools.Method(typeof(UnitConverter), "TimeOfDay", new[] { typeof(float), typeof(bool) });
+    private static readonly FieldInfo? TimeFactorField = AccessTools.Field(typeof(LevelInfo), "timeFactor");
 
-    private int presetIndex;
-    private float cycleStartTime;
-    private float cycleStartValue;
+    private float nextSyncAt;
+    private float appliedRate = -1f;
 
     internal static CommanderTimeOfDayService? Instance { get; private set; }
 
@@ -36,35 +37,33 @@ internal sealed class CommanderTimeOfDayService
 
     internal void Activate()
     {
-        nextSyncAt = CommanderScheduler.Stagger("tod.sync", CommanderSettings.TimeOfDaySyncIntervalSeconds, 1f);
-        cycleStartTime = 0f;
-        cycleStartValue = 0f;
-        presetIndex = 0;
+        nextSyncAt = CommanderScheduler.Stagger("tod.rate", 5f, 1f);
+        appliedRate = -1f;
     }
-
-    private float nextSyncAt;
 
     internal void Deactivate() { }
 
     internal void ResetSession()
     {
-        cycleStartTime = 0f;
-        cycleStartValue = 0f;
-        presetIndex = 0;
         nextSyncAt = 0f;
+        appliedRate = -1f;
     }
 
+    /// <summary>
+    /// Rate check only. The field is compared and written at most once per interval, and
+    /// only when it actually drifted, so there is no per-frame work and no sync traffic.
+    /// </summary>
     internal void Tick()
     {
-        if (!CommanderSettings.TimeOfDaySyncEnabled
+        if (!CommanderSettings.TimeOfDayControlEnabled
             || !CommanderFeatureGate.AdvancedFeaturesEnabled
-            || SetTimeOfDayMethod == null
+            || TimeFactorField == null
             || Time.unscaledTime < nextSyncAt)
         {
             return;
         }
 
-        nextSyncAt = Time.unscaledTime + Mathf.Max(1f, CommanderSettings.TimeOfDaySyncIntervalSeconds);
+        nextSyncAt = Time.unscaledTime + 5f;
 
         LevelInfo? level = NetworkSceneSingleton<LevelInfo>.i;
         if (level == null || !CommanderHostAuthority.IsHostAuthority())
@@ -72,34 +71,92 @@ internal sealed class CommanderTimeOfDayService
             return;
         }
 
-        if (cycleStartTime <= 0f)
+        float desired = DesiredRate;
+        if (appliedRate >= 0f && Mathf.Approximately(appliedRate, desired))
         {
-            cycleStartTime = Time.unscaledTime;
-            cycleStartValue = level.NetworktimeOfDay;
-            CommanderPlugin.Log.LogInfo(
-                $"[TimeOfDay] cycle engaged at {Describe(cycleStartValue)} "
-                + $"(raw {cycleStartValue:0.00}), {CommanderSettings.TimeOfDayCycleMinutes:0} min per 24h.");
+            return;
         }
 
-        float cycleSeconds = Mathf.Max(60f, CommanderSettings.TimeOfDayCycleMinutes * 60f);
-        float elapsed = Time.unscaledTime - cycleStartTime;
-        float compressed = cycleStartValue + (elapsed / cycleSeconds) * RangeHours;
-        float wrapped = compressed % RangeHours;
-        if (wrapped < 0f)
+        ApplyRate(level, desired);
+    }
+
+    /// <summary>
+    /// Game hours per real hour. 1 matches the base game default, 24 makes one game hour
+    /// pass in one real minute.
+    /// </summary>
+    internal static float DesiredRate
+    {
+        get
         {
-            wrapped += RangeHours;
+            float rate = CommanderSettings.TimeOfDayRateMultiplier;
+            return rate < 0f ? 0f : rate;
+        }
+    }
+
+    internal void SetRate(float rate)
+    {
+        CommanderSettings.TimeOfDayRateMultiplier = Mathf.Max(0f, rate);
+        appliedRate = -1f;
+    }
+
+    internal float CurrentRate
+    {
+        get
+        {
+            if (TimeFactorField == null)
+            {
+                return DesiredRate;
+            }
+
+            LevelInfo? level = NetworkSceneSingleton<LevelInfo>.i;
+            if (level == null)
+            {
+                return DesiredRate;
+            }
+
+            return TimeFactorField.GetValue(level) is float value ? value : DesiredRate;
+        }
+    }
+
+    internal void SetEnabled(bool enabled)
+    {
+        CommanderSettings.TimeOfDayControlEnabled = enabled;
+        if (!enabled)
+        {
+            ApplyRate(NetworkSceneSingleton<LevelInfo>.i, 1f);
+        }
+        appliedRate = -1f;
+    }
+
+    private void ApplyRate(LevelInfo? level, float rate)
+    {
+        if (level == null || TimeFactorField == null)
+        {
+            return;
         }
 
         try
         {
-            SetTimeOfDayMethod.Invoke(level, new object[] { wrapped });
+            TimeFactorField.SetValue(level, rate);
+            appliedRate = rate;
+            CommanderPlugin.Log.LogInfo($"[TimeOfDay] rate set to {rate:0.##}x (base game default is 1x).");
         }
         catch (Exception exception)
         {
-            CommanderPlugin.Log.LogError($"Time of day sync failed: {exception.Message}");
-            nextSyncAt = Time.unscaledTime + 30f;
+            CommanderPlugin.Log.LogError($"Failed to set time of day rate: {exception.Message}");
+            appliedRate = -1f;
         }
     }
+
+    internal static string[] PresetLabelNames => PresetNames;
+
+    internal void SetEnabledPresets(bool enabled)
+    {
+        presetsEnabled = enabled;
+    }
+
+    private bool presetsEnabled = true;
+    private int presetIndex;
 
     internal bool CyclePreset()
     {
@@ -107,9 +164,16 @@ internal sealed class CommanderTimeOfDayService
         return JumpToPreset(presetIndex);
     }
 
+    /// <summary>Jumps the clock to a lighting preset. The game keeps advancing from there.</summary>
     internal bool JumpToPreset(int index)
     {
+        if (index >= 0 && index < PresetHours.Length)
+        {
+            presetIndex = index;
+        }
+
         if (SetTimeOfDayMethod == null
+            || !presetsEnabled
             || !CommanderHostAuthority.IsHostAuthority()
             || index < 0
             || index >= PresetHours.Length)
@@ -134,14 +198,12 @@ internal sealed class CommanderTimeOfDayService
             return false;
         }
 
-        cycleStartTime = Time.unscaledTime;
-        cycleStartValue = value;
         CommanderPlugin.Log.LogInfo(
             $"[TimeOfDay] preset {PresetNames[index]} -> {Describe(value)} (raw {value:0.00}).");
         return true;
     }
 
-    /// <summary>Renders a raw time value through the game's own clock formatter.</summary>
+    /// <summary>Renders a raw hour value through the game's own clock formatter.</summary>
     private static string Describe(float value)
     {
         if (FormatTimeOfDayMethod == null)
@@ -157,20 +219,6 @@ internal sealed class CommanderTimeOfDayService
         {
             return "n/a";
         }
-    }
-
-    internal static string[] PresetLabelNames => PresetNames;
-
-    internal float CycleMinutes => CommanderSettings.TimeOfDayCycleMinutes;
-
-    internal void SetEnabled(bool enabled)
-    {
-        CommanderSettings.TimeOfDaySyncEnabled = enabled;
-    }
-
-    internal void SetCycleMinutes(float minutes)
-    {
-        CommanderSettings.TimeOfDayCycleMinutes = Mathf.Clamp(minutes, 1f, 1440f);
     }
 
     internal string ClockText
