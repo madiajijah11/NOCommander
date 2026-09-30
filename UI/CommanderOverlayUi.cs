@@ -897,8 +897,8 @@ internal sealed class CommanderOverlayUi
     private void DrawTimeSettings(float y)
     {
         float panelWidth = settingsWindowRect.width - 24f;
+
         float contentWidth = settingsWindowRect.width - 48f;
-        float halfWidth = (contentWidth - 6f) * 0.5f;
 
         GUI.Box(new Rect(12f, y, panelWidth, 128f), string.Empty, CommanderUiTheme.Panel);
         GUI.Label(new Rect(24f, y + 10f, contentWidth, 22f), "GAME SPEED", CommanderUiTheme.Header);
@@ -935,7 +935,7 @@ internal sealed class CommanderOverlayUi
 
         y += 136f;
         CommanderTimeOfDayService? clock = CommanderTimeOfDayService.Instance;
-        GUI.Box(new Rect(12f, y, panelWidth, 248f), string.Empty, CommanderUiTheme.Panel);
+        GUI.Box(new Rect(12f, y, panelWidth, 192f), string.Empty, CommanderUiTheme.Panel);
         GUI.Label(new Rect(24f, y + 10f, contentWidth, 22f), "DAY / NIGHT RATE (HOST)", CommanderUiTheme.Header);
 
         bool clockOn = GUI.Toggle(
@@ -972,10 +972,6 @@ internal sealed class CommanderOverlayUi
             new Rect(24f, y + 102f, contentWidth, 20f),
             "RATE: " + currentRate.ToString("0.##") + "x    NOW: " + clock.ClockText,
             CommanderUiTheme.MutedLabel);
-        GUI.Label(
-            new Rect(24f, y + 120f, contentWidth, 20f),
-            clock.DaylightStateText,
-            CommanderUiTheme.MutedLabel);
 
         string[] presets = CommanderTimeOfDayService.PresetLabelNames;
         float presetWidth = (contentWidth - (presets.Length - 1) * 4f) / presets.Length;
@@ -988,21 +984,9 @@ internal sealed class CommanderOverlayUi
             }
         }
 
-        if (GUI.Button(new Rect(24f, y + 158f, halfWidth, 24f), "LOG DAYLIGHT", CommanderUiTheme.Button))
+        if (GUI.Button(new Rect(24f, y + 158f, contentWidth, 24f), "RESET RATE TO 1x", CommanderUiTheme.Button))
         {
-            clock.LogDaylightState();
-        }
-        if (GUI.Button(new Rect(30f + halfWidth, y + 158f, halfWidth, 24f), "LOG BUILDING LIGHTS", CommanderUiTheme.Button))
-        {
-            clock.LogBuildingLights();
-        }
-        if (GUI.Button(new Rect(24f, y + 186f, contentWidth, 24f), "LOG AIRCRAFT / GROUND LIGHTS", CommanderUiTheme.Button))
-        {
-            clock.LogUnitLights();
-        }
-        if (GUI.Button(new Rect(24f, y + 212f, contentWidth, 24f), "FORCE AIRCRAFT LIGHTS ON", CommanderUiTheme.Button))
-        {
-            clock.ForceUnitLightsOn();
+            clock.SetRate(1f);
         }
     }
 
