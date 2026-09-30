@@ -75,6 +75,9 @@ internal sealed class CommanderTimeOfDayService
         {
             cycleStartTime = Time.unscaledTime;
             cycleStartValue = level.NetworktimeOfDay;
+            CommanderPlugin.Log.LogInfo(
+                $"[TimeOfDay] cycle engaged at {Describe(cycleStartValue)} "
+                + $"(raw {cycleStartValue:0}), {CommanderSettings.TimeOfDayCycleMinutes:0} min per 24h.");
         }
 
         float cycleSeconds = Mathf.Max(60f, CommanderSettings.TimeOfDayCycleMinutes * 60f);
@@ -132,7 +135,27 @@ internal sealed class CommanderTimeOfDayService
 
         cycleStartTime = Time.unscaledTime;
         cycleStartValue = value;
+        CommanderPlugin.Log.LogInfo(
+            $"[TimeOfDay] preset {PresetNames[index]} -> {Describe(value)} (raw {value:0}).");
         return true;
+    }
+
+    /// <summary>Renders a raw time value through the game's own clock formatter.</summary>
+    private static string Describe(float value)
+    {
+        if (FormatTimeOfDayMethod == null)
+        {
+            return "n/a";
+        }
+
+        try
+        {
+            return FormatTimeOfDayMethod.Invoke(null, new object[] { value, false }) as string ?? "n/a";
+        }
+        catch (Exception)
+        {
+            return "n/a";
+        }
     }
 
     internal static string[] PresetLabelNames => PresetNames;
@@ -154,12 +177,7 @@ internal sealed class CommanderTimeOfDayService
         get
         {
             LevelInfo? level = NetworkSceneSingleton<LevelInfo>.i;
-            if (level == null || FormatTimeOfDayMethod == null)
-            {
-                return string.Empty;
-            }
-
-            return FormatTimeOfDayMethod.Invoke(null, new object[] { level.NetworktimeOfDay, false }) as string ?? string.Empty;
+            return level == null ? string.Empty : Describe(level.NetworktimeOfDay);
         }
     }
 }
