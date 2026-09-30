@@ -6,22 +6,25 @@ using UnityEngine;
 
 namespace NuclearOptionCommander;
 
+/// <summary>
+/// Host-only day/night compression. The game stores the world clock in seconds since
+/// midnight (0 - 86400), so the full range is known and needs no auto-calibration.
+/// </summary>
 internal sealed class CommanderTimeOfDayService
 {
-    private static readonly (string Name, float Fraction)[] Presets =
-    {
-        ("DAWN", 0.25f),
-        ("NOON", 0.5f),
-        ("DUSK", 0.75f),
-        ("NIGHT", 0f),
-        ("MORNING", 0.375f),
-    };
+    /// <summary>Seconds in a full day, matching the game's own timeOfDay range.</summary>
+    internal const float RangeSeconds = 86400f;
+
+    private static readonly float[] PresetSeconds = { 21600f, 43200f, 64800f, 0f, 32400f };
+    private static readonly string[] PresetNames = { "DAWN", "NOON", "DUSK", "NIGHT", "MORNING" };
 
     private static readonly MethodInfo? SetTimeOfDayMethod = AccessTools.Method(typeof(LevelInfo), "SetTimeOfDay");
     private static readonly MethodInfo? FormatTimeOfDayMethod =
         AccessTools.Method(typeof(UnitConverter), "TimeOfDay", new[] { typeof(float), typeof(bool) });
 
     private int presetIndex;
+    private float cycleStartTime;
+    private float cycleStartValue;
 
     internal static CommanderTimeOfDayService? Instance { get; private set; }
 
@@ -30,39 +33,23 @@ internal sealed class CommanderTimeOfDayService
         Instance = this;
     }
 
-    private float nextSyncAt;
-    private float lastObservedValue = -1f;
-    private float observedMax;
-    private float range;
-    private bool rangeLocked;
-    private bool calibrationLogged;
-    private float cycleStartTime;
-    private float cycleStartValue;
-
     internal void Activate()
     {
         nextSyncAt = CommanderScheduler.Stagger("tod.sync", CommanderSettings.TimeOfDaySyncIntervalSeconds, 1f);
-        lastObservedValue = -1f;
-        observedMax = 0f;
-        range = 0f;
-        rangeLocked = false;
-        calibrationLogged = false;
         cycleStartTime = 0f;
         cycleStartValue = 0f;
         presetIndex = 0;
     }
 
+    private float nextSyncAt;
+
     internal void Deactivate() { }
 
     internal void ResetSession()
     {
-        lastObservedValue = -1f;
-        observedMax = 0f;
-        range = 0f;
-        rangeLocked = false;
-        calibrationLogged = false;
         cycleStartTime = 0f;
         cycleStartValue = 0f;
+        presetIndex = 0;
         nextSyncAt = 0f;
     }
 
@@ -79,57 +66,24 @@ internal sealed class CommanderTimeOfDayService
         nextSyncAt = Time.unscaledTime + Mathf.Max(1f, CommanderSettings.TimeOfDaySyncIntervalSeconds);
 
         LevelInfo? level = NetworkSceneSingleton<LevelInfo>.i;
-        if (level == null)
+        if (level == null || !CommanderHostAuthority.IsHostAuthority())
         {
             return;
         }
 
-        float current = level.NetworktimeOfDay;
-        if (current > observedMax)
-        {
-            observedMax = current;
-        }
-
-        if (lastObservedValue >= 0f && current < lastObservedValue && observedMax > 1f)
-        {
-            range = observedMax;
-            rangeLocked = true;
-        }
-        lastObservedValue = current;
-
-        if (!CommanderHostAuthority.IsHostAuthority())
-        {
-            return;
-        }
-
-        if (!rangeLocked)
-        {
-            if (!calibrationLogged)
-            {
-                calibrationLogged = true;
-                string? formatted = FormatTimeOfDayMethod != null
-                    ? FormatTimeOfDayMethod.Invoke(null, new object[] { current, false }) as string
-                    : null;
-                CommanderPlugin.Log.LogInfo(
-                    $"[TimeOfDay] calibrating: value={current}, label={formatted ?? "n/a"}. "
-                    + "Compression engages after the first wrap.");
-            }
-            return;
-        }
-
-        float cycleSeconds = Mathf.Max(60f, CommanderSettings.TimeOfDayCycleMinutes * 60f);
         if (cycleStartTime <= 0f)
         {
             cycleStartTime = Time.unscaledTime;
-            cycleStartValue = current;
+            cycleStartValue = level.NetworktimeOfDay;
         }
 
+        float cycleSeconds = Mathf.Max(60f, CommanderSettings.TimeOfDayCycleMinutes * 60f);
         float elapsed = Time.unscaledTime - cycleStartTime;
-        float compressed = cycleStartValue + (elapsed / cycleSeconds) * range;
-        float wrapped = compressed % range;
+        float compressed = cycleStartValue + (elapsed / cycleSeconds) * RangeSeconds;
+        float wrapped = compressed % RangeSeconds;
         if (wrapped < 0f)
         {
-            wrapped += range;
+            wrapped += RangeSeconds;
         }
 
         try
@@ -143,51 +97,45 @@ internal sealed class CommanderTimeOfDayService
         }
     }
 
-    /// <summary>
-    /// Jumps the world clock to a lighting preset. Presets are fractions of the observed
-    /// range, so they work whether the game stores time in hours or in seconds.
-    /// </summary>
     internal bool CyclePreset()
     {
-        presetIndex = (presetIndex + 1) % Presets.Length;
-        return CanJump() && ApplyPreset();
+        presetIndex = (presetIndex + 1) % PresetSeconds.Length;
+        return JumpToPreset(presetIndex);
     }
 
     internal bool JumpToPreset(int index)
     {
-        if (index < 0 || index >= Presets.Length)
+        if (SetTimeOfDayMethod == null
+            || !CommanderHostAuthority.IsHostAuthority()
+            || index < 0
+            || index >= PresetSeconds.Length)
         {
             return false;
         }
 
-        presetIndex = index;
-        return CanJump() && ApplyPreset();
-    }
-
-    private bool CanJump()
-    {
-        return SetTimeOfDayMethod != null
-            && CommanderHostAuthority.IsHostAuthority()
-            && rangeLocked
-            && range > 1f;
-    }
-
-    internal string PresetName => rangeLocked ? Presets[presetIndex].Name : "UNSET";
-
-    internal static string[] PresetNames
-    {
-        get
+        LevelInfo? level = NetworkSceneSingleton<LevelInfo>.i;
+        if (level == null)
         {
-            var names = new string[Presets.Length];
-            for (int i = 0; i < Presets.Length; i++)
-            {
-                names[i] = Presets[i].Name;
-            }
-            return names;
+            return false;
         }
+
+        float value = PresetSeconds[index];
+        try
+        {
+            SetTimeOfDayMethod.Invoke(level, new object[] { value });
+        }
+        catch (Exception exception)
+        {
+            CommanderPlugin.Log.LogError($"Time of day preset failed: {exception.Message}");
+            return false;
+        }
+
+        cycleStartTime = Time.unscaledTime;
+        cycleStartValue = value;
+        return true;
     }
 
-    internal bool RangeKnown => rangeLocked && range > 1f;
+    internal static string[] PresetLabelNames => PresetNames;
 
     internal float CycleMinutes => CommanderSettings.TimeOfDayCycleMinutes;
 
@@ -199,49 +147,6 @@ internal sealed class CommanderTimeOfDayService
     internal void SetCycleMinutes(float minutes)
     {
         CommanderSettings.TimeOfDayCycleMinutes = Mathf.Clamp(minutes, 1f, 1440f);
-    }
-
-    /// <summary>
-    /// Skips wrap detection by trusting a known range. Use 24 when the game stores hours,
-    /// or 86400 when it stores seconds.
-    /// </summary>
-    internal bool ForceRange(float value)
-    {
-        if (value <= 1f)
-        {
-            return false;
-        }
-
-        range = value;
-        observedMax = value;
-        rangeLocked = true;
-        calibrationLogged = true;
-        return true;
-    }
-
-    private bool ApplyPreset()
-    {
-        LevelInfo? level = NetworkSceneSingleton<LevelInfo>.i;
-        if (level == null)
-        {
-            return false;
-        }
-
-        float value = Presets[presetIndex].Fraction * range;
-        try
-        {
-            SetTimeOfDayMethod!.Invoke(level, new object[] { value });
-        }
-        catch (Exception exception)
-        {
-            CommanderPlugin.Log.LogError($"Time of day preset failed: {exception.Message}");
-            return false;
-        }
-
-        cycleStartTime = Time.unscaledTime;
-        cycleStartValue = value;
-        lastObservedValue = value;
-        return true;
     }
 
     internal string ClockText

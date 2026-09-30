@@ -964,29 +964,23 @@ internal sealed class CommanderOverlayUi
 
         GUI.Label(
             new Rect(24f, y + 102f, contentWidth, 20f),
-            clock.RangeKnown
-                ? "CYCLE: " + clock.CycleMinutes.ToString("0") + " MIN    NOW: " + clock.ClockText
-                : "RANGE UNKNOWN - PICK ONE BELOW",
+            "CYCLE: " + clock.CycleMinutes.ToString("0") + " MIN    NOW: " + clock.ClockText,
             CommanderUiTheme.MutedLabel);
 
-        if (GUI.Button(new Rect(24f, y + 126f, halfWidth, 26f), "RANGE = 24", CommanderUiTheme.Button))
-        {
-            clock.ForceRange(24f);
-        }
-        if (GUI.Button(new Rect(30f + halfWidth, y + 126f, halfWidth, 26f), "RANGE = 86400", CommanderUiTheme.Button))
-        {
-            clock.ForceRange(86400f);
-        }
-
-        string[] presets = CommanderTimeOfDayService.PresetNames;
+        string[] presets = CommanderTimeOfDayService.PresetLabelNames;
         float presetWidth = (contentWidth - (presets.Length - 1) * 4f) / presets.Length;
         for (int i = 0; i < presets.Length; i++)
         {
             float x = 24f + i * (presetWidth + 4f);
-            if (GUI.Button(new Rect(x, y + 158f, presetWidth, 24f), presets[i], CommanderUiTheme.Button))
+            if (GUI.Button(new Rect(x, y + 126f, presetWidth, 26f), presets[i], CommanderUiTheme.Button))
             {
                 clock.JumpToPreset(i);
             }
+        }
+
+        if (GUI.Button(new Rect(24f, y + 158f, contentWidth, 24f), "RESET CYCLE TO 1x", CommanderUiTheme.Button))
+        {
+            clock.SetCycleMinutes(1440f);
         }
     }
 
