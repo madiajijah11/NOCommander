@@ -52,16 +52,33 @@ internal sealed partial class CommanderSamSiteService
 
     internal void Toggle()
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            SetStatus("Host authority required.", warning: true);
+            return;
+        }
+
         ToggleConstructionSite();
     }
 
     internal void SpawnCompleteDebugSite()
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            return;
+        }
+
         TryCreateActiveConstructionSite(automaticBuild: false, instant: true);
     }
 
     internal void StartAutomaticSiteConstruction(bool useLocalCandidatePass)
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            SetStatus("Host authority required.", warning: true);
+            return;
+        }
+
         if (!analyzer.BeginAutomaticSiteSelection(
             useLocalCandidatePass,
             success =>

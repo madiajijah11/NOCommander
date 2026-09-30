@@ -304,6 +304,12 @@ internal sealed class CommanderCheatService
 
     internal void BeginPlacement(UnitDefinition definition, bool asEnemy)
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            SetStatus("Host authority required.");
+            return;
+        }
+
         if (definition == null || definition.unitPrefab == null)
         {
             SetStatus("Invalid unit definition.");
@@ -442,6 +448,12 @@ internal sealed class CommanderCheatService
 
     internal bool TrySpawnAtWorldPoint(Vector2 screenPosition)
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            SetStatus("Host authority required.");
+            return false;
+        }
+
         if (!awaitingPlacement || pendingSpawnDefinition == null)
         {
             return false;
@@ -540,6 +552,11 @@ internal sealed class CommanderCheatService
 
     internal void AddFunds(float amount)
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            return;
+        }
+
         FactionHQ? hq = CommanderGameAccess.GetLocalHq();
         if (hq == null)
         {
@@ -553,6 +570,11 @@ internal sealed class CommanderCheatService
 
     internal void SetMaxFunds()
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            return;
+        }
+
         FactionHQ? hq = CommanderGameAccess.GetLocalHq();
         if (hq == null)
         {
@@ -566,6 +588,12 @@ internal sealed class CommanderCheatService
 
     internal void HealSelection()
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            SetStatus("Host authority required.");
+            return;
+        }
+
         IReadOnlyList<Unit> selected = selectionService.SelectedUnits;
         if (selected.Count == 0)
         {
@@ -605,6 +633,12 @@ internal sealed class CommanderCheatService
 
     internal void RestockAmmoSelection()
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            SetStatus("Host authority required.");
+            return;
+        }
+
         IReadOnlyList<Unit> selected = selectionService.SelectedUnits;
         if (selected.Count == 0)
         {
@@ -659,6 +693,12 @@ internal sealed class CommanderCheatService
 
     internal void DestroySelection()
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            SetStatus("Host authority required.");
+            return;
+        }
+
         IReadOnlyList<Unit> selected = selectionService.SelectedUnits;
         if (selected.Count == 0)
         {

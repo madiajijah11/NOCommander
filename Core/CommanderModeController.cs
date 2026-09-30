@@ -32,6 +32,8 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderCheatService? cheatService;
     private CommanderFactoryProductionService? factoryProductionService;
     private CommanderWarActivityService? warActivityService;
+    private readonly CommanderTimeOfDayService timeOfDayService = new();
+    private readonly CommanderGameSpeedService gameSpeedService = new();
     private CommanderForwardOutpostService? forwardOutpostService;
     private CommanderBuildingEconomyService? buildingEconomyService;
     private CommanderTargetDeconflictionService? targetDeconflictionService;
@@ -179,6 +181,7 @@ internal sealed class CommanderModeController : MonoBehaviour
             spawnService?.TickActive();
             factoryProductionService?.Tick();
             warActivityService?.Tick();
+            timeOfDayService.Tick();
             forwardOutpostService?.Tick();
             buildingEconomyService?.Tick();
             airLoiterService?.Tick();
@@ -363,6 +366,8 @@ internal sealed class CommanderModeController : MonoBehaviour
         samSiteAnalyzerService?.Activate();
         spawnService?.Activate();
         warActivityService?.Activate();
+        timeOfDayService.Activate();
+        gameSpeedService.Activate();
     }
 
     private void Deactivate(bool restorePreviousCamera = true)
@@ -387,6 +392,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         samSiteAnalyzerService?.Deactivate();
         spawnService?.Deactivate();
         warActivityService?.Deactivate();
+        timeOfDayService.Deactivate();
         overlayUi?.Deactivate();
         tacticalMapService?.Close();
         cursorController?.Deactivate();
@@ -429,6 +435,8 @@ internal sealed class CommanderModeController : MonoBehaviour
         cheatService?.ResetSession();
         factoryProductionService?.ResetSession();
         warActivityService?.ResetSession();
+        timeOfDayService.ResetSession();
+        gameSpeedService.ResetSession();
         forwardOutpostService?.ResetSession();
         buildingEconomyService?.ResetSession();
         airLoiterService?.ResetSession();

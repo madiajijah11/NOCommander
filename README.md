@@ -124,6 +124,8 @@ Accessible via the **`CHEAT / SANDBOX`** button in the Commander panel:
 | `Ctrl + R` | Toggle Global EMCON / Radar Silence | `CommanderRadarService` |
 | `F` | Toggle Hold Fire / Free Fire (Stance) | `CommanderStanceService` |
 | `X` | Deploy emergency smoke screen | `CommanderSmokeCountermeasuresService` |
+| `P` | Cycle game speed (0.5x - 5x, client-local) | `CommanderGameSpeedService` |
+| `Ctrl + P` | Host-only: jump to next day/night preset | `CommanderTimeOfDayService` |
 | `Space` | Center camera on unit / Follow selection | `CommanderCameraFollowService` |
 | `H` | Cycle UI visibility (*Full / Minimal / Hidden*) | `CommanderOverlayUi` |
 | `W, A, S, D, Q, E` | RTS Camera Pan & Elevation | `CommanderCameraController` |

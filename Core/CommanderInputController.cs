@@ -237,6 +237,20 @@ internal sealed class CommanderInputController
             CommanderSmokeCountermeasuresService.Instance?.TryDeploySmokeForSelection(selectionService, moveService);
         }
 
+        // P: cycle client-local game speed. Ctrl + P: host-only day/night preset jump.
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            bool isCtrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            if (isCtrl)
+            {
+                CommanderTimeOfDayService.Instance?.CyclePreset();
+            }
+            else
+            {
+                CommanderGameSpeedService.Instance?.Cycle();
+            }
+        }
+
         // O key: Order Aviation Loiter / Holding Orbit for selected aircraft
         if (Input.GetKeyDown(KeyCode.O))
         {

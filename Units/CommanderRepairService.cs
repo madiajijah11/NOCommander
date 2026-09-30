@@ -31,6 +31,11 @@ internal sealed class CommanderRepairService
 
     internal void ToggleNearestTarget(Unit unit)
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            return;
+        }
+
         Repairer? repairer = GetRepairer(unit);
         if (repairer == null)
         {

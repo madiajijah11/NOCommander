@@ -107,6 +107,11 @@ internal sealed class CommanderFactoryProductionService
 
     internal bool SetProductionUnit(Factory factory, VehicleDefinition newDefinition)
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            return false;
+        }
+
         if (factory == null || factory.attachedUnit == null || factory.attachedUnit.disabled || newDefinition == null)
         {
             return false;

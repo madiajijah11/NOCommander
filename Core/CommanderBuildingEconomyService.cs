@@ -146,6 +146,11 @@ internal sealed class CommanderBuildingEconomyService
 
     private void DistributeEconomicIncome(float deltaSeconds)
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            return;
+        }
+
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
         if (localHq == null)
         {
@@ -171,6 +176,12 @@ internal sealed class CommanderBuildingEconomyService
 
     internal bool TryInvestInProject(int projectId, out string status)
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            status = "Host authority required.";
+            return false;
+        }
+
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
         if (localHq == null)
         {
@@ -210,6 +221,12 @@ internal sealed class CommanderBuildingEconomyService
 
     internal bool TryUpgradeBuildingFacility(Building building, out string status)
     {
+        if (!CommanderHostAuthority.IsHostAuthority())
+        {
+            status = "Host authority required.";
+            return false;
+        }
+
         FactionHQ? localHq = CommanderGameAccess.GetLocalHq();
         if (localHq == null || building == null)
         {

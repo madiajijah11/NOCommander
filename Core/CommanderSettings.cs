@@ -32,6 +32,11 @@ internal static class CommanderSettings
     internal static int WarActivityMinimumNaval { get => Get("Gameplay", "WarActivityMinimumNaval", 1); set => Set("Gameplay", "WarActivityMinimumNaval", value); }
     internal static float WarActivityFrontlineIntervalSeconds { get => Get("Gameplay", "WarActivityFrontlineIntervalSeconds", 15f); set => Set("Gameplay", "WarActivityFrontlineIntervalSeconds", value); }
     internal static float WarActivitySupplyIntervalSeconds { get => Get("Gameplay", "WarActivitySupplyIntervalSeconds", 45f); set => Set("Gameplay", "WarActivitySupplyIntervalSeconds", value); }
+    internal static bool TimeOfDaySyncEnabled { get => Get("Gameplay", "TimeOfDaySyncEnabled", true); set => Set("Gameplay", "TimeOfDaySyncEnabled", value); }
+    internal static float TimeOfDayCycleMinutes { get => Get("Gameplay", "TimeOfDayCycleMinutes", 60f); set => Set("Gameplay", "TimeOfDayCycleMinutes", value); }
+    internal static float TimeOfDaySyncIntervalSeconds { get => Get("Gameplay", "TimeOfDaySyncIntervalSeconds", 5f); set => Set("Gameplay", "TimeOfDaySyncIntervalSeconds", value); }
+    internal static bool GameSpeedEnabled { get => Get("Gameplay", "GameSpeedEnabled", true); set => Set("Gameplay", "GameSpeedEnabled", value); }
+    internal static float GameSpeedValue { get => Get("Gameplay", "GameSpeedValue", 1f); set => Set("Gameplay", "GameSpeedValue", value); }
     internal static bool ShowCommandButton { get => Get("UI", "ShowCommandButton", true); set => Set("UI", "ShowCommandButton", value); }
     internal static bool ShowFactionMoney { get => Get("UI", "ShowFactionMoney", true); set => Set("UI", "ShowFactionMoney", value); }
     internal static bool ShowTacticalMap { get => Get("UI", "ShowTacticalMap", true); set => Set("UI", "ShowTacticalMap", value); }
