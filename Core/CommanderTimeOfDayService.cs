@@ -149,19 +149,75 @@ internal sealed class CommanderTimeOfDayService
     /// </summary>
     internal bool CyclePreset()
     {
-        if (SetTimeOfDayMethod == null
-            || !CommanderHostAuthority.IsHostAuthority()
-            || !rangeLocked
-            || range <= 1f)
+        presetIndex = (presetIndex + 1) % Presets.Length;
+        return CanJump() && ApplyPreset();
+    }
+
+    internal bool JumpToPreset(int index)
+    {
+        if (index < 0 || index >= Presets.Length)
         {
             return false;
         }
 
-        presetIndex = (presetIndex + 1) % Presets.Length;
-        return ApplyPreset();
+        presetIndex = index;
+        return CanJump() && ApplyPreset();
+    }
+
+    private bool CanJump()
+    {
+        return SetTimeOfDayMethod != null
+            && CommanderHostAuthority.IsHostAuthority()
+            && rangeLocked
+            && range > 1f;
     }
 
     internal string PresetName => rangeLocked ? Presets[presetIndex].Name : "UNSET";
+
+    internal static string[] PresetNames
+    {
+        get
+        {
+            var names = new string[Presets.Length];
+            for (int i = 0; i < Presets.Length; i++)
+            {
+                names[i] = Presets[i].Name;
+            }
+            return names;
+        }
+    }
+
+    internal bool RangeKnown => rangeLocked && range > 1f;
+
+    internal float CycleMinutes => CommanderSettings.TimeOfDayCycleMinutes;
+
+    internal void SetEnabled(bool enabled)
+    {
+        CommanderSettings.TimeOfDaySyncEnabled = enabled;
+    }
+
+    internal void SetCycleMinutes(float minutes)
+    {
+        CommanderSettings.TimeOfDayCycleMinutes = Mathf.Clamp(minutes, 1f, 1440f);
+    }
+
+    /// <summary>
+    /// Skips wrap detection by trusting a known range. Use 24 when the game stores hours,
+    /// or 86400 when it stores seconds.
+    /// </summary>
+    internal bool ForceRange(float value)
+    {
+        if (value <= 1f)
+        {
+            return false;
+        }
+
+        range = value;
+        observedMax = value;
+        rangeLocked = true;
+        calibrationLogged = true;
+        return true;
+    }
 
     private bool ApplyPreset()
     {

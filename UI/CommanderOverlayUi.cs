@@ -847,10 +847,11 @@ internal sealed class CommanderOverlayUi
         }
 
         float y = settingsHelpVisible ? 118f : 38f;
-        float tabWidth = (settingsWindowRect.width - 36f) / 3f;
+        float tabWidth = (settingsWindowRect.width - 42f) / 4f;
         DrawSettingsTab(new Rect(12f, y, tabWidth, 32f), "GAMEPLAY", 0);
         DrawSettingsTab(new Rect(12f + tabWidth + 6f, y, tabWidth, 32f), "UI / HIDE", 1);
         DrawSettingsTab(new Rect(12f + (tabWidth + 6f) * 2f, y, tabWidth, 32f), "CONTROLS", 2);
+        DrawSettingsTab(new Rect(12f + (tabWidth + 6f) * 3f, y, tabWidth, 32f), "TIME", 3);
         y += 44f;
 
         if (settingsTab == 0)
@@ -860,6 +861,10 @@ internal sealed class CommanderOverlayUi
         else if (settingsTab == 1)
         {
             DrawUiSettings(y);
+        }
+        else if (settingsTab == 3)
+        {
+            DrawTimeSettings(y);
         }
         else
         {
@@ -887,6 +892,102 @@ internal sealed class CommanderOverlayUi
             CommanderSettings.LimitToFactoryVehicles,
             "Limit to vehicles from factories",
             CommanderUiTheme.Toggle);
+    }
+
+    private void DrawTimeSettings(float y)
+    {
+        float panelWidth = settingsWindowRect.width - 24f;
+        float contentWidth = settingsWindowRect.width - 48f;
+        float halfWidth = (contentWidth - 6f) * 0.5f;
+
+        GUI.Box(new Rect(12f, y, panelWidth, 128f), string.Empty, CommanderUiTheme.Panel);
+        GUI.Label(new Rect(24f, y + 10f, contentWidth, 22f), "GAME SPEED", CommanderUiTheme.Header);
+
+        CommanderGameSpeedService? speed = CommanderGameSpeedService.Instance;
+        bool speedOn = GUI.Toggle(
+            new Rect(24f, y + 38f, contentWidth, 28f),
+            CommanderSettings.GameSpeedEnabled,
+            "Enable game speed (client-local, key P)",
+            CommanderUiTheme.Toggle);
+        if (speedOn != CommanderSettings.GameSpeedEnabled)
+        {
+            speed?.SetEnabled(speedOn);
+        }
+
+        if (speed != null)
+        {
+            float[] steps = CommanderGameSpeedService.Speeds;
+            float buttonWidth = (contentWidth - (steps.Length - 1) * 4f) / steps.Length;
+            for (int i = 0; i < steps.Length; i++)
+            {
+                float x = 24f + i * (buttonWidth + 4f);
+                if (GUI.Button(new Rect(x, y + 72f, buttonWidth, 26f), steps[i].ToString("0.0") + "x", CommanderUiTheme.Button))
+                {
+                    speed.SetSpeed(steps[i]);
+                }
+            }
+
+            if (GUI.Button(new Rect(24f, y + 102f, contentWidth, 20f), "RESET TO 1x", CommanderUiTheme.Button))
+            {
+                speed.ResetSpeed();
+            }
+        }
+
+        y += 136f;
+        CommanderTimeOfDayService? clock = CommanderTimeOfDayService.Instance;
+        GUI.Box(new Rect(12f, y, panelWidth, 192f), string.Empty, CommanderUiTheme.Panel);
+        GUI.Label(new Rect(24f, y + 10f, contentWidth, 22f), "DAY / NIGHT CYCLE (HOST)", CommanderUiTheme.Header);
+
+        bool clockOn = GUI.Toggle(
+            new Rect(24f, y + 38f, contentWidth, 28f),
+            CommanderSettings.TimeOfDaySyncEnabled,
+            "Compress the day/night cycle",
+            CommanderUiTheme.Toggle);
+        if (clockOn != CommanderSettings.TimeOfDaySyncEnabled)
+        {
+            clock?.SetEnabled(clockOn);
+        }
+
+        if (GUI.Button(new Rect(24f, y + 72f, halfWidth, 26f), "MINUS 30 MIN", CommanderUiTheme.Button))
+        {
+            clock?.SetCycleMinutes(clock.CycleMinutes - 30f);
+        }
+        if (GUI.Button(new Rect(30f + halfWidth, y + 72f, halfWidth, 26f), "PLUS 30 MIN", CommanderUiTheme.Button))
+        {
+            clock?.SetCycleMinutes(clock.CycleMinutes + 30f);
+        }
+
+        if (clock == null)
+        {
+            return;
+        }
+
+        GUI.Label(
+            new Rect(24f, y + 102f, contentWidth, 20f),
+            clock.RangeKnown
+                ? "CYCLE: " + clock.CycleMinutes.ToString("0") + " MIN    NOW: " + clock.ClockText
+                : "RANGE UNKNOWN - PICK ONE BELOW",
+            CommanderUiTheme.MutedLabel);
+
+        if (GUI.Button(new Rect(24f, y + 126f, halfWidth, 26f), "RANGE = 24", CommanderUiTheme.Button))
+        {
+            clock.ForceRange(24f);
+        }
+        if (GUI.Button(new Rect(30f + halfWidth, y + 126f, halfWidth, 26f), "RANGE = 86400", CommanderUiTheme.Button))
+        {
+            clock.ForceRange(86400f);
+        }
+
+        string[] presets = CommanderTimeOfDayService.PresetNames;
+        float presetWidth = (contentWidth - (presets.Length - 1) * 4f) / presets.Length;
+        for (int i = 0; i < presets.Length; i++)
+        {
+            float x = 24f + i * (presetWidth + 4f);
+            if (GUI.Button(new Rect(x, y + 158f, presetWidth, 24f), presets[i], CommanderUiTheme.Button))
+            {
+                clock.JumpToPreset(i);
+            }
+        }
     }
 
     private void DrawUiSettings(float y)

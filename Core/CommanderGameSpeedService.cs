@@ -22,6 +22,34 @@ internal sealed class CommanderGameSpeedService
 
     internal float Current => Steps[stepIndex];
 
+    internal static float[] Speeds => Steps;
+
+    internal void SetEnabled(bool enabled)
+    {
+        CommanderSettings.GameSpeedEnabled = enabled;
+        ApplySetting();
+    }
+
+    internal bool SetSpeed(float value)
+    {
+        if (!CommanderHostAuthority.IsSessionOwner())
+        {
+            return false;
+        }
+
+        CommanderSettings.GameSpeedValue = value;
+        stepIndex = NearestStep(value);
+        Apply();
+        return true;
+    }
+
+    /// <summary>Forces the engine back to 1x regardless of the enabled setting.</summary>
+    internal void ResetSpeed()
+    {
+        stepIndex = 1;
+        Apply();
+    }
+
     internal string Label => CommanderSettings.GameSpeedEnabled
         ? $"SPEED {Current:0.0}x"
         : "SPEED OFF";
