@@ -88,7 +88,7 @@ internal sealed class CommanderOrderAuthority
 
     internal bool TryAccept(CommanderOrderEnvelope envelope, out CommanderOrderResult result)
     {
-        if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active)
+        if (!CommanderHostAuthority.IsHostAuthority())
         {
             result = CommanderOrderResult.NotServer;
             return false;

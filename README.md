@@ -52,6 +52,11 @@ Mainly intended for **Escalation** and **Terminal Control** game modes.
   - Non-frontline units (logistics, standoff, air-defense, recon) are **refused** orders into a known hostile fire zone.
   - Explicit frontline player orders still execute, with a throttled **`[THREAT]`** warning.
   - Configure via `ThreatAwareMovementEnabled` and `ThreatDangerRadiusMeters` (default 200 m).
+- **Host-Authoritative Automated Operations (Multiplayer-Safe):**
+  - **Objective Defense:** Nearby unassigned friendly combat units automatically form a defensive standoff ring when friendly capturables or airbases come under hostile threat.
+  - **Battle Group Formations:** Maintains cohesion among predefined control groups without interfering with active player destinations.
+  - **Air Mission Queue:** Buffers mission requests into a bounded queue during hangar/runway congestion and dispatches automatically as capacity frees.
+  - **Counter-Battery Emergency Response:** Pinpoints hostile artillery and rocket launches via radar telemetry and mobilizes nearby combat units to suppress the firing origin according to doctrine standoff guidelines.
 
 ---
 

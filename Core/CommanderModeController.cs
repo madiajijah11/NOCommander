@@ -40,6 +40,9 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderAirLoiterService? airLoiterService;
     private CommanderSmokeCountermeasuresService? smokeService;
     private CommanderCounterBatteryRadarService? counterBatteryService;
+    private CommanderObjectiveDefenseService? objectiveDefenseService;
+    private CommanderBattleGroupService? battleGroupService;
+    private CommanderEmergencyResponseService? emergencyResponseService;
     private CommanderOverlayUi? overlayUi;
     private CommanderInputController? inputController;
     private CommanderPersistentOperations? persistentOperations;
@@ -100,6 +103,9 @@ internal sealed class CommanderModeController : MonoBehaviour
         smokeService = new CommanderSmokeCountermeasuresService();
         counterBatteryService = new CommanderCounterBatteryRadarService();
         airLoiterService = new CommanderAirLoiterService();
+        objectiveDefenseService = new CommanderObjectiveDefenseService();
+        battleGroupService = new CommanderBattleGroupService();
+        emergencyResponseService = new CommanderEmergencyResponseService();
         targetDeconflictionService = new CommanderTargetDeconflictionService();
         overlayUi = new CommanderOverlayUi(
             selectionService,
@@ -181,6 +187,9 @@ internal sealed class CommanderModeController : MonoBehaviour
             spawnService?.TickActive();
             factoryProductionService?.Tick();
             warActivityService?.Tick();
+            objectiveDefenseService?.Tick();
+            battleGroupService?.Tick();
+            emergencyResponseService?.Tick();
             timeOfDayService.Tick();
             forwardOutpostService?.Tick();
             buildingEconomyService?.Tick();
@@ -366,6 +375,9 @@ internal sealed class CommanderModeController : MonoBehaviour
         samSiteAnalyzerService?.Activate();
         spawnService?.Activate();
         warActivityService?.Activate();
+        objectiveDefenseService?.Activate();
+        battleGroupService?.Activate();
+        emergencyResponseService?.Activate();
         timeOfDayService.Activate();
         gameSpeedService.Activate();
     }
@@ -392,6 +404,9 @@ internal sealed class CommanderModeController : MonoBehaviour
         samSiteAnalyzerService?.Deactivate();
         spawnService?.Deactivate();
         warActivityService?.Deactivate();
+        objectiveDefenseService?.Deactivate();
+        battleGroupService?.Deactivate();
+        emergencyResponseService?.Deactivate();
         timeOfDayService.Deactivate();
         overlayUi?.Deactivate();
         tacticalMapService?.Close();
@@ -435,6 +450,9 @@ internal sealed class CommanderModeController : MonoBehaviour
         cheatService?.ResetSession();
         factoryProductionService?.ResetSession();
         warActivityService?.ResetSession();
+        objectiveDefenseService?.ResetSession();
+        battleGroupService?.ResetSession();
+        emergencyResponseService?.ResetSession();
         timeOfDayService.ResetSession();
         gameSpeedService.ResetSession();
         forwardOutpostService?.ResetSession();

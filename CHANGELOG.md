@@ -16,6 +16,22 @@ All notable changes to the NOCommander mod are documented in this file.
   - `CommanderMoveService` refuses move orders into a known hostile fire zone for non-frontline units; explicit frontline player orders execute with a throttled `[THREAT]` warning.
   - Rejected queued waypoints now stay queued instead of being silently dropped.
   - New settings: `ThreatAwareMovementEnabled` (default on), `ThreatDangerRadiusMeters` (default 200 m).
+- **Logistics & Objective Defense (Phase 3):**
+  - Consolidated host authority checks across all subsystems via `CommanderHostAuthority.IsHostAuthority()`.
+  - Added host-gate protections to autonomous destination dispatch (`CommanderGameAccess.TrySetDestination`), air loiter orbit updates (throttled to 1s intervals), and repair searches (`CommanderRepairPatches`).
+  - Added `CommanderObjectiveDefenseService`: host-authoritative objective defense that pulls nearby unassigned friendly combat units into a defensive perimeter when friendly bases/capturables come under hostile contact without overriding active player orders.
+  - New settings: `ObjectiveDefenseEnabled`, `ObjectiveDefenseIntervalSeconds`, `ObjectiveDefenseThreatRadiusMeters`, `ObjectiveDefenseRadiusMeters`, `ObjectiveDefenseMaxUnitsPerSite`, `ObjectiveDefenseReissueSeconds`, `ObjectiveDefenseReleaseMeters`, `ObjectiveDefenseWarnIntervalSeconds`.
+- **Battle Groups & Cohesive Reinforcement (Phase 4):**
+  - Added `CommanderBattleGroupService`: maintains tactical cohesion across control groups rally-bound to HQ without disrupting explicit player destinations.
+  - Upgraded `CommanderWarActivityService.TryReinforceAir` to coordinate idle airpower into defensive holding orbits via `CommanderAirLoiterService`.
+  - New settings: `BattleGroupOrdersEnabled`, `BattleGroupIntervalSeconds`, `BattleGroupMinUnits`, `BattleGroupReissueSeconds`, `BattleGroupWarnIntervalSeconds`.
+- **Air Mission Queue & Recon Freshness (Phase 5):**
+  - Added bounded FIFO `QueuedAirMission` in `CommanderAirCommandService` that buffers missions when runways/hangars are busy or previous spawns are in-flight, processing them automatically on the host as resources clear.
+  - Bound target acquisition and marker retention in `CommanderGameAccess` to configurable `ReconFreshnessSeconds` to enforce sensor staleness bounds.
+  - New settings: `AirMissionQueueEnabled`, `AirMissionQueueIntervalSeconds`, `AirMissionQueueMaxDepth`, `ReconFreshnessSeconds`.
+- **Counter-Battery & Emergency Response (Phase 6):**
+  - Added `CommanderEmergencyResponseService`: host-authoritative reaction force that detects heavy artillery/rocket fire pings from `CommanderCounterBatteryRadarService` and dispatches unassigned combat units to contain the firing position according to doctrine standoff policies.
+  - New settings: `EmergencyResponseEnabled`, `EmergencyResponseIntervalSeconds`, `EmergencyResponseRadiusMeters`, `EmergencyResponseMinUnits`, `EmergencyResponseWarnIntervalSeconds`.
 
 ### 🐛 Fixes
 - Stopped a rejected waypoint from being dequeued and lost when the host declined the order.

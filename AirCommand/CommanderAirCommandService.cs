@@ -21,6 +21,8 @@ internal sealed partial class CommanderAirCommandService
     private readonly Dictionary<Aircraft, AirMission> missions = new();
     private readonly Dictionary<Airbase, float> lastAirbaseSpawnTimes = new();
     private readonly List<Aircraft> staleAircraft = new();
+    private readonly Queue<QueuedAirMission> missionQueue = new();
+    private float nextQueueProcessAt;
 
     private PendingAreaSelection? pendingAreaSelection;
     private Aircraft? pendingMissionRelocation;
@@ -81,6 +83,7 @@ internal sealed partial class CommanderAirCommandService
             ? relocationMission.Radius
             : 0f;
     internal int ActiveMissionCount => missions.Count;
+    internal int QueuedMissionCount => missionQueue.Count;
     internal bool IsUiVisible => uiVisible;
     internal bool CanLaunchSelected => SelectedOption != null
         && SelectedPrimaryWeapon != null
@@ -127,6 +130,7 @@ internal sealed partial class CommanderAirCommandService
         airbases.Clear();
         ClearMissionMapVisuals();
         missions.Clear();
+        missionQueue.Clear();
         staleAircraft.Clear();
         mapClickTracker.Reset();
         selectedPrimaryWeaponIndex = -1;
@@ -176,6 +180,12 @@ internal sealed partial class CommanderAirCommandService
         {
             PruneMissions();
             RefreshMissionMapVisuals();
+        }
+
+        if (CommanderSettings.AirMissionQueueEnabled && missionQueue.Count > 0 && pendingAircraftSpawn == null && Time.unscaledTime >= nextQueueProcessAt)
+        {
+            nextQueueProcessAt = Time.unscaledTime + CommanderSettings.AirMissionQueueIntervalSeconds;
+            ProcessMissionQueue();
         }
 
     }
@@ -1034,9 +1044,9 @@ internal sealed partial class CommanderAirCommandService
         }
     }
 
-    private void SpawnMission(AirMissionOption option, Airbase airbase, GlobalPosition target)
+    private void SpawnMission(AirMissionOption option, Airbase airbase, GlobalPosition target, bool allowQueue = true)
     {
-        if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active)
+        if (!CommanderHostAuthority.IsHostAuthority())
         {
             SetStatus("Air Command is host-only.");
             return;
@@ -1051,12 +1061,20 @@ internal sealed partial class CommanderAirCommandService
 
         if (!airbase.CanSpawnAircraft(option.Definition))
         {
+            if (allowQueue && TryEnqueueMission(option, airbase, target, "hangar busy"))
+            {
+                return;
+            }
             SetStatus("The selected airbase is busy. Retry when a compatible hangar is free.");
             return;
         }
 
         if (lastAirbaseSpawnTimes.TryGetValue(airbase, out float lastSpawn) && Time.unscaledTime - lastSpawn < 8.0f)
         {
+            if (allowQueue && TryEnqueueMission(option, airbase, target, "runway busy"))
+            {
+                return;
+            }
             float waitSec = Mathf.Ceil(8.0f - (Time.unscaledTime - lastSpawn));
             string abName = airbase != null ? airbase.name : "Airbase";
             SetStatus($"Runway busy at {abName}. Staggering departure ({waitSec:0}s remaining).");
@@ -1065,6 +1083,10 @@ internal sealed partial class CommanderAirCommandService
 
         if (pendingAircraftSpawn != null)
         {
+            if (allowQueue && TryEnqueueMission(option, airbase, target, "previous spawn in progress"))
+            {
+                return;
+            }
             SetStatus("Wait for the previous Air Command aircraft to finish spawning.");
             return;
         }
@@ -1129,6 +1151,86 @@ internal sealed partial class CommanderAirCommandService
 
         lastAirbaseSpawnTimes[airbase] = Time.unscaledTime;
         SetStatus($"{GetModeLabel(option.Mode)} mission launched: {GetAircraftLabel(option.Definition)} / {option.LoadoutName}.");
+    }
+
+    private readonly struct QueuedAirMission
+    {
+        public readonly AirMissionOption Option;
+        public readonly Airbase Airbase;
+        public readonly GlobalPosition Target;
+        public readonly float EnqueuedAt;
+
+        public QueuedAirMission(AirMissionOption option, Airbase airbase, GlobalPosition target, float enqueuedAt)
+        {
+            Option = option;
+            Airbase = airbase;
+            Target = target;
+            EnqueuedAt = enqueuedAt;
+        }
+    }
+
+    private bool TryEnqueueMission(AirMissionOption option, Airbase airbase, GlobalPosition target, string reason)
+    {
+        if (!CommanderSettings.AirMissionQueueEnabled)
+        {
+            return false;
+        }
+
+        if (missionQueue.Count >= CommanderSettings.AirMissionQueueMaxDepth)
+        {
+            SetStatus($"Mission queue full ({missionQueue.Count}/{CommanderSettings.AirMissionQueueMaxDepth}). Order dropped.");
+            return false;
+        }
+
+        missionQueue.Enqueue(new QueuedAirMission(option, airbase, target, Time.unscaledTime));
+        SetStatus($"Air mission queued ({reason}, {missionQueue.Count}/{CommanderSettings.AirMissionQueueMaxDepth}): {GetAircraftLabel(option.Definition)}.");
+        return true;
+    }
+
+    private void ProcessMissionQueue()
+    {
+        if (missionQueue.Count == 0 || pendingAircraftSpawn != null)
+        {
+            return;
+        }
+
+        FactionHQ? hq = CommanderGameAccess.GetLocalHq();
+        if (hq == null || !CommanderHostAuthority.IsHostAuthority())
+        {
+            return;
+        }
+
+        const float MaxQueueAgeSeconds = 90f;
+        while (missionQueue.Count > 0)
+        {
+            QueuedAirMission item = missionQueue.Peek();
+            if (item.Airbase == null || item.Airbase.disabled || !ReferenceEquals(item.Airbase.CurrentHQ, hq))
+            {
+                missionQueue.Dequeue();
+                continue;
+            }
+
+            if (Time.unscaledTime - item.EnqueuedAt > MaxQueueAgeSeconds)
+            {
+                missionQueue.Dequeue();
+                SetStatus($"Queued air mission expired: {GetAircraftLabel(item.Option.Definition)}.");
+                continue;
+            }
+
+            if (!item.Airbase.CanSpawnAircraft(item.Option.Definition))
+            {
+                break;
+            }
+
+            if (lastAirbaseSpawnTimes.TryGetValue(item.Airbase, out float lastSpawn) && Time.unscaledTime - lastSpawn < 8.0f)
+            {
+                break;
+            }
+
+            missionQueue.Dequeue();
+            SpawnMission(item.Option, item.Airbase, item.Target, allowQueue: false);
+            break;
+        }
     }
 
     private void TryAssignPendingAircraft(FactionHQ hq, Unit unit)

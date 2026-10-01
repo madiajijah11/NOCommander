@@ -1382,7 +1382,7 @@ internal sealed partial class CommanderSupplyHeliService
     private static bool CanHostSpawn(out FactionHQ? hq, out string error)
     {
         hq = null;
-        if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active)
+        if (!CommanderHostAuthority.IsHostAuthority())
         {
             error = "Supply aircraft can only be spawned by the host.";
             return false;

@@ -62,9 +62,7 @@ internal sealed class CommanderMoveService
     private bool CanExecuteOrder(Unit unit, CommanderOrderKind kind, GlobalPosition destination)
     {
         if (GameManager.gameState == GameState.Multiplayer
-            && (orderAuthority == null
-                || NetworkManagerNuclearOption.i == null
-                || !NetworkManagerNuclearOption.i.Server.Active))
+            && (orderAuthority == null || !CommanderHostAuthority.IsHostAuthority()))
         {
             return false;
         }
@@ -224,8 +222,7 @@ internal sealed class CommanderMoveService
 
     internal void IssueDirectMoveOrder(GlobalPosition targetPosition, bool queueWaypoint = false)
     {
-        if (GameManager.gameState == GameState.Multiplayer
-            && (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active))
+        if (GameManager.gameState == GameState.Multiplayer && !CommanderHostAuthority.IsHostAuthority())
         {
             return;
         }

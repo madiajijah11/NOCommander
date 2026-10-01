@@ -148,7 +148,7 @@ internal sealed class CommanderMobileEmplacementService
 
     internal void BeginRelocation()
     {
-        if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active)
+        if (!CommanderHostAuthority.IsHostAuthority())
         {
             SetStatus("Mobile emplacements are host-only.");
             return;

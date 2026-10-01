@@ -18,6 +18,7 @@ internal sealed class CommanderWarActivityService
     private int replacementGroundDebt;
     private readonly HashSet<Unit> knownFriendlyUnits = new();
     private readonly List<Unit> friendlyUnits = new();
+    private readonly List<Aircraft> missionAircraft = new();
     private float nextCheckAt;
     private float nextAirCheckAt;
     private float nextNavalCheckAt;
@@ -170,6 +171,7 @@ internal sealed class CommanderWarActivityService
     internal void ResetSession()
     {
         friendlyUnits.Clear();
+        missionAircraft.Clear();
         knownFriendlyUnits.Clear();
         nextCheckAt = 0f;
         nextAirCheckAt = 0f;
@@ -278,7 +280,46 @@ internal sealed class CommanderWarActivityService
             return;
         }
 
-        // Manual air tasking only; no autonomous mission dispatch.
+        // Autonomous spawning stays player-driven (runways, loadouts and ordnance are all
+        // player choices). What the commander can safely do is put idle airpower on a
+        // defensive holding orbit so it is present when a strike is called in.
+        CommanderAirLoiterService? loiter = CommanderAirLoiterService.Instance;
+        if (loiter == null)
+        {
+            return;
+        }
+
+        airCommandService.CollectMissionAircraft(missionAircraft);
+        Vector3 holdCenter = hq.transform.position;
+        bool assigned = false;
+        for (int i = 0; i < friendlyUnits.Count; i++)
+        {
+            if (friendlyUnits[i] is not Aircraft aircraft || aircraft.disabled)
+            {
+                continue;
+            }
+
+            if (loiter.IsInLoiterOrbit(aircraft) || missionAircraft.Contains(aircraft))
+            {
+                continue;
+            }
+
+            loiter.OrderLoiterOrbit(aircraft, holdCenter);
+            assigned = true;
+        }
+
+        if (!assigned && activeAir < CommanderSettings.WarActivityMinimumAir)
+        {
+            SetAirReinforcementStatus(activeAir, false);
+        }
+    }
+
+    private void SetAirReinforcementStatus(int activeAir, bool queued)
+    {
+        status = queued
+            ? $"AIR REINFORCEMENT {activeAir}/{CommanderSettings.WarActivityMinimumAir} | holding orbit assigned"
+            : $"AIR REINFORCEMENT {activeAir}/{CommanderSettings.WarActivityMinimumAir} | no free airframe available";
+        statusUntil = Time.unscaledTime + 3f;
     }
 
     private VehicleDefinition? SelectLandReplacement(int ground, int logistics, bool replacementDue)
@@ -318,7 +359,6 @@ internal sealed class CommanderWarActivityService
 
     private static bool IsHost()
     {
-        return NetworkManagerNuclearOption.i != null
-            && NetworkManagerNuclearOption.i.Server.Active;
+        return CommanderHostAuthority.IsHostAuthority();
     }
 }

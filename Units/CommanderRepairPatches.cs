@@ -55,6 +55,12 @@ internal static class CommanderRepairPatches
         UnitToRepairField.SetValue(__instance, nearest);
         if (nearest != null && !ReferenceEquals(previous, nearest) && repairerUnit is ICommandable commandable)
         {
+            // Moving a friendly repairer is an order: host-only in multiplayer.
+            if (GameManager.gameState == GameState.Multiplayer && !CommanderHostAuthority.IsHostAuthority())
+            {
+                return false;
+            }
+
             Vector3 direction = nearest.GlobalPosition() - repairerUnit.GlobalPosition();
             direction.y = 0f;
             if (direction.sqrMagnitude > 0.01f)

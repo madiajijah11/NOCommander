@@ -245,6 +245,41 @@ internal sealed class CommanderRadarService
         return false;
     }
 
+    /// <summary>
+    /// Host-side threat query. Returns the closest known hostile contact within
+    /// <paramref name="maxRangeMeters"/>, so callers can steer toward or away from it.
+    /// Contacts are the same 1 s snapshot <see cref="IsPositionDangerous"/> uses.
+    /// </summary>
+    internal bool TryGetNearestThreat(GlobalPosition origin, out GlobalPosition threatPosition, float maxRangeMeters)
+    {
+        threatPosition = default;
+        if (maxRangeMeters <= 0f)
+        {
+            return false;
+        }
+
+        bool found = false;
+        float bestDistance = maxRangeMeters;
+        for (int i = 0; i < threatUnits.Count; i++)
+        {
+            Unit threat = threatUnits[i];
+            if (threat == null || threat.disabled)
+            {
+                continue;
+            }
+
+            float distance = FastMath.Distance(origin, threat.GlobalPosition());
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                threatPosition = threat.GlobalPosition();
+                found = true;
+            }
+        }
+
+        return found;
+    }
+
     internal bool IsGlobalEmconActive => globalEmconActive;
 
     internal void ToggleGlobalEmcon()

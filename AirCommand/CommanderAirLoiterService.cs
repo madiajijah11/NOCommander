@@ -8,6 +8,7 @@ internal sealed class CommanderAirLoiterService
 {
     private const float OrbitRadius = 3500f;
     private const float OrbitAltitude = 3500f;
+    private const float OrbitSteerIntervalSeconds = 1f;
 
     private readonly Dictionary<Aircraft, LoiterOrbitState> activeOrbits = new();
     private readonly List<Aircraft> staleOrbits = new();
@@ -20,6 +21,7 @@ internal sealed class CommanderAirLoiterService
         internal float CurrentAngle;
         internal float TargetAltitude;
         internal float FuelCheckTime;
+        internal float NextSteerTime;
     }
 
     internal CommanderAirLoiterService()
@@ -99,7 +101,19 @@ internal sealed class CommanderAirLoiterService
 
             Vector3 orbitTarget = state.CenterPoint + new Vector3(Mathf.Cos(state.CurrentAngle) * OrbitRadius, state.TargetAltitude, Mathf.Sin(state.CurrentAngle) * OrbitRadius);
 
-            // Steer aircraft waypoint along orbit
+            // Steer aircraft waypoint along orbit. Orbit waypoints only need ~1 Hz, so do not
+            // issue a destination every frame, and never issue one from a multiplayer client.
+            if (state.NextSteerTime > Time.unscaledTime)
+            {
+                continue;
+            }
+
+            state.NextSteerTime = Time.unscaledTime + OrbitSteerIntervalSeconds;
+            if (GameManager.gameState == GameState.Multiplayer && !CommanderHostAuthority.IsHostAuthority())
+            {
+                continue;
+            }
+
             CommanderGameAccess.GetUnitCommand(ac)?.SetDestination(orbitTarget.ToGlobalPosition(), false);
         }
 

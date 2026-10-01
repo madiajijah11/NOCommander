@@ -32,6 +32,28 @@ internal static class CommanderSettings
     internal static int WarActivityMinimumNaval { get => Get("Gameplay", "WarActivityMinimumNaval", 1); set => Set("Gameplay", "WarActivityMinimumNaval", value); }
     internal static float WarActivityFrontlineIntervalSeconds { get => Get("Gameplay", "WarActivityFrontlineIntervalSeconds", 15f); set => Set("Gameplay", "WarActivityFrontlineIntervalSeconds", value); }
     internal static float WarActivitySupplyIntervalSeconds { get => Get("Gameplay", "WarActivitySupplyIntervalSeconds", 45f); set => Set("Gameplay", "WarActivitySupplyIntervalSeconds", value); }
+    internal static bool ObjectiveDefenseEnabled { get => Get("Gameplay", "ObjectiveDefenseEnabled", true); set => Set("Gameplay", "ObjectiveDefenseEnabled", value); }
+    internal static float ObjectiveDefenseIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "ObjectiveDefenseIntervalSeconds", 5f)); set => Set("Gameplay", "ObjectiveDefenseIntervalSeconds", Mathf.Max(1f, value)); }
+    internal static float ObjectiveDefenseThreatRadiusMeters { get => Mathf.Max(0f, Get("Gameplay", "ObjectiveDefenseThreatRadiusMeters", 1500f)); set => Set("Gameplay", "ObjectiveDefenseThreatRadiusMeters", Mathf.Max(0f, value)); }
+    internal static float ObjectiveDefenseRadiusMeters { get => Mathf.Max(1f, Get("Gameplay", "ObjectiveDefenseRadiusMeters", 600f)); set => Set("Gameplay", "ObjectiveDefenseRadiusMeters", Mathf.Max(1f, value)); }
+    internal static int ObjectiveDefenseMaxUnitsPerSite { get => Get("Gameplay", "ObjectiveDefenseMaxUnitsPerSite", 6); set => Set("Gameplay", "ObjectiveDefenseMaxUnitsPerSite", value); }
+    internal static float ObjectiveDefenseReissueSeconds { get => Mathf.Max(1f, Get("Gameplay", "ObjectiveDefenseReissueSeconds", 10f)); set => Set("Gameplay", "ObjectiveDefenseReissueSeconds", Mathf.Max(1f, value)); }
+    internal static float ObjectiveDefenseReleaseMeters { get => Mathf.Max(1f, Get("Gameplay", "ObjectiveDefenseReleaseMeters", 900f)); set => Set("Gameplay", "ObjectiveDefenseReleaseMeters", Mathf.Max(1f, value)); }
+    internal static float ObjectiveDefenseWarnIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "ObjectiveDefenseWarnIntervalSeconds", 20f)); set => Set("Gameplay", "ObjectiveDefenseWarnIntervalSeconds", Mathf.Max(1f, value)); }
+    internal static bool BattleGroupOrdersEnabled { get => Get("Gameplay", "BattleGroupOrdersEnabled", true); set => Set("Gameplay", "BattleGroupOrdersEnabled", value); }
+    internal static float BattleGroupIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "BattleGroupIntervalSeconds", 5f)); set => Set("Gameplay", "BattleGroupIntervalSeconds", Mathf.Max(1f, value)); }
+    internal static int BattleGroupMinUnits { get => Get("Gameplay", "BattleGroupMinUnits", 1); set => Set("Gameplay", "BattleGroupMinUnits", value); }
+    internal static float BattleGroupReissueSeconds { get => Mathf.Max(1f, Get("Gameplay", "BattleGroupReissueSeconds", 12f)); set => Set("Gameplay", "BattleGroupReissueSeconds", Mathf.Max(1f, value)); }
+    internal static float BattleGroupWarnIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "BattleGroupWarnIntervalSeconds", 30f)); set => Set("Gameplay", "BattleGroupWarnIntervalSeconds", Mathf.Max(1f, value)); }
+    internal static bool AirMissionQueueEnabled { get => Get("Gameplay", "AirMissionQueueEnabled", true); set => Set("Gameplay", "AirMissionQueueEnabled", value); }
+    internal static float AirMissionQueueIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "AirMissionQueueIntervalSeconds", 5f)); set => Set("Gameplay", "AirMissionQueueIntervalSeconds", Mathf.Max(1f, value)); }
+    internal static int AirMissionQueueMaxDepth { get => Get("Gameplay", "AirMissionQueueMaxDepth", 3); set => Set("Gameplay", "AirMissionQueueMaxDepth", value); }
+    internal static float ReconFreshnessSeconds { get => Mathf.Max(1f, Get("Gameplay", "ReconFreshnessSeconds", 8f)); set => Set("Gameplay", "ReconFreshnessSeconds", Mathf.Max(1f, value)); }
+    internal static bool EmergencyResponseEnabled { get => Get("Gameplay", "EmergencyResponseEnabled", true); set => Set("Gameplay", "EmergencyResponseEnabled", value); }
+    internal static float EmergencyResponseIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "EmergencyResponseIntervalSeconds", 10f)); set => Set("Gameplay", "EmergencyResponseIntervalSeconds", Mathf.Max(1f, value)); }
+    internal static float EmergencyResponseRadiusMeters { get => Mathf.Max(0f, Get("Gameplay", "EmergencyResponseRadiusMeters", 1200f)); set => Set("Gameplay", "EmergencyResponseRadiusMeters", Mathf.Max(0f, value)); }
+    internal static int EmergencyResponseMinUnits { get => Get("Gameplay", "EmergencyResponseMinUnits", 3); set => Set("Gameplay", "EmergencyResponseMinUnits", value); }
+    internal static float EmergencyResponseWarnIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "EmergencyResponseWarnIntervalSeconds", 30f)); set => Set("Gameplay", "EmergencyResponseWarnIntervalSeconds", Mathf.Max(1f, value)); }
     internal static bool TimeOfDaySyncEnabled { get => Get("Gameplay", "TimeOfDaySyncEnabled", true); set => Set("Gameplay", "TimeOfDaySyncEnabled", value); }
     internal static float TimeOfDayCycleMinutes { get => Get("Gameplay", "TimeOfDayCycleMinutes", 60f); set => Set("Gameplay", "TimeOfDayCycleMinutes", value); }
     internal static float TimeOfDaySyncIntervalSeconds { get => Get("Gameplay", "TimeOfDaySyncIntervalSeconds", 5f); set => Set("Gameplay", "TimeOfDaySyncIntervalSeconds", value); }
@@ -102,6 +124,28 @@ internal static class CommanderSettings
         _ = ThreatDangerRadiusMeters;
         _ = AutoRtbFuelPercent;
         _ = AutoRtbAmmoPercent;
+        _ = ObjectiveDefenseEnabled;
+        _ = ObjectiveDefenseIntervalSeconds;
+        _ = ObjectiveDefenseThreatRadiusMeters;
+        _ = ObjectiveDefenseRadiusMeters;
+        _ = ObjectiveDefenseMaxUnitsPerSite;
+        _ = ObjectiveDefenseReissueSeconds;
+        _ = ObjectiveDefenseReleaseMeters;
+        _ = ObjectiveDefenseWarnIntervalSeconds;
+        _ = BattleGroupOrdersEnabled;
+        _ = BattleGroupIntervalSeconds;
+        _ = BattleGroupMinUnits;
+        _ = BattleGroupReissueSeconds;
+        _ = BattleGroupWarnIntervalSeconds;
+        _ = AirMissionQueueEnabled;
+        _ = AirMissionQueueIntervalSeconds;
+        _ = AirMissionQueueMaxDepth;
+        _ = ReconFreshnessSeconds;
+        _ = EmergencyResponseEnabled;
+        _ = EmergencyResponseIntervalSeconds;
+        _ = EmergencyResponseRadiusMeters;
+        _ = EmergencyResponseMinUnits;
+        _ = EmergencyResponseWarnIntervalSeconds;
         _ = ShowCommandButton;
         _ = PrimaryAction;
         _ = SecondaryAction;

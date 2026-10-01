@@ -124,7 +124,7 @@ internal sealed class CommanderNavalPurchaseService
 
     internal bool RequestAutonomousNavalPurchase()
     {
-        if (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active
+        if (!CommanderHostAuthority.IsHostAuthority()
             || shipDefinitions.Count == 0)
         {
             return false;
@@ -231,7 +231,7 @@ internal sealed class CommanderNavalPurchaseService
         }
 
         Spawner? spawner = NetworkSceneSingleton<Spawner>.i;
-        if (spawner == null || NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Server.Active)
+        if (spawner == null || !CommanderHostAuthority.IsHostAuthority())
         {
             SetStatus("Ship purchasing is only available to the host.");
             CancelRallySelection(showStatus: false);

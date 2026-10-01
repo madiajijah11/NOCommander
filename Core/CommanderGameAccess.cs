@@ -90,7 +90,7 @@ internal static class CommanderGameAccess
         }
 
         TrackingInfo? tracking = localHq.GetTrackingData(unit.persistentID);
-        return tracking != null && Time.timeSinceLevelLoad - tracking.lastSpottedTime <= 8f;
+        return tracking != null && Time.timeSinceLevelLoad - tracking.lastSpottedTime <= CommanderSettings.ReconFreshnessSeconds;
     }
 
     internal static bool ShouldAllowCommanderSelection(Unit? unit, FactionHQ? localHq)
@@ -111,7 +111,7 @@ internal static class CommanderGameAccess
         }
 
         TrackingInfo? tracking = localHq.GetTrackingData(unit.persistentID);
-        return tracking != null && Time.timeSinceLevelLoad - tracking.lastSpottedTime <= 8f;
+        return tracking != null && Time.timeSinceLevelLoad - tracking.lastSpottedTime <= CommanderSettings.ReconFreshnessSeconds;
     }
 
     internal static bool ShouldRetainCommanderMarker(Unit? unit, FactionHQ? localHq)
@@ -127,7 +127,7 @@ internal static class CommanderGameAccess
         }
 
         TrackingInfo? tracking = localHq.GetTrackingData(unit.persistentID);
-        return tracking != null && Time.timeSinceLevelLoad - tracking.lastSpottedTime <= 8f;
+        return tracking != null && Time.timeSinceLevelLoad - tracking.lastSpottedTime <= CommanderSettings.ReconFreshnessSeconds;
     }
 
     private static bool IsCommanderMarkerUnit(Unit unit, FactionHQ localHq)
@@ -450,6 +450,13 @@ internal static class CommanderGameAccess
     {
         UnitCommand? unitCommand = GetUnitCommand(unit);
         if (unitCommand == null)
+        {
+            return false;
+        }
+
+        // Shared chokepoint for autonomous movers (spawn rally dispatch, naval patrol,
+        // war-activity routing). In multiplayer a client must never write a unit command.
+        if (GameManager.gameState == GameState.Multiplayer && !CommanderHostAuthority.IsHostAuthority())
         {
             return false;
         }
