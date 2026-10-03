@@ -50,6 +50,10 @@
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(GameDir)\NuclearOption_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GameDir)\NuclearOption_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>

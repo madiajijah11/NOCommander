@@ -90,6 +90,7 @@ internal sealed class CommanderCounterBatteryRadarService
         });
 
         CommanderAlertService.PostTickerEvent($"[COUNTER-BATTERY] Hostile firing origin pinpointed at ({Mathf.RoundToInt(muzzlePos.x)}, {Mathf.RoundToInt(muzzlePos.z)})", new Color(1f, 0.25f, 0.2f, 0.95f));
+        CommanderAudioCueService.Instance?.PlayCue(CommanderAudioCueType.PingPinpoint);
     }
 
     internal void Tick()

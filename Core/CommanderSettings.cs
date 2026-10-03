@@ -57,6 +57,10 @@ internal static class CommanderSettings
     internal static bool TimeOfDaySyncEnabled { get => Get("Gameplay", "TimeOfDaySyncEnabled", true); set => Set("Gameplay", "TimeOfDaySyncEnabled", value); }
     internal static float TimeOfDayCycleMinutes { get => Get("Gameplay", "TimeOfDayCycleMinutes", 60f); set => Set("Gameplay", "TimeOfDayCycleMinutes", value); }
     internal static float TimeOfDaySyncIntervalSeconds { get => Get("Gameplay", "TimeOfDaySyncIntervalSeconds", 5f); set => Set("Gameplay", "TimeOfDaySyncIntervalSeconds", value); }
+    internal static bool TacticalAudioEnabled { get => Get("Audio", "TacticalAudioEnabled", true); set => Set("Audio", "TacticalAudioEnabled", value); }
+    internal static float TacticalAudioVolume { get => Mathf.Clamp01(Get("Audio", "TacticalAudioVolume", 0.75f)); set => Set("Audio", "TacticalAudioVolume", Mathf.Clamp01(value)); }
+    internal static bool RadioChatterEnabled { get => Get("Audio", "RadioChatterEnabled", true); set => Set("Audio", "RadioChatterEnabled", value); }
+    internal static float RadioChatterCooldownSeconds { get => Mathf.Max(0.5f, Get("Audio", "RadioChatterCooldownSeconds", 2.5f)); set => Set("Audio", "RadioChatterCooldownSeconds", Mathf.Max(0.5f, value)); }
     internal static bool TimeOfDayControlEnabled { get => Get("Gameplay", "TimeOfDayControlEnabled", true); set => Set("Gameplay", "TimeOfDayControlEnabled", value); }
     internal static float TimeOfDayRateMultiplier { get => Get("Gameplay", "TimeOfDayRateMultiplier", 1f); set => Set("Gameplay", "TimeOfDayRateMultiplier", value); }
     internal static bool GameSpeedEnabled { get => Get("Gameplay", "GameSpeedEnabled", true); set => Set("Gameplay", "GameSpeedEnabled", value); }
@@ -146,6 +150,10 @@ internal static class CommanderSettings
         _ = EmergencyResponseRadiusMeters;
         _ = EmergencyResponseMinUnits;
         _ = EmergencyResponseWarnIntervalSeconds;
+        _ = TacticalAudioEnabled;
+        _ = TacticalAudioVolume;
+        _ = RadioChatterEnabled;
+        _ = RadioChatterCooldownSeconds;
         _ = ShowCommandButton;
         _ = PrimaryAction;
         _ = SecondaryAction;

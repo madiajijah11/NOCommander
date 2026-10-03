@@ -72,6 +72,8 @@ internal sealed class CommanderAlertService
         Instance.LastIncidentUnit = unit;
         Instance.LastIncidentPosition = unit.transform.position;
         Instance.LastIncidentTime = Time.unscaledTime;
+
+        CommanderRadioChatterService.Instance?.ReportDamaged(unit, info);
     }
 
     internal bool TryJumpToIncident(CommanderSelectionService? selectionService, CommanderTacticalMapService? tacticalMapService)

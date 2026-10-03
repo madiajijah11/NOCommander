@@ -122,6 +122,7 @@ internal sealed class CommanderMoveService
             CommanderAlertService.PostTickerEvent(
                 "[THREAT] Move destination is inside a known hostile fire zone",
                 new Color(1f, 0.45f, 0.2f, 0.95f));
+            CommanderAudioCueService.Instance?.PlayCue(CommanderAudioCueType.OrderDenied);
         }
 
         return true;
@@ -276,6 +277,8 @@ internal sealed class CommanderMoveService
                 unitCommand?.SetDestination(destination, true);
             }
         }
+
+        CommanderAudioCueService.Instance?.PlayCue(CommanderAudioCueType.OrderAck);
     }
 
     internal void TryIssueMoveOrder(Vector2 screenPosition, bool queueWaypoint = false)
