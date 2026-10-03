@@ -65,6 +65,8 @@ internal static class CommanderSettings
     internal static float FrontlineDirectiveIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "FrontlineDirectiveIntervalSeconds", 6f)); set => Set("Gameplay", "FrontlineDirectiveIntervalSeconds", Mathf.Max(1f, value)); }
     internal static float FrontlinePushDistanceMeters { get => Mathf.Max(100f, Get("Gameplay", "FrontlinePushDistanceMeters", 800f)); set => Set("Gameplay", "FrontlinePushDistanceMeters", Mathf.Max(100f, value)); }
     internal static float FrontlineHoldDistanceMeters { get => Mathf.Max(50f, Get("Gameplay", "FrontlineHoldDistanceMeters", 400f)); set => Set("Gameplay", "FrontlineHoldDistanceMeters", Mathf.Max(50f, value)); }
+    internal static bool BattlefieldVisualFxEnabled { get => Get("Visuals", "BattlefieldVisualFxEnabled", true); set => Set("Visuals", "BattlefieldVisualFxEnabled", value); }
+    internal static bool ShowFrontlineOverlay { get => Get("Visuals", "ShowFrontlineOverlay", true); set => Set("Visuals", "ShowFrontlineOverlay", value); }
     internal static bool TimeOfDayControlEnabled { get => Get("Gameplay", "TimeOfDayControlEnabled", true); set => Set("Gameplay", "TimeOfDayControlEnabled", value); }
     internal static float TimeOfDayRateMultiplier { get => Get("Gameplay", "TimeOfDayRateMultiplier", 1f); set => Set("Gameplay", "TimeOfDayRateMultiplier", value); }
     internal static bool GameSpeedEnabled { get => Get("Gameplay", "GameSpeedEnabled", true); set => Set("Gameplay", "GameSpeedEnabled", value); }
@@ -162,6 +164,8 @@ internal static class CommanderSettings
         _ = FrontlineDirectiveIntervalSeconds;
         _ = FrontlinePushDistanceMeters;
         _ = FrontlineHoldDistanceMeters;
+        _ = BattlefieldVisualFxEnabled;
+        _ = ShowFrontlineOverlay;
         _ = ShowCommandButton;
         _ = PrimaryAction;
         _ = SecondaryAction;

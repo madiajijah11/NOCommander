@@ -247,6 +247,13 @@ internal sealed class CommanderWorldMarkerRenderer
                 DrawMarker(camera, ping.Position.ToGlobalPosition(), "COUNTER-BATTERY PINPOINT", new Color(1f, 0.2f, 0.15f, 0.95f), large: true);
             }
         }
+
+        // 8. Dynamic Frontline Buffer
+        if (CommanderSettings.ShowFrontlineOverlay && CommanderFrontlineDirectiveService.Instance != null && CommanderFrontlineDirectiveService.Instance.HasActiveFrontline)
+        {
+            Vector3 flPos = CommanderFrontlineDirectiveService.Instance.FrontlineCentroid;
+            DrawMarker(camera, flPos.ToGlobalPosition(), $"FRONTLINE [{CommanderFrontlineDirectiveService.Instance.CurrentMode.ToString().ToUpperInvariant()}]", new Color(1f, 0.85f, 0.25f, 0.9f), large: true);
+        }
     }
 
     internal static void DrawScreenLine(Vector2 pointA, Vector2 pointB, Color color, float width = 2f)
