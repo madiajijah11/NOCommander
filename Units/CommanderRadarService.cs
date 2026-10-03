@@ -280,6 +280,8 @@ internal sealed class CommanderRadarService
         return found;
     }
 
+    internal IReadOnlyList<Unit> ThreatUnits => threatUnits;
+
     internal bool IsGlobalEmconActive => globalEmconActive;
 
     internal void ToggleGlobalEmcon()

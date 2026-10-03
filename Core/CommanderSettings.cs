@@ -61,6 +61,10 @@ internal static class CommanderSettings
     internal static float TacticalAudioVolume { get => Mathf.Clamp01(Get("Audio", "TacticalAudioVolume", 0.75f)); set => Set("Audio", "TacticalAudioVolume", Mathf.Clamp01(value)); }
     internal static bool RadioChatterEnabled { get => Get("Audio", "RadioChatterEnabled", true); set => Set("Audio", "RadioChatterEnabled", value); }
     internal static float RadioChatterCooldownSeconds { get => Mathf.Max(0.5f, Get("Audio", "RadioChatterCooldownSeconds", 2.5f)); set => Set("Audio", "RadioChatterCooldownSeconds", Mathf.Max(0.5f, value)); }
+    internal static bool FrontlineDirectivesEnabled { get => Get("Gameplay", "FrontlineDirectivesEnabled", true); set => Set("Gameplay", "FrontlineDirectivesEnabled", value); }
+    internal static float FrontlineDirectiveIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "FrontlineDirectiveIntervalSeconds", 6f)); set => Set("Gameplay", "FrontlineDirectiveIntervalSeconds", Mathf.Max(1f, value)); }
+    internal static float FrontlinePushDistanceMeters { get => Mathf.Max(100f, Get("Gameplay", "FrontlinePushDistanceMeters", 800f)); set => Set("Gameplay", "FrontlinePushDistanceMeters", Mathf.Max(100f, value)); }
+    internal static float FrontlineHoldDistanceMeters { get => Mathf.Max(50f, Get("Gameplay", "FrontlineHoldDistanceMeters", 400f)); set => Set("Gameplay", "FrontlineHoldDistanceMeters", Mathf.Max(50f, value)); }
     internal static bool TimeOfDayControlEnabled { get => Get("Gameplay", "TimeOfDayControlEnabled", true); set => Set("Gameplay", "TimeOfDayControlEnabled", value); }
     internal static float TimeOfDayRateMultiplier { get => Get("Gameplay", "TimeOfDayRateMultiplier", 1f); set => Set("Gameplay", "TimeOfDayRateMultiplier", value); }
     internal static bool GameSpeedEnabled { get => Get("Gameplay", "GameSpeedEnabled", true); set => Set("Gameplay", "GameSpeedEnabled", value); }
@@ -154,6 +158,10 @@ internal static class CommanderSettings
         _ = TacticalAudioVolume;
         _ = RadioChatterEnabled;
         _ = RadioChatterCooldownSeconds;
+        _ = FrontlineDirectivesEnabled;
+        _ = FrontlineDirectiveIntervalSeconds;
+        _ = FrontlinePushDistanceMeters;
+        _ = FrontlineHoldDistanceMeters;
         _ = ShowCommandButton;
         _ = PrimaryAction;
         _ = SecondaryAction;

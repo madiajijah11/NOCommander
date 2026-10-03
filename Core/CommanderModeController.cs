@@ -43,6 +43,7 @@ internal sealed class CommanderModeController : MonoBehaviour
     private CommanderObjectiveDefenseService? objectiveDefenseService;
     private CommanderBattleGroupService? battleGroupService;
     private CommanderEmergencyResponseService? emergencyResponseService;
+    private CommanderFrontlineDirectiveService? frontlineDirectiveService;
     private CommanderAudioCueService? audioCueService;
     private CommanderRadioChatterService? radioChatterService;
     private CommanderOverlayUi? overlayUi;
@@ -108,6 +109,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         objectiveDefenseService = new CommanderObjectiveDefenseService();
         battleGroupService = new CommanderBattleGroupService();
         emergencyResponseService = new CommanderEmergencyResponseService();
+        frontlineDirectiveService = new CommanderFrontlineDirectiveService();
         audioCueService = new CommanderAudioCueService();
         radioChatterService = new CommanderRadioChatterService(audioCueService);
         targetDeconflictionService = new CommanderTargetDeconflictionService();
@@ -194,6 +196,7 @@ internal sealed class CommanderModeController : MonoBehaviour
             objectiveDefenseService?.Tick();
             battleGroupService?.Tick();
             emergencyResponseService?.Tick();
+            frontlineDirectiveService?.Tick();
             radioChatterService?.Tick();
             timeOfDayService.Tick();
             forwardOutpostService?.Tick();
@@ -458,6 +461,7 @@ internal sealed class CommanderModeController : MonoBehaviour
         objectiveDefenseService?.ResetSession();
         battleGroupService?.ResetSession();
         emergencyResponseService?.ResetSession();
+        frontlineDirectiveService?.ResetSession();
         audioCueService?.ResetSession();
         radioChatterService?.ResetSession();
         timeOfDayService.ResetSession();

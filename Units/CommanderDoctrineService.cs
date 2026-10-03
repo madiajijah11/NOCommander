@@ -32,6 +32,8 @@ internal readonly struct CommanderDoctrinePolicy
 
 internal sealed class CommanderDoctrineService
 {
+    internal static CommanderDoctrineService? Instance { get; private set; }
+
     private readonly CommanderSelectionService selectionService;
     private readonly Dictionary<Unit, CommanderDoctrineRole> doctrineByUnit = new();
     private readonly List<Unit> snapshot = new();
@@ -40,6 +42,7 @@ internal sealed class CommanderDoctrineService
 
     internal CommanderDoctrineService(CommanderSelectionService selectionService, float refreshInterval = 2f)
     {
+        Instance = this;
         this.selectionService = selectionService;
         this.refreshInterval = refreshInterval > 0f ? refreshInterval : 2f;
     }
