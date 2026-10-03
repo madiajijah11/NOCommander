@@ -99,12 +99,10 @@ internal sealed class CommanderRadioChatterService
         if (isFriendly)
         {
             PostLossChatter(unit);
-            audioCueService?.PlayCue(CommanderAudioCueType.UnitLost);
         }
         else
         {
             PostKillChatter(unit);
-            audioCueService?.PlayCue(CommanderAudioCueType.OrderAck);
         }
     }
 
@@ -126,7 +124,6 @@ internal sealed class CommanderRadioChatterService
         string quote = UnderFireCallouts[UnityEngine.Random.Range(0, UnderFireCallouts.Length)];
 
         CommanderAlertService.PostTickerEvent($"[RADIO] {callsign}: \"{quote}\"", new Color(1f, 0.65f, 0.2f, 0.95f));
-        audioCueService?.PlayCue(CommanderAudioCueType.RadioBurst);
     }
 
     internal void ReportSamSpike(string radarName, Vector3 position)
@@ -139,7 +136,6 @@ internal sealed class CommanderRadioChatterService
         string quote = SamLockCallouts[UnityEngine.Random.Range(0, SamLockCallouts.Length)];
 
         CommanderAlertService.PostTickerEvent($"[RADIO] {callsign}: \"{quote}\"", new Color(1f, 0.3f, 0.25f, 0.95f));
-        audioCueService?.PlayCue(CommanderAudioCueType.ObjectiveAlert);
     }
 
     private void PostLossChatter(Unit unit)
@@ -154,7 +150,6 @@ internal sealed class CommanderRadioChatterService
 
         string callsign = CallSignList[UnityEngine.Random.Range(0, CallSignList.Length)];
         CommanderAlertService.PostTickerEvent($"[RADIO] {callsign}: \"{quote}\"", new Color(1f, 0.25f, 0.2f, 0.95f));
-        audioCueService?.PlayCue(CommanderAudioCueType.RadioBurst);
     }
 
     private void PostKillChatter(Unit unit)
@@ -167,7 +162,6 @@ internal sealed class CommanderRadioChatterService
         string callsign = CallSignList[UnityEngine.Random.Range(0, CallSignList.Length)];
 
         CommanderAlertService.PostTickerEvent($"[RADIO] {callsign}: \"{quote}\"", new Color(0.4f, 0.9f, 0.45f, 0.95f));
-        audioCueService?.PlayCue(CommanderAudioCueType.RadioBurst);
     }
 
     private string GetCallsign(Unit unit)

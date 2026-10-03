@@ -57,9 +57,9 @@ internal static class CommanderSettings
     internal static bool TimeOfDaySyncEnabled { get => Get("Gameplay", "TimeOfDaySyncEnabled", true); set => Set("Gameplay", "TimeOfDaySyncEnabled", value); }
     internal static float TimeOfDayCycleMinutes { get => Get("Gameplay", "TimeOfDayCycleMinutes", 60f); set => Set("Gameplay", "TimeOfDayCycleMinutes", value); }
     internal static float TimeOfDaySyncIntervalSeconds { get => Get("Gameplay", "TimeOfDaySyncIntervalSeconds", 5f); set => Set("Gameplay", "TimeOfDaySyncIntervalSeconds", value); }
-    internal static bool TacticalAudioEnabled { get => Get("Audio", "TacticalAudioEnabled", true); set => Set("Audio", "TacticalAudioEnabled", value); }
-    internal static float TacticalAudioVolume { get => Mathf.Clamp01(Get("Audio", "TacticalAudioVolume", 0.75f)); set => Set("Audio", "TacticalAudioVolume", Mathf.Clamp01(value)); }
-    internal static bool RadioChatterEnabled { get => Get("Audio", "RadioChatterEnabled", true); set => Set("Audio", "RadioChatterEnabled", value); }
+    internal static bool TacticalAudioEnabled { get => Get("Audio", "TacticalAudioEnabled", false); set => Set("Audio", "TacticalAudioEnabled", value); }
+    internal static float TacticalAudioVolume { get => Mathf.Clamp01(Get("Audio", "TacticalAudioVolume", 0f)); set => Set("Audio", "TacticalAudioVolume", Mathf.Clamp01(value)); }
+    internal static bool RadioChatterEnabled { get => Get("Audio", "RadioChatterEnabled", false); set => Set("Audio", "RadioChatterEnabled", value); }
     internal static float RadioChatterCooldownSeconds { get => Mathf.Max(0.5f, Get("Audio", "RadioChatterCooldownSeconds", 2.5f)); set => Set("Audio", "RadioChatterCooldownSeconds", Mathf.Max(0.5f, value)); }
     internal static bool FrontlineDirectivesEnabled { get => Get("Gameplay", "FrontlineDirectivesEnabled", true); set => Set("Gameplay", "FrontlineDirectivesEnabled", value); }
     internal static float FrontlineDirectiveIntervalSeconds { get => Mathf.Max(1f, Get("Gameplay", "FrontlineDirectiveIntervalSeconds", 6f)); set => Set("Gameplay", "FrontlineDirectiveIntervalSeconds", Mathf.Max(1f, value)); }
@@ -67,6 +67,7 @@ internal static class CommanderSettings
     internal static float FrontlineHoldDistanceMeters { get => Mathf.Max(50f, Get("Gameplay", "FrontlineHoldDistanceMeters", 400f)); set => Set("Gameplay", "FrontlineHoldDistanceMeters", Mathf.Max(50f, value)); }
     internal static bool BattlefieldVisualFxEnabled { get => Get("Visuals", "BattlefieldVisualFxEnabled", true); set => Set("Visuals", "BattlefieldVisualFxEnabled", value); }
     internal static bool ShowFrontlineOverlay { get => Get("Visuals", "ShowFrontlineOverlay", true); set => Set("Visuals", "ShowFrontlineOverlay", value); }
+    internal static bool ShipRecoveryEnabled { get => Get("Gameplay", "ShipRecoveryEnabled", true); set => Set("Gameplay", "ShipRecoveryEnabled", value); }
     internal static bool TimeOfDayControlEnabled { get => Get("Gameplay", "TimeOfDayControlEnabled", true); set => Set("Gameplay", "TimeOfDayControlEnabled", value); }
     internal static float TimeOfDayRateMultiplier { get => Get("Gameplay", "TimeOfDayRateMultiplier", 1f); set => Set("Gameplay", "TimeOfDayRateMultiplier", value); }
     internal static bool GameSpeedEnabled { get => Get("Gameplay", "GameSpeedEnabled", true); set => Set("Gameplay", "GameSpeedEnabled", value); }
@@ -166,6 +167,7 @@ internal static class CommanderSettings
         _ = FrontlineHoldDistanceMeters;
         _ = BattlefieldVisualFxEnabled;
         _ = ShowFrontlineOverlay;
+        _ = ShipRecoveryEnabled;
         _ = ShowCommandButton;
         _ = PrimaryAction;
         _ = SecondaryAction;

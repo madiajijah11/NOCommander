@@ -32,7 +32,6 @@ internal sealed class CommanderAudioCueService
     private AudioClip? pinpointClip;
 
     private AudioSource? customAudioSource;
-    private float lastAudioTime;
     private const float MinAudioSpacingSeconds = 0.08f;
 
     internal CommanderAudioCueService()
@@ -61,66 +60,7 @@ internal sealed class CommanderAudioCueService
     internal void PlayCue(CommanderAudioCueType cueType)
     {
         if (!CommanderSettings.TacticalAudioEnabled) return;
-        if (Time.unscaledTime - lastAudioTime < MinAudioSpacingSeconds) return;
-
-        lastAudioTime = Time.unscaledTime;
-        float masterVol = CommanderSettings.TacticalAudioVolume;
-
-        switch (cueType)
-        {
-            case CommanderAudioCueType.OrderAck:
-                PlayClip(ackClip, 0.45f * masterVol);
-                break;
-
-            case CommanderAudioCueType.OrderDenied:
-                if (GameAssets.i != null && GameAssets.i.errorTone != null)
-                {
-                    PlayNative(GameAssets.i.errorTone, 0.5f * masterVol);
-                }
-                else
-                {
-                    PlayClip(deniedClip, 0.5f * masterVol);
-                }
-                break;
-
-            case CommanderAudioCueType.UnitLost:
-                if (GameAssets.i != null && GameAssets.i.deathSound != null)
-                {
-                    PlayNative(GameAssets.i.deathSound, 0.65f * masterVol);
-                }
-                else
-                {
-                    PlayClip(lostClip, 0.6f * masterVol);
-                }
-                break;
-
-            case CommanderAudioCueType.UnitDamaged:
-                PlayClip(deniedClip, 0.4f * masterVol);
-                break;
-
-            case CommanderAudioCueType.ObjectiveAlert:
-                PlayClip(alertClip, 0.6f * masterVol);
-                break;
-
-            case CommanderAudioCueType.AirDispatched:
-                PlayClip(ackClip, 0.45f * masterVol);
-                break;
-
-            case CommanderAudioCueType.RadioBurst:
-                if (GameAssets.i != null && GameAssets.i.radioStatic != null)
-                {
-                    PlayNative(GameAssets.i.radioStatic, 0.3f * masterVol);
-                }
-                else
-                {
-                    PlayClip(radioBurstClip, 0.3f * masterVol);
-                }
-                break;
-
-            case CommanderAudioCueType.PingPinpoint:
-                PlayClip(pinpointClip, 0.5f * masterVol);
-                break;
-        }
+        return; // Procedural audio cues disabled per user request
     }
 
     private void PlayNative(AudioClip clip, float volume)
@@ -162,7 +102,6 @@ internal sealed class CommanderAudioCueService
 
     internal void ResetSession()
     {
-        lastAudioTime = 0f;
     }
 
     #region Procedural Audio Synthesis

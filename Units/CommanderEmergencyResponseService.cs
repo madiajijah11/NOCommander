@@ -232,7 +232,7 @@ internal sealed class CommanderEmergencyResponseService
         {
             if (entry.Key == null || entry.Key.disabled)
             {
-                staleUnits.Add(entry.Key);
+                staleUnits.Add(entry.Key!);
             }
         }
 
